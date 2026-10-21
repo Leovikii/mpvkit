@@ -1,0 +1,24 @@
+{
+  "verificationMode": "fixed-icon-font-byte-comparison",
+  "file": "uosc_icons.otf",
+  "sha256": "a853f50913597e67f76facd269ff230c2f3038f9acadec04dd653080785dee25",
+  "upstream": {
+    "project": "https://github.com/google/material-design-icons",
+    "commit": "1c575764826fa5752ddc2bdc6b31ef7cc3233371",
+    "path": "font/MaterialIconsRound-Regular.otf",
+    "url": "https://raw.githubusercontent.com/google/material-design-icons/1c575764826fa5752ddc2bdc6b31ef7cc3233371/font/MaterialIconsRound-Regular.otf",
+    "size": 400360,
+    "sha256": "a853f50913597e67f76facd269ff230c2f3038f9acadec04dd653080785dee25",
+    "modified": false,
+    "license": "Apache-2.0",
+    "licenseFile": "material-icons-Apache-2.txt",
+    "licenseUrl": "https://raw.githubusercontent.com/google/material-design-icons/1c575764826fa5752ddc2bdc6b31ef7cc3233371/LICENSE",
+    "licenseSha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+    "copyright": "Copyright 2019 Google LLC. All Rights Reserved.",
+    "readmeUrl": "https://raw.githubusercontent.com/google/material-design-icons/1c575764826fa5752ddc2bdc6b31ef7cc3233371/README.md",
+    "readmeSha256": "d51beabf61b701c7d5a33f9fb6c9b6e352c4111ba81da0899a2ea94ae22a8142"
+  },
+  "licenseMappingComplete": true,
+  "texturesLicenseMappingComplete": false,
+  "completeDistributionReview": false
+}

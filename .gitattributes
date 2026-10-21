@@ -1,2 +1,8 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# Keep source and lockfile bytes stable across Windows and CI.
+* text=auto eol=lf
+# Third-party originals are checked by SHA-256; never normalize them.
+/docs/vendor/mantine/** -text
+/resources/licenses/** -text
+/resources/app-license-supplements/** -text
+*.ico binary
+*.png binary

@@ -1,0 +1,28 @@
+# Dependencies and generated build output
+node_modules/
+/dist/
+/src-tauri/target/
+/src-tauri/gen/
+*.tsbuildinfo
+
+# Local research, fixtures, screenshots and test executables
+/.local/
+*.local
+/coverage/
+/test-results/
+/playwright-report/
+__pycache__/
+*.py[cod]
+
+# Local environment and editor state
+.env
+.env.*
+!.env.example
+/.idea/
+/.vscode/
+*.log
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+Desktop.ini

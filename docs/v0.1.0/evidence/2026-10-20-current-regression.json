@@ -1,0 +1,419 @@
+{
+  "schemaVersion": 1,
+  "verificationMode": "current-full-isolated-backend",
+  "tests": {
+    "passed": 62,
+    "failed": 0,
+    "ignored": 0,
+    "filtered": 0,
+    "seconds": 297.77,
+    "explicitRealEntrypoints": [
+      "components::tests::fixed_archives_extract_and_deploy",
+      "components::tests::fixed_https_downloads",
+      "components::tests::real_component_graphics",
+      "components::tests::real_media_matrix",
+      "integration::tests::native_registry_api_against_private_hive_preserves_changes_and_recovers",
+      "launch::real_tests::real_mpv_contract"
+    ]
+  },
+  "log": {
+    "file": ".local/v010-tests/full-regression-current-62.log",
+    "size": 6194,
+    "sha256": "1514a74e8accda25daba880a411176fa9533814906d8318c94fafa47829f2482"
+  },
+  "matrix": {
+    "file": ".local/v010-tests/media-matrix-18e03b1cf5905538-12268-367.json",
+    "size": 739,
+    "sha256": "049868d4c99c23952bd3e856bde80bbb47bced1e85915efc4ad7ce591c907cdb"
+  },
+  "graphics": [
+    {
+      "id": "720p-h264-sdr",
+      "profile": "balanced",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03ae7a87405a4-12268-71/probe-balanced",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 1280,
+      "height": 720,
+      "gamma": "bt.1886",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03ae7a87405a4-12268-71/probe-balanced/passed.json",
+        "size": 1784,
+        "sha256": "ff18257520bd4c8ee1c0ed5af22b63108eb446356d5c543c229534c11edd0a58"
+      }
+    },
+    {
+      "id": "720p-h264-sdr",
+      "profile": "power-saving",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03ae7a87405a4-12268-71/probe-power-saving",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 1280,
+      "height": 720,
+      "gamma": "bt.1886",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03ae7a87405a4-12268-71/probe-power-saving/passed.json",
+        "size": 1787,
+        "sha256": "f21939d6a36856dca534dad0bba1b4a7af6fc569b77b18683804d5c6730f71e8"
+      }
+    },
+    {
+      "id": "720p-h264-sdr",
+      "profile": "high-quality",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03ae7a87405a4-12268-71/probe-high-quality",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 1280,
+      "height": 720,
+      "gamma": "bt.1886",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03ae7a87405a4-12268-71/probe-high-quality/passed.json",
+        "size": 1794,
+        "sha256": "759383efa41ba525e759cc45c5a8d647d73d3045ce215f81b78b7f44ddde3882"
+      }
+    },
+    {
+      "id": "1080p-h264-sdr",
+      "profile": "balanced",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03af54fb0d268-12268-145/probe-balanced",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 1920,
+      "height": 1080,
+      "gamma": "bt.1886",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03af54fb0d268-12268-145/probe-balanced/passed.json",
+        "size": 1793,
+        "sha256": "592c76f31eab504c49d92bb9a53e22dcce1b6e1f4580afa81c6471c94198a0d0"
+      }
+    },
+    {
+      "id": "1080p-h264-sdr",
+      "profile": "power-saving",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03af54fb0d268-12268-145/probe-power-saving",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 1920,
+      "height": 1080,
+      "gamma": "bt.1886",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03af54fb0d268-12268-145/probe-power-saving/passed.json",
+        "size": 1795,
+        "sha256": "b3bf03469ab5392d877ea93258780f3fcd57d8980d9c1cdd69788b8f57918a57"
+      }
+    },
+    {
+      "id": "1080p-h264-sdr",
+      "profile": "high-quality",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03af54fb0d268-12268-145/probe-high-quality",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 1920,
+      "height": 1080,
+      "gamma": "bt.1886",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03af54fb0d268-12268-145/probe-high-quality/passed.json",
+        "size": 1802,
+        "sha256": "e56c32905d9a33f9a7c7657876f9a361a99b63b8cb722ebc1341486123fabd07"
+      }
+    },
+    {
+      "id": "4k-hevc10-sdr",
+      "profile": "balanced",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03b027e8fe008-12268-219/probe-balanced",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 3840,
+      "height": 2160,
+      "gamma": "bt.1886",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03b027e8fe008-12268-219/probe-balanced/passed.json",
+        "size": 1795,
+        "sha256": "6d19225aee7f7bb6e6c908d741054b0d45d60d8f0775f6d5f126b02aef57f424"
+      }
+    },
+    {
+      "id": "4k-hevc10-sdr",
+      "profile": "power-saving",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03b027e8fe008-12268-219/probe-power-saving",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 3840,
+      "height": 2160,
+      "gamma": "bt.1886",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03b027e8fe008-12268-219/probe-power-saving/passed.json",
+        "size": 1797,
+        "sha256": "4fe3afdd4fb9f1ac3240434eacec0cbee7ea46bbd969ab761e68a539d5426781"
+      }
+    },
+    {
+      "id": "4k-hevc10-sdr",
+      "profile": "high-quality",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03b027e8fe008-12268-219/probe-high-quality",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 3840,
+      "height": 2160,
+      "gamma": "bt.1886",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03b027e8fe008-12268-219/probe-high-quality/passed.json",
+        "size": 1803,
+        "sha256": "86954ef05498b229c70a415845c207eb37518c20ad24c5de939e87a61b3fc6cc"
+      }
+    },
+    {
+      "id": "4k-hevc10-pq-tags",
+      "profile": "balanced",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03b0fc04fb380-12268-293/probe-balanced",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 3840,
+      "height": 2160,
+      "gamma": "pq",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03b0fc04fb380-12268-293/probe-balanced/passed.json",
+        "size": 2551,
+        "sha256": "64c470487dc914bfe83793a6d12abd13f1f9511c6bd40052fad147f0362f0d51"
+      }
+    },
+    {
+      "id": "4k-hevc10-pq-tags",
+      "profile": "power-saving",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03b0fc04fb380-12268-293/probe-power-saving",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 3840,
+      "height": 2160,
+      "gamma": "pq",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03b0fc04fb380-12268-293/probe-power-saving/passed.json",
+        "size": 2553,
+        "sha256": "29dfa5f8f0c0f646303f817ae5826ac6a3e01fd148519c7a98db67805363c1af"
+      }
+    },
+    {
+      "id": "4k-hevc10-pq-tags",
+      "profile": "high-quality",
+      "evidenceDirectory": ".local/v010-tests/components-video-18e03b0fc04fb380-12268-293/probe-high-quality",
+      "vo": "gpu-next",
+      "hwdec": "d3d11va",
+      "width": 3840,
+      "height": 2160,
+      "gamma": "pq",
+      "thumbnailBytes": 360000,
+      "droppedFrames": 0,
+      "decoderDroppedFrames": 0,
+      "passed": {
+        "file": ".local/v010-tests/components-video-18e03b0fc04fb380-12268-293/probe-high-quality/passed.json",
+        "size": 2563,
+        "sha256": "e801037ac8a64903ab79e7ce419ff197648c0bee46cc72a37e8cbe4a2e3326f4"
+      }
+    }
+  ],
+  "buildInputs": {
+    "file": ".local/v010-tests/scroll-bar-license-build-inputs.json",
+    "count": 75,
+    "unchanged": true
+  },
+  "artifacts": [
+    {
+      "file": "src-tauri/target/release/mpvkit.exe",
+      "size": 14771712,
+      "sha256": "ccd5fee77728500fe9cc71759d84fa1a548fd5946411caa78fad87b5917b35fb"
+    },
+    {
+      "file": "src-tauri/target/release/bundle/nsis/MpvKit_0.1.0_x64-setup.exe",
+      "size": 3865441,
+      "sha256": "bc382c0ee7c20832266efec4197babeefa9b03abca035eb3481ddaccaa142822"
+    }
+  ],
+  "mantineOriginalSnapshotsVerified": 15,
+  "sourceAudit": {
+    "buildCommit": "1f8d2e76255abc48f0456d9be99b4cab9c6566e6",
+    "recipes": [
+      {
+        "path": "packages/libplacebo.cmake",
+        "url": "https://raw.githubusercontent.com/shinchiro/mpv-winbuild-cmake/1f8d2e76255abc48f0456d9be99b4cab9c6566e6/packages/libplacebo.cmake",
+        "gitBlob": "b5797dc73b00214cd3214ae183667515409cfa2e",
+        "size": 1441,
+        "sha256": "64c407a343a43bfe8b372b12d5dac4621d1362f094239cfb2c215e6ce213332f",
+        "selectedLines": [
+          "    GIT_REPOSITORY https://github.com/haasn/libplacebo.git",
+          "    UPDATE_COMMAND \"\""
+        ]
+      },
+      {
+        "path": "packages/ffmpeg.cmake",
+        "url": "https://raw.githubusercontent.com/shinchiro/mpv-winbuild-cmake/1f8d2e76255abc48f0456d9be99b4cab9c6566e6/packages/ffmpeg.cmake",
+        "gitBlob": "b9ab7a3b2590e749fec2039586872337dfcbdf5c",
+        "size": 3147,
+        "sha256": "359c9c7da360f57d3a438e6fe117af6169cbd9aa3672751fd2bfc31e02be8fff",
+        "selectedLines": [
+          "    GIT_REPOSITORY https://github.com/FFmpeg/FFmpeg.git",
+          "    UPDATE_COMMAND \"\""
+        ]
+      },
+      {
+        "path": "packages/mpv.cmake",
+        "url": "https://raw.githubusercontent.com/shinchiro/mpv-winbuild-cmake/1f8d2e76255abc48f0456d9be99b4cab9c6566e6/packages/mpv.cmake",
+        "gitBlob": "a2954d5d8e89f2ff8d2fc790d6d6cea606db9e8b",
+        "size": 4648,
+        "sha256": "cfb9b0fbaaf6013069fe3eeda7e9e9644546f09cd772dbd549f8eb7fa21c7122",
+        "selectedLines": [
+          "    GIT_REPOSITORY https://github.com/mpv-player/mpv.git",
+          "    UPDATE_COMMAND \"\""
+        ]
+      }
+    ],
+    "libplaceboLogs": [
+      {
+        "file": "libplacebo-build-err.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-build-out.log",
+        "size": 8269,
+        "sha256": "684f4a0798d48c87b483aaedb89101a20eabd7ed657a9cda63929f9f91d9af61",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-check-git-err.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-check-git-out.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-configure-err.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-configure-out.log",
+        "size": 4865,
+        "sha256": "2d2b86df9684fe19a08dcc55dd32715514c1e329de3ef5f1fc6e9e995b9a97ba",
+        "fullHexTokens": [
+          "ca7933e47d3a3451d81e72ac174dcb5aa28b59d1"
+        ]
+      },
+      {
+        "file": "libplacebo-download-err.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-download-out.log",
+        "size": 196,
+        "sha256": "a08c1fa9f75c378a0f880a40875c2f4afba305a1072ad81abe1f07331710cf9b",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-force-meson-configure-err.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-force-meson-configure-out.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-install-err.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-install-out.log",
+        "size": 7896,
+        "sha256": "c05071d897e818aeaaf64e9f9e8b8478c8e7ad96209286711a11520a3f13f792",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-postremovebuild-err.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-postremovebuild-out.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-write-head-err.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      },
+      {
+        "file": "libplacebo-write-head-out.log",
+        "size": 0,
+        "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+        "fullHexTokens": []
+      }
+    ],
+    "observation": "三份配方未指定GIT_TAG；libplacebo日志为复用缓存，版本7.377.0；日志唯一完整40位十六进制为Clang编译器提交，不是该库源码提交。此有限范围未能确定缓存的精确来源，不能将同名版本/当前HEAD作为固定对应源码。",
+    "completeCorrespondingSource": false,
+    "logArchive": {
+      "file": ".local/source-research/mpv-x86_64-logs.zip",
+      "size": 217799,
+      "sha256": "c20c9e52932c364864371a6e300cef9e8610c33ae4ceea7d5a550934211764d7",
+      "outerZipEntries": 1,
+      "innerSevenZipEntries": 1199,
+      "innerLogFiles": 1198,
+      "expandedBytes": 4264138,
+      "allExistingLogsByteMatched": true,
+      "libplaceboLogFilesVerified": 16
+    }
+  },
+  "systemAcceptanceComplete": false,
+  "targetDeviceMatrixComplete": false,
+  "releaseReady": false
+}

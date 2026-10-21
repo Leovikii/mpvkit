@@ -1,0 +1,60 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "scope": "应用依赖许可原文、Rust标准库版权汇编及实际静态链接的WebView2 SDK材料；不是完整许可兼容性/源码交付证明。",
+  "rust": {
+    "version": "rustc 1.98.1 (48a229cea 2026-09-01)\nbinary: rustc\ncommit-hash: 48a229ceaefd4985c50990b14116b6d856af0985\ncommit-date: 2026-09-01\nhost: x86_64-pc-windows-msvc\nrelease: 1.98.1\nLLVM version: 22.1.8",
+    "libraryCopyrightFormat": "原始HTML，保存为txt以保留字节；发行文件映射为html。"
+  },
+  "webview2": {
+    "sdkVersion": "1.0.3800.47",
+    "crate": "webview2-com-sys@0.39.1",
+    "link": "MSVC target statically links WebView2LoaderStatic",
+    "librarySha256": "89c6b872783b8f6c3cedbff618adb42082d455c615453ae10cfc753f1e8f25d8",
+    "librarySize": 10500472,
+    "archive": {
+      "url": "https://api.nuget.org/v3-flatcontainer/microsoft.web.webview2/1.0.3800.47/microsoft.web.webview2.1.0.3800.47.nupkg",
+      "size": 8973762,
+      "sha512Base64": "EASM6IwWa38ppWP825SH1xusVyN3fNCpi1xaDnHP80RVGgvCdBCwyw+Egqns3sdFSkWtDSp66Zj8NH6tFVmIiQ==",
+      "catalog": "https://api.nuget.org/v3/catalog0/data/2026.02.16.08.48.05/microsoft.web.webview2.1.0.3800.47.json"
+    }
+  },
+  "materials": [
+    {
+      "file": "rust-library-COPYRIGHT.txt",
+      "source": "https://github.com/rust-lang/rust/tree/1.98.1",
+      "note": "本机固定Rust工具链提供的COPYRIGHT-library.html；不是从GitHub重新生成。",
+      "size": 1512520,
+      "sha256": "68129500b616d5838629e68f55ff3aed5e096dacf60ce9eb41bbe599a563afa6"
+    },
+    {
+      "file": "webview2-sdk-LICENSE.txt",
+      "source": "Microsoft.Web.WebView2/1.0.3800.47/LICENSE.txt",
+      "size": 1487,
+      "sha256": "0af8f1b807512aae39c2ac1aa4d0cae65cabecb6fd554b8439a5162a0d6eca55"
+    },
+    {
+      "file": "webview2-sdk-NOTICE.txt",
+      "source": "Microsoft.Web.WebView2/1.0.3800.47/NOTICE.txt",
+      "size": 3894,
+      "sha256": "106423785c5b7eba0a8e61d1837f2132e9c828e20ad530f565d981c1df60dd90"
+    }
+  ],
+  "limitations": [
+    "原生库逐文件及源码义务仍需完整审阅；此目录只保留已核对原文。",
+    "Rust构建工具、Windows操作系统/SDK、NSIS与运行时的分发边界分别核对，不能用这些文本笼统覆盖。",
+    "MPV聚合源码、uosc字体/Go完整材料不在此记录内解决。"
+  ],
+  "repositoryLicense": {
+    "file": "LICENSE",
+    "sha256": "6852c5660e8b1091694e5350f2cbb7fff8f0e067d5fb1581982d5c78f90a655c",
+    "size": 35802,
+    "note": "用户于2026-10-20明确选择GPL-3.0-or-later；保留原始GPL v3正文，项目授权声明随包分发。",
+    "identifier": "GPL-3.0-or-later",
+    "statement": {
+      "file": "COPYING.md",
+      "size": 948,
+      "sha256": "05893c9abe02fb20c685e43f19f44f058d769c26e4946a618969696ac97b0d82"
+    }
+  }
+}

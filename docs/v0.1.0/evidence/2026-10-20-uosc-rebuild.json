@@ -1,0 +1,169 @@
+{
+  "verificationMode": "fixed-uosc-offline-windows-rebuild",
+  "toolchain": {
+    "file": "go1.23.1.windows-amd64.zip",
+    "url": "https://dl.google.com/go/go1.23.1.windows-amd64.zip",
+    "size": 81905152,
+    "sha256": "32dedf277c86610e380e1765593edb66876f00223df71690bd6be68ee17675c0",
+    "checksumSource": "https://go.dev/dl/?mode=json&include=all",
+    "purpose": "Isolated verification of third-party uosc helper; no system install"
+  },
+  "sourceManifestSha256": "74177a2a5051d1100f2d8e77ffdcfd6fdf516ded23696267132252e97afbf035",
+  "sourceArchivesVerified": true,
+  "selectedSourcesVerified": true,
+  "goVersion": "go version go1.23.1 windows/amd64",
+  "environment": {
+    "GOROOT": "@RUN@\\sdk\\go",
+    "GOPATH": "@RUN@\\gopath",
+    "GOMODCACHE": "@RUN@\\modules",
+    "GOCACHE": "@RUN@\\cache",
+    "GOTMPDIR": "@RUN@\\tmp",
+    "TMP": "@RUN@\\tmp",
+    "TEMP": "@RUN@\\tmp",
+    "GOTOOLCHAIN": "local",
+    "GOENV": "off",
+    "GOWORK": "off",
+    "GOPROXY": "off",
+    "GOSUMDB": "off",
+    "CGO_ENABLED": "0",
+    "GOOS": "windows",
+    "GOARCH": "amd64",
+    "GOAMD64": "v1",
+    "GODEBUG": ""
+  },
+  "commands": [
+    {
+      "label": "go-version",
+      "args": [
+        "version"
+      ],
+      "exitCode": 0
+    },
+    {
+      "label": "build",
+      "args": [
+        "build",
+        "-mod=readonly",
+        "-ldflags",
+        "-s -w",
+        "-o",
+        "@RUN@\\out\\ziggy-rebuilt.exe",
+        "./src/ziggy/ziggy.go"
+      ],
+      "exitCode": 0
+    },
+    {
+      "label": "list-deps",
+      "args": [
+        "list",
+        "-mod=readonly",
+        "-deps",
+        "-json",
+        "./src/ziggy/ziggy.go"
+      ],
+      "exitCode": 0
+    },
+    {
+      "label": "rebuilt-buildinfo",
+      "args": [
+        "version",
+        "-m",
+        "@RUN@\\out\\ziggy-rebuilt.exe"
+      ],
+      "exitCode": 0
+    },
+    {
+      "label": "upstream-buildinfo",
+      "args": [
+        "version",
+        "-m",
+        "@ASSETS@\\ziggy-windows.exe"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "packages": 158,
+  "standardPackages": 152,
+  "nonStandardPackages": [
+    {
+      "path": "github.com/atotto/clipboard",
+      "module": "github.com/atotto/clipboard",
+      "version": "v0.1.4"
+    },
+    {
+      "path": "golang.org/x/sys/windows",
+      "module": "golang.org/x/sys",
+      "version": "v0.28.0"
+    },
+    {
+      "path": "github.com/pkg/browser",
+      "module": "github.com/pkg/browser",
+      "version": "v0.0.0-20240102092130-5ac0b6a4141c"
+    },
+    {
+      "path": "uosc/bins/src/ziggy/lib",
+      "module": "uosc/bins",
+      "version": null
+    },
+    {
+      "path": "uosc/bins/src/ziggy/commands",
+      "module": "uosc/bins",
+      "version": null
+    },
+    {
+      "path": "command-line-arguments",
+      "module": null,
+      "version": null
+    }
+  ],
+  "moduleMetadataWarnings": [
+    {
+      "module": "github.com/atotto/clipboard",
+      "error": {
+        "Err": "module lookup disabled by GOPROXY=off"
+      }
+    },
+    {
+      "module": "golang.org/x/sys",
+      "error": {
+        "Err": "module lookup disabled by GOPROXY=off"
+      }
+    },
+    {
+      "module": "github.com/pkg/browser",
+      "error": {
+        "Err": "module lookup disabled by GOPROXY=off"
+      }
+    }
+  ],
+  "selectedFiles": {
+    "count": 952,
+    "archiveMatches": {
+      "standard": 922,
+      "module": 22,
+      "uosc": 7
+    },
+    "sdkGeneratedFiles": [
+      {
+        "path": "go/src/runtime/internal/sys/zversion.go",
+        "size": 61,
+        "sha256": "f69c03727973664529c2e6fa2d2c53b2d3440c887938d0d9b22254f7984052f2"
+      }
+    ]
+  },
+  "selectedFileReport": {
+    "size": 182483,
+    "sha256": "e9a0f289d20dfcf7ef71d184432a676d2bde6ae731c884875a59d1414b81c28b"
+  },
+  "upstream": {
+    "size": 6017536,
+    "sha256": "ab76a5a059ef0aef0f54dc317e31eae25cc5b7e3840f81cbf98b1ab07a96f636"
+  },
+  "rebuilt": {
+    "size": 6054912,
+    "sha256": "0e74df69ef63e3eb4d5b1b3e689278aa834047f4eccc29d66172685835e4992b"
+  },
+  "embeddedBuildInformationMatches": true,
+  "reproducibleBinary": false,
+  "completeDistributionReview": false
+}

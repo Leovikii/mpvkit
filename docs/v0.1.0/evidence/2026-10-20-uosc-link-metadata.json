@@ -1,0 +1,157 @@
+{
+  "verificationMode": "fixed-uosc-read-only-go-runtime-metadata",
+  "upstream": {
+    "identity": {
+      "size": 6017536,
+      "sha256": "ab76a5a059ef0aef0f54dc317e31eae25cc5b7e3840f81cbf98b1ab07a96f636"
+    },
+    "functionCount": 5902,
+    "functionMetadataSha256": "d8893f985600d313c4045364547313fd743f3ea1676e77131226707c55e03cec",
+    "sourcePathCount": 583,
+    "normalizedSourcePathsSha256": "5a438af5f4758bc3ff258ed1f32a29f719802673ce8c1fdcf3fb87fbd3c880bd",
+    "sourceKinds": {
+      "generated": 1,
+      "module": 9,
+      "standard": 566,
+      "uosc": 7
+    },
+    "sections": [
+      {
+        "name": ".text",
+        "identity": {
+          "size": 2785280,
+          "sha256": "0e435aa60a6b283d4db133d57bf87ab9a5b78e659703c8284aa688e7ffa471f4"
+        }
+      },
+      {
+        "name": ".rdata",
+        "identity": {
+          "size": 2807808,
+          "sha256": "6470e69b7da34c22685f3cab3a20c8c0808d1c230209a7a71e54de9ca53b13f8"
+        }
+      },
+      {
+        "name": ".data",
+        "identity": {
+          "size": 305664,
+          "sha256": "64262b515bfe2f61a482ce4859563fdb0a59591caa0b2bb343cd4a79595729c5"
+        }
+      },
+      {
+        "name": ".pdata",
+        "identity": {
+          "size": 61952,
+          "sha256": "7f8aecce775615676651cba26d4b539344f10e6107e3576756b257d99d44e171"
+        }
+      },
+      {
+        "name": ".xdata",
+        "identity": {
+          "size": 512,
+          "sha256": "0136e9605fb2927f67ae0b899e9612c77650820c862bd62ef8500507eee0a3d5"
+        }
+      },
+      {
+        "name": ".idata",
+        "identity": {
+          "size": 1536,
+          "sha256": "01c75a1f2af5010a9db34707bfd7e556b3b2f0ea0218827fcd34eae78978d9d8"
+        }
+      },
+      {
+        "name": ".reloc",
+        "identity": {
+          "size": 52736,
+          "sha256": "adc664a87a4af387a91f4e8c78e8ac942dee9af93986f890dee608ebafc04cd8"
+        }
+      },
+      {
+        "name": ".symtab",
+        "identity": {
+          "size": 512,
+          "sha256": "3e67f4a7d14b832ff2a2433e9cf0f6f5720821f67148a87c0ee2595a20c96c68"
+        }
+      }
+    ]
+  },
+  "rebuilt": {
+    "identity": {
+      "size": 6054912,
+      "sha256": "0e74df69ef63e3eb4d5b1b3e689278aa834047f4eccc29d66172685835e4992b"
+    },
+    "functionCount": 5902,
+    "functionMetadataSha256": "d8893f985600d313c4045364547313fd743f3ea1676e77131226707c55e03cec",
+    "sourcePathCount": 583,
+    "normalizedSourcePathsSha256": "5a438af5f4758bc3ff258ed1f32a29f719802673ce8c1fdcf3fb87fbd3c880bd",
+    "sourceKinds": {
+      "generated": 1,
+      "module": 9,
+      "standard": 566,
+      "uosc": 7
+    },
+    "sections": [
+      {
+        "name": ".text",
+        "identity": {
+          "size": 2785280,
+          "sha256": "27b487a1d20fc11c84f9ae87c5aa77192a42fd69d46e04087de3df12eeb4455e"
+        }
+      },
+      {
+        "name": ".rdata",
+        "identity": {
+          "size": 2845184,
+          "sha256": "77bccab8997e24c29b19eac16346e01ea8accef4f5f3e82531c4674c3ef5dd19"
+        }
+      },
+      {
+        "name": ".data",
+        "identity": {
+          "size": 305664,
+          "sha256": "0041e72687a40b996818f6c74e1bd80ba9900a2acdf17b8ff86b67aa8ff669c1"
+        }
+      },
+      {
+        "name": ".pdata",
+        "identity": {
+          "size": 61952,
+          "sha256": "462da17c3e1e441f29bd583199347c12ddb933f358b8f90a52ca448453173452"
+        }
+      },
+      {
+        "name": ".xdata",
+        "identity": {
+          "size": 512,
+          "sha256": "0136e9605fb2927f67ae0b899e9612c77650820c862bd62ef8500507eee0a3d5"
+        }
+      },
+      {
+        "name": ".idata",
+        "identity": {
+          "size": 1536,
+          "sha256": "7a3bf5606594167617283447bd8a0a1c4acee4c2d45db29a36961e87f1030d04"
+        }
+      },
+      {
+        "name": ".reloc",
+        "identity": {
+          "size": 52736,
+          "sha256": "a4fad9b8cad831045341faac2da71cfa739b7e7c9eb09f60c479084b9b84a14f"
+        }
+      },
+      {
+        "name": ".symtab",
+        "identity": {
+          "size": 512,
+          "sha256": "3e67f4a7d14b832ff2a2433e9cf0f6f5720821f67148a87c0ee2595a20c96c68"
+        }
+      }
+    ]
+  },
+  "functionMetadataEqual": true,
+  "normalizedSourcePathsEqual": true,
+  "runtimeSourceReferencesMatchVerifiedSelection": true,
+  "byteIdentical": false,
+  "semanticEquivalenceProven": false,
+  "completeDistributionReview": false
+}

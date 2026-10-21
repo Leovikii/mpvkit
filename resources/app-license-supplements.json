@@ -1,0 +1,59 @@
+{
+  "schemaVersion": 1,
+  "materials": [
+    {
+      "id": "cargo:alloc-stdlib@0.3.0",
+      "file": "alloc-stdlib-BSD-3-Clause.txt",
+      "url": "https://raw.githubusercontent.com/dropbox/rust-alloc-no-stdlib/0a81fd6928ea3b33c8cd484aa4575d50ffb98012/LICENSE",
+      "commit": "0a81fd6928ea3b33c8cd484aa4575d50ffb98012",
+      "size": 1483,
+      "sha256": "c0c56f26d9c051cac4d200c34c84e7ae9aaa853e01a982a1df08b09931e518ae",
+      "evidence": "发布包.cargo_vcs_info.json固定提交的仓库根LICENSE。"
+    },
+    {
+      "id": "cargo:selectors@0.38.0",
+      "file": "selectors-MPL-2.txt",
+      "url": "https://www.mozilla.org/media/MPL/2.0/index.txt",
+      "commit": "572ecba2d1600e7c3d490586692a209faf703baa",
+      "size": 16726,
+      "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04",
+      "evidence": "发布包lib.rs头部MPL-2.0声明及官方文本；上游提交根目录未附许可证文件。"
+    },
+    {
+      "id": "cargo:webview2-com@0.39.1",
+      "file": "webview2-com-MIT.txt",
+      "url": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+      "commit": "edc2caf886175ccaebe86078c9cfe1ae2a187328",
+      "size": 1067,
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "evidence": "发布包.cargo_vcs_info.json固定提交的仓库根LICENSE。"
+    },
+    {
+      "id": "cargo:webview2-com-macros@0.8.1",
+      "file": "webview2-com-MIT.txt",
+      "url": "https://raw.githubusercontent.com/wravery/webview2-rs/dffa41a8a46d3f5565eefbff2de57d38d399f158/LICENSE",
+      "commit": "dffa41a8a46d3f5565eefbff2de57d38d399f158",
+      "size": 1067,
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "evidence": "发布包.cargo_vcs_info.json固定提交的仓库根LICENSE。"
+    },
+    {
+      "id": "cargo:webview2-com-sys@0.39.1",
+      "file": "webview2-com-MIT.txt",
+      "url": "https://raw.githubusercontent.com/wravery/webview2-rs/edc2caf886175ccaebe86078c9cfe1ae2a187328/LICENSE",
+      "commit": "edc2caf886175ccaebe86078c9cfe1ae2a187328",
+      "size": 1067,
+      "sha256": "0dcf41516e608bbcb6cdc5229feb7b86fe4a643b85e7df251133c93408fdac73",
+      "evidence": "发布包.cargo_vcs_info.json固定提交的仓库根LICENSE。"
+    },
+    {
+      "id": "npm:react-remove-scroll-bar@2.3.8",
+      "file": "react-remove-scroll-bar-MIT.txt",
+      "url": "https://raw.githubusercontent.com/theKashey/react-remove-scroll-bar/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff/LICENSE",
+      "commit": "8ca9ba5ea52de03308fe8ced94f7b159a44d28ff",
+      "size": 1093,
+      "sha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84",
+      "evidence": "2.3.8与2.3.7除根清单的版本/依赖范围外26文件字节相同；2.3.7固定npm gitHead到许可提交30源码文件相同，仅新增LICENSE。保留同代码MIT原文，不声称2.3.8自身gitHead可访问；完整逐文件记录见docs/v0.1.0/evidence/2026-10-20-scroll-bar-license.json。"
+    }
+  ]
+}

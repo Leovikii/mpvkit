@@ -1,0 +1,232 @@
+{
+  "schemaVersion": 1,
+  "verificationMode": "selected-go-sunsoft-notice-supplement",
+  "sourceArchive": {
+    "file": "go1.23.1.src.tar.gz",
+    "url": "https://dl.google.com/go/go1.23.1.src.tar.gz",
+    "size": 28164249,
+    "sha256": "6ee44e298379d146a5e5aa6b1c5b5d5f5d0a3365eabdd70741e6e21340ec3b0d"
+  },
+  "newExcerpt": {
+    "path": "go/src/math/cbrt.go",
+    "size": 2366,
+    "sha256": "de08f8225477bd143bd5318c5f46b7e26bdb008db8e4d174c6130e751e66e335",
+    "ranges": [
+      [
+        310,
+        684
+      ]
+    ],
+    "reason": "固定选中立方根实现的SunSoft署名及完整许可；与已保留SunPro署名不同，不用同义或相似文本替代"
+  },
+  "rawExcerptSha256": "773323f4b12573d59e6a6cbd9a967b4613f39fc2bb699b477041c808f1503bc1",
+  "headerReview": {
+    "report": {
+      "file": ".local/v010-tests/go-header-review-current.json",
+      "size": 229942,
+      "sha256": "ae32c1dc06bbaa15c4a50417c440ddbc1eadd6f1a8ce05a7b5710b9e53b2a547"
+    },
+    "selectedStandardInputs": 923,
+    "classifications": {
+      "go-author-header": 842,
+      "generated-marker": 76,
+      "binary": 1,
+      "other-header": 4
+    },
+    "archiveMatches": {
+      "standard": 922,
+      "module": 22,
+      "uosc": 7
+    },
+    "sdkGeneratedFiles": 1,
+    "duplicateMathCopyrightGrants": 16,
+    "fiatReadmeGrant": {
+      "path": "go/src/crypto/internal/nistec/fiat/README",
+      "size": 1654,
+      "sha256": "2edb21e35fbd9a239a91dfeb724a02315aff85492aa72824bbb4ac8910da94ac",
+      "range": [
+        408,
+        1562
+      ],
+      "retainedSource": "go/src/crypto/internal/edwards25519/scalar.go",
+      "comparison": "copyright and complete grant equal after comment-prefix/indent removal; not byte-identical files"
+    },
+    "completePerFileCopyrightReview": false
+  },
+  "noticeCollection": {
+    "file": "resources/licenses/uosc-go-NOTICES.txt",
+    "size": 90968,
+    "sha256": "c653af627706aef02a76be7b08cfb26e3d1b7f354da84541c52e170f0789ee74",
+    "entries": 47,
+    "independentNoticeFiles": 33,
+    "reviewedSourceExcerpts": 14,
+    "previousPrefixBytes": 90469,
+    "previousPrefixSha256": "1cc8c91b9bb436cfa3e69059aadc405218fa9b0a11f55815365dfb042586af3b",
+    "previousPrefixUnchanged": true,
+    "appendedBytes": 499
+  },
+  "validation": {
+    "collectorTests": {
+      "passed": 2,
+      "seconds": 4.763,
+      "refusalCases": 4
+    },
+    "ordinaryBackend": {
+      "passed": 56,
+      "failed": 0,
+      "ignored": 6,
+      "seconds": 4.24
+    },
+    "realArchive": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "seconds": 32.11,
+      "files": 63,
+      "bytes": 132789226
+    },
+    "logs": [
+      {
+        "file": ".local/v010-tests/go-sunsoft-notices-check.json",
+        "size": 196,
+        "sha256": "66f48a02dfca1559f5f85f16c659398fb03b808d347877c110a5847036a32fc0"
+      },
+      {
+        "file": ".local/v010-tests/go-sunsoft-notices-tests.log",
+        "size": 105,
+        "sha256": "2cc3687cfbd10bfe8d59c9802c500a24cff24df11f79f5df94e852b2e1ffb09a"
+      },
+      {
+        "file": ".local/v010-tests/go-sunsoft-notices-clippy.log",
+        "size": 150,
+        "sha256": "5114d00c708104082ffea130b8a6c517bdfa64738b0d89532a52c74b87d61e6d"
+      },
+      {
+        "file": ".local/v010-tests/go-sunsoft-notices-backend.log",
+        "size": 6668,
+        "sha256": "255fb0c8214a988ebcf6cf0065efbe2dd95a3781c87a680f775d2f2eb7e19dba"
+      },
+      {
+        "file": ".local/v010-tests/go-sunsoft-notices-real-archives.log",
+        "size": 879,
+        "sha256": "c6a0a0aa5d33dfc8b0a32c562f8bc8713eb7c459e5b1c791f9304e64429aaddc"
+      },
+      {
+        "file": ".local/v010-tests/go-sunsoft-notices-debug-build.log",
+        "size": 1146,
+        "sha256": "33aa2a062f9d891d775e7bbb728a1f161cbd9c3b4ce1c9fba4d4ea5f20732b11"
+      },
+      {
+        "file": ".local/v010-tests/go-sunsoft-notices-release-build.log",
+        "size": 1580,
+        "sha256": "d78680aeb946ceef86be6eec9d75683fee6012d61293a3310de16e5080f7aed1"
+      }
+    ],
+    "sandboxAttempt": {
+      "passed": 33,
+      "failed": 23,
+      "ignored": 6,
+      "seconds": 3.93,
+      "reason": "本地回环连接10013与文件替换权限拒绝；相同测试在沙箱外重跑通过",
+      "log": {
+        "file": ".local/v010-tests/go-sunsoft-notices-backend-sandbox.log",
+        "size": 19862,
+        "sha256": "d7d6d96a601dfb837f9d32ccbc23cc27072de3b3db9dd3967589097e77d06ce6"
+      }
+    },
+    "preLfNormalizationAttempt": {
+      "ordinary": {
+        "passed": 56,
+        "failed": 0,
+        "ignored": 6,
+        "seconds": 4.48
+      },
+      "realArchive": {
+        "passed": 1,
+        "seconds": 32.43,
+        "files": 63,
+        "bytes": 132789423
+      },
+      "logs": [
+        {
+          "file": ".local/v010-tests/go-sunsoft-notices-clippy-prenormalize.log",
+          "size": 1221,
+          "sha256": "364e46fcf616f31bac38652c804d53a00274c79b8b8eefc373d4ced49f638f63"
+        },
+        {
+          "file": ".local/v010-tests/go-sunsoft-notices-backend-prenormalize.log",
+          "size": 7304,
+          "sha256": "2fac9be776d67577ebc84d6b4eab290d6298cf43bac09a26f7edef99299315e2"
+        },
+        {
+          "file": ".local/v010-tests/go-sunsoft-notices-real-archives-prenormalize.log",
+          "size": 1593,
+          "sha256": "866bf0f5e71342bef38921e3a0c8877bd6583d7ec94cf68716f1a5e1ff9939ba"
+        }
+      ]
+    },
+    "collectorFirstInvocation": "缺少归档参数，退出1且未运行测试；补入固定归档后2项通过",
+    "strictComparisonCorrections": [
+      "最初Cephes比较含未收录的版本标题，改为完整版权/授权段落",
+      "Sun声明逐字节比较识别cbrt的SunSoft差异，新增原文；不将其当成SunPro重复段落"
+    ]
+  },
+  "changedProductInputs": [
+    "resources/licenses/uosc-go-NOTICES.txt",
+    "resources/source-materials.json",
+    "src-tauri/src/components.rs"
+  ],
+  "productInputs": {
+    "file": ".local/v010-tests/go-sunsoft-notice-build-inputs.json",
+    "size": 10114,
+    "sha256": "87efe8f97d4e0f361145abdc22865cbf3883bc63cf4909c5b7ed76cf6d053fc5"
+  },
+  "productInputCount": 75,
+  "artifacts": [
+    {
+      "file": "src-tauri/target/release/mpvkit.exe",
+      "size": 14775808,
+      "sha256": "e66dbd47ea6cca4edb570cf64b2b290f257bd170036f50f6cf843c28489355f0"
+    },
+    {
+      "file": "src-tauri/target/release/bundle/nsis/MpvKit_0.1.0_x64-setup.exe",
+      "size": 3863996,
+      "sha256": "0edede2ee2dd4b4ea5c7e24c9afea99e603e16f3d1834253ad40f89a69e25579"
+    }
+  ],
+  "signatures": [
+    {
+      "file": "src-tauri/target/release/mpvkit.exe",
+      "status": "NotSigned"
+    },
+    {
+      "file": "src-tauri/target/release/bundle/nsis/MpvKit_0.1.0_x64-setup.exe",
+      "status": "NotSigned"
+    }
+  ],
+  "stagedResources": 8,
+  "stagedReport": {
+    "file": ".local/v010-tests/go-sunsoft-notices-staged.json",
+    "size": 2303,
+    "sha256": "69269b6662b0dcf2fc99345106268c717c59b87822252e52b5aae86513828851"
+  },
+  "appPackages": 321,
+  "appMaterials": 567,
+  "missingAppMaterials": [],
+  "fullBackendRealEntriesRepeated": false,
+  "nativeInteractionRepeated": false,
+  "completeDistributionReview": false,
+  "releaseReady": false,
+  "finalAudit": {
+    "textFiles": 112,
+    "localLinks": 260,
+    "productInputsMatched": 75,
+    "artifactsMatched": 2,
+    "finalLogHashesMatched": 7,
+    "earlierAttemptLogsMatched": 4,
+    "mantineOriginalsMatched": 15,
+    "originalLicenseUnchanged": true,
+    "stagedResources": 8,
+    "releaseReady": false
+  }
+}

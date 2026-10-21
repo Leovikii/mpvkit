@@ -1,0 +1,644 @@
+{
+  "schemaVersion": 1,
+  "helperSha256": "ab76a5a059ef0aef0f54dc317e31eae25cc5b7e3840f81cbf98b1ab07a96f636",
+  "completeDistributionReview": false,
+  "reproducibleBinary": false,
+  "dirhashReference": "https://github.com/golang/mod/blob/v0.21.0/sumdb/dirhash/hash.go",
+  "archives": [
+    {
+      "file": "go1.23.1.src.tar.gz",
+      "url": "https://dl.google.com/go/go1.23.1.src.tar.gz",
+      "size": 28164249,
+      "sha256": "6ee44e298379d146a5e5aa6b1c5b5d5f5d0a3365eabdd70741e6e21340ec3b0d",
+      "format": "tar.gz",
+      "version": "go1.23.1",
+      "checksumSource": "https://go.dev/dl/?mode=json&include=all",
+      "licenseMirrors": {
+        "go/LICENSE": "uosc-go-BSD-3.txt",
+        "go/PATENTS": "uosc-go-PATENTS.txt"
+      }
+    },
+    {
+      "file": "clipboard-v0.1.4.zip",
+      "url": "https://proxy.golang.org/github.com/atotto/clipboard/@v/v0.1.4.zip",
+      "size": 8606,
+      "sha256": "d67b2c36c662751309fd2ec351df3651584bea840bd27be9a90702c3a238b43f",
+      "format": "zip",
+      "module": "github.com/atotto/clipboard",
+      "version": "v0.1.4",
+      "sum": "h1:EH0zSVneZPSuFR11BlR9YppQTVDbh5+16AmcJi4g1z4=",
+      "checksumSource": "uosc fixed helper embedded h1 and fixed go.sum; archive SHA-256 records downloaded encoding only",
+      "licenseMirrors": {
+        "LICENSE": "uosc-clipboard-BSD-3.txt"
+      }
+    },
+    {
+      "file": "browser-5ac0b6a4141c.zip",
+      "url": "https://proxy.golang.org/github.com/pkg/browser/@v/v0.0.0-20240102092130-5ac0b6a4141c.zip",
+      "size": 7927,
+      "sha256": "8524ae36d809564d1f218978593b5c565cf3ee8dccd035d66b336ad0c56e60d1",
+      "format": "zip",
+      "module": "github.com/pkg/browser",
+      "version": "v0.0.0-20240102092130-5ac0b6a4141c",
+      "sum": "h1:+mdjkGKdHQG3305AYmdv1U2eRNDiU2ErMBj1gwrq8eQ=",
+      "checksumSource": "uosc fixed helper embedded h1 and fixed go.sum; archive SHA-256 records downloaded encoding only",
+      "licenseMirrors": {
+        "LICENSE": "uosc-browser-BSD-2.txt"
+      }
+    },
+    {
+      "file": "sys-v0.28.0.zip",
+      "url": "https://proxy.golang.org/golang.org/x/sys/@v/v0.28.0.zip",
+      "size": 1983555,
+      "sha256": "0ed47a83fe7d7a7e743e815172bc10c1ac0ed0d31ebb095e75717428e09aa895",
+      "format": "zip",
+      "module": "golang.org/x/sys",
+      "version": "v0.28.0",
+      "sum": "h1:Fksou7UEQUWlKvIdsqzJmUmCX3cZuD2+P3XyyzwMhlA=",
+      "checksumSource": "uosc fixed helper embedded h1 and fixed go.sum; archive SHA-256 records downloaded encoding only",
+      "licenseMirrors": {
+        "LICENSE": "uosc-sys-BSD-3.txt",
+        "PATENTS": "uosc-go-PATENTS.txt"
+      }
+    },
+    {
+      "file": "uosc-d124c2c9.tar.gz",
+      "url": "https://codeload.github.com/tomasklaen/uosc/tar.gz/d124c2c930d69446448022851373e00ae592390d",
+      "size": 2619287,
+      "sha256": "c0df0c04cae467b6b20256a7c6a52dcbefc55f1ebd3b9794e907ca2481603bc6",
+      "format": "uosc.tar.gz",
+      "commit": "d124c2c930d69446448022851373e00ae592390d",
+      "checksumSource": "Every regular file matched Git blob SHA-1/size from fixed GitHub tree; archive SHA-256 records downloaded encoding only",
+      "treeSource": "https://api.github.com/repos/tomasklaen/uosc/git/trees/d124c2c930d69446448022851373e00ae592390d?recursive=1",
+      "gitBlobs": [
+        {
+          "path": ".editorconfig",
+          "mode": "100644",
+          "sha": "b7051e561f31d3d4c8daf8a6692fb83eb3ac9e56",
+          "size": 3448
+        },
+        {
+          "path": ".gitignore",
+          "mode": "100644",
+          "sha": "5ef1608390d0f9616a7a47dc2f4cc3d412693ebc",
+          "size": 37
+        },
+        {
+          "path": ".vscode/settings.json",
+          "mode": "100644",
+          "sha": "ebaa7a241b6236e56670c6b880ed81ae37ed0b8a",
+          "size": 603
+        },
+        {
+          "path": "LICENSE.LGPL",
+          "mode": "100644",
+          "sha": "4362b49151d7b34ef83b3067a8f9c9f877d72a0e",
+          "size": 26530
+        },
+        {
+          "path": "README.md",
+          "mode": "100644",
+          "sha": "04de75c06a4203d29bc5f659f739ffad44ca3296",
+          "size": 25852
+        },
+        {
+          "path": "go.mod",
+          "mode": "100644",
+          "sha": "6fb8ca9cc08f1504a8275075d2bbc652bef67e83",
+          "size": 264
+        },
+        {
+          "path": "go.sum",
+          "mode": "100644",
+          "sha": "6a0384c4e3535cb190d070f92a995bb3a5c949aa",
+          "size": 990
+        },
+        {
+          "path": "installers/unix.sh",
+          "mode": "100644",
+          "sha": "b18b0af742d165bd669670fab0a69918c2e80209",
+          "size": 3429
+        },
+        {
+          "path": "installers/windows.ps1",
+          "mode": "100644",
+          "sha": "a9a8a9ca163ae0d13ebe39aadd208141b5cb898f",
+          "size": 3586
+        },
+        {
+          "path": "src/fonts/uosc_icons.otf",
+          "mode": "100644",
+          "sha": "4c4e0dcfe20684e18da5fd6f4dfbd489ee947c66",
+          "size": 400360
+        },
+        {
+          "path": "src/fonts/uosc_textures.ttf",
+          "mode": "100644",
+          "sha": "e89f1d8cb87262b02db089894e92a52e71f8bf8c",
+          "size": 38228
+        },
+        {
+          "path": "src/textures/a.svg",
+          "mode": "100644",
+          "sha": "a71634046bff05ed9dea629b795bb6f838deb6de",
+          "size": 1254
+        },
+        {
+          "path": "src/textures/b.svg",
+          "mode": "100644",
+          "sha": "74c1deff12d85ebb094547fe72884d8bca235dac",
+          "size": 934
+        },
+        {
+          "path": "src/textures/c.svg",
+          "mode": "100644",
+          "sha": "4f5912a6b8db7bc281eb3b1936b9e1c9eef0d6d7",
+          "size": 733
+        },
+        {
+          "path": "src/textures/d.svg",
+          "mode": "100644",
+          "sha": "0f82cf55640f9daf4f15bfd0753fcd50dfe20b5a",
+          "size": 9642
+        },
+        {
+          "path": "src/textures/e.svg",
+          "mode": "100644",
+          "sha": "6998f4b232f72318d2c26c12f0e89a120139f9cc",
+          "size": 2589
+        },
+        {
+          "path": "src/textures/f.svg",
+          "mode": "100644",
+          "sha": "d0548e0a7f9ce97e08b49e36e5e59ca379674010",
+          "size": 6027
+        },
+        {
+          "path": "src/textures/g.svg",
+          "mode": "100644",
+          "sha": "d004bc2ba73d596ec46d4e8a0e12c2c0049303f4",
+          "size": 15723
+        },
+        {
+          "path": "src/textures/h.svg",
+          "mode": "100644",
+          "sha": "7dd5dc6b08d52e3a1e20f47f318340c54ab707fb",
+          "size": 9305
+        },
+        {
+          "path": "src/textures/i.svg",
+          "mode": "100644",
+          "sha": "cf9e5863c6d0ab5b6fb9bf183cf4803459f648dd",
+          "size": 12852
+        },
+        {
+          "path": "src/textures/j.svg",
+          "mode": "100644",
+          "sha": "d80892808c3ba9c3966eec99bc001949c340e330",
+          "size": 6867
+        },
+        {
+          "path": "src/textures/k.svg",
+          "mode": "100644",
+          "sha": "9748a3d89b28d5cc3bd7d2638d577ea347ab0618",
+          "size": 2953
+        },
+        {
+          "path": "src/textures/l.svg",
+          "mode": "100644",
+          "sha": "98ae7c3f77d285ec05620371df24a54024be8c62",
+          "size": 6308
+        },
+        {
+          "path": "src/textures/m.svg",
+          "mode": "100644",
+          "sha": "d13633904c72bf01c56a4c71074b186bf2ce2c79",
+          "size": 6507
+        },
+        {
+          "path": "src/textures/n.svg",
+          "mode": "100644",
+          "sha": "c9d60bfe10a4c48d02104a15c8e5241f6746a9c9",
+          "size": 4363
+        },
+        {
+          "path": "src/textures/o.svg",
+          "mode": "100644",
+          "sha": "66086ed08f439c41605a39442369033e62262b7f",
+          "size": 6364
+        },
+        {
+          "path": "src/textures/q.svg",
+          "mode": "100644",
+          "sha": "039a42445e761fe7a603d27f18965895a7a31942",
+          "size": 244
+        },
+        {
+          "path": "src/textures/s.svg",
+          "mode": "100644",
+          "sha": "78872ac1c03bcdbff8ec8fba16337cdf2929ad0c",
+          "size": 242
+        },
+        {
+          "path": "src/textures/t.svg",
+          "mode": "100644",
+          "sha": "3da7004e08a3d9f4160e312c2da0c5e2b084bed7",
+          "size": 3837
+        },
+        {
+          "path": "src/textures/uosc_textures.json",
+          "mode": "100644",
+          "sha": "e8fd2f43c405d2490546c09369c7bbeceeec191f",
+          "size": 155559
+        },
+        {
+          "path": "src/textures/z.svg",
+          "mode": "100644",
+          "sha": "d8320082636d58decde2f6a93c71794bd722ab44",
+          "size": 3931
+        },
+        {
+          "path": "src/tools/lib/zip.go",
+          "mode": "100644",
+          "sha": "c244b0437f67a362260845d291363e78956cb752",
+          "size": 3077
+        },
+        {
+          "path": "src/tools/tools.go",
+          "mode": "100644",
+          "sha": "20a1d0f481fd4d16b824db49458af920afc64f83",
+          "size": 505
+        },
+        {
+          "path": "src/tools/tools/base.go",
+          "mode": "100644",
+          "sha": "d925be65a6fbb2985704b1acd304cf98e112bc46",
+          "size": 136
+        },
+        {
+          "path": "src/tools/tools/intl.go",
+          "mode": "100644",
+          "sha": "861652c81e1e1583899999734429b65050f81193",
+          "size": 6364
+        },
+        {
+          "path": "src/tools/tools/packager.go",
+          "mode": "100644",
+          "sha": "3e27a7121f7100db21d5b717aec52b0ba02941ef",
+          "size": 1965
+        },
+        {
+          "path": "src/uosc.conf",
+          "mode": "100644",
+          "sha": "63a1cfbe5968e054ce1d4da82801a944029ffa13",
+          "size": 13866
+        },
+        {
+          "path": "src/uosc/char-conv/zh.json",
+          "mode": "100644",
+          "sha": "d1ada3beb8b0bbb0e91ce6c5e74cd2787a191f2c",
+          "size": 85097
+        },
+        {
+          "path": "src/uosc/elements/BufferingIndicator.lua",
+          "mode": "100644",
+          "sha": "13674f3d83f21e6d8c211b7c922f74b72d873148",
+          "size": 1689
+        },
+        {
+          "path": "src/uosc/elements/Button.lua",
+          "mode": "100644",
+          "sha": "ea85a8d4f3cc716d53a398643a3f00ef2cbd728c",
+          "size": 3634
+        },
+        {
+          "path": "src/uosc/elements/Controls.lua",
+          "mode": "100644",
+          "sha": "20c773621fdc819ff23ecc94605cefd50db54717",
+          "size": 18051
+        },
+        {
+          "path": "src/uosc/elements/Curtain.lua",
+          "mode": "100644",
+          "sha": "ccebfb025c965667e119e215aa0b5b85527f6415",
+          "size": 1016
+        },
+        {
+          "path": "src/uosc/elements/CycleButton.lua",
+          "mode": "100644",
+          "sha": "8aa8175e5d1c433ada21f45c4d168d869335af5d",
+          "size": 3062
+        },
+        {
+          "path": "src/uosc/elements/Element.lua",
+          "mode": "100644",
+          "sha": "03656d843adb38af04020265c13590ca0e850304",
+          "size": 9591
+        },
+        {
+          "path": "src/uosc/elements/Elements.lua",
+          "mode": "100644",
+          "sha": "42d8693d01df84f16073153ac42b3f7881f1476d",
+          "size": 4836
+        },
+        {
+          "path": "src/uosc/elements/ManagedButton.lua",
+          "mode": "100644",
+          "sha": "e36bf59c7bcaf4290a9d4b0fe424acdbe36d6767",
+          "size": 1182
+        },
+        {
+          "path": "src/uosc/elements/Menu.lua",
+          "mode": "100644",
+          "sha": "dc0a7aaad4b081f72b5dbe7b2f63daf204425ffb",
+          "size": 66443
+        },
+        {
+          "path": "src/uosc/elements/PauseIndicator.lua",
+          "mode": "100644",
+          "sha": "f55a0cdd96235d464f414162389e091728ed743c",
+          "size": 2706
+        },
+        {
+          "path": "src/uosc/elements/Speed.lua",
+          "mode": "100644",
+          "sha": "f994e6995a95b596dd947f50eef37e73ca79ff5a",
+          "size": 6093
+        },
+        {
+          "path": "src/uosc/elements/Timeline.lua",
+          "mode": "100644",
+          "sha": "859eab7b0571d2b1cf568fe11f0e6b8bdee6155a",
+          "size": 19710
+        },
+        {
+          "path": "src/uosc/elements/TopBar.lua",
+          "mode": "100644",
+          "sha": "4174f7ae8ad33e676a96711c6587e0479379db5b",
+          "size": 15495
+        },
+        {
+          "path": "src/uosc/elements/Updater.lua",
+          "mode": "100644",
+          "sha": "2a7cd0240b6912ff1dfb2927aea4c9109d1c5987",
+          "size": 10507
+        },
+        {
+          "path": "src/uosc/elements/Volume.lua",
+          "mode": "100644",
+          "sha": "d83ae9df5b0b387a811a9c633536086ee6b0fe54",
+          "size": 10297
+        },
+        {
+          "path": "src/uosc/elements/WindowBorder.lua",
+          "mode": "100644",
+          "sha": "e97f90c752add150af317a7f5f9d7c3658380ffa",
+          "size": 1234
+        },
+        {
+          "path": "src/uosc/intl/de.json",
+          "mode": "100644",
+          "sha": "4e488c1abcd3a28aa523e6a7bf088f712ddef644",
+          "size": 3126
+        },
+        {
+          "path": "src/uosc/intl/es.json",
+          "mode": "100644",
+          "sha": "4679541e521a0689c9dd2321156497b09cb50d60",
+          "size": 3843
+        },
+        {
+          "path": "src/uosc/intl/fr.json",
+          "mode": "100644",
+          "sha": "254c74ca1502d8459cddb26817d62d53cfaa94d0",
+          "size": 1887
+        },
+        {
+          "path": "src/uosc/intl/it.json",
+          "mode": "100644",
+          "sha": "17e5de14814b30ff75bdcd5cee1aa5e1ac91afb8",
+          "size": 1747
+        },
+        {
+          "path": "src/uosc/intl/pl.json",
+          "mode": "100644",
+          "sha": "e7aaed047b711cff9fae08e488d08d5e403e845c",
+          "size": 4055
+        },
+        {
+          "path": "src/uosc/intl/pt.json",
+          "mode": "100644",
+          "sha": "f1cea53f55727413dcd05fc84d95d9a7859dc780",
+          "size": 4002
+        },
+        {
+          "path": "src/uosc/intl/ro.json",
+          "mode": "100644",
+          "sha": "82bc3dfa684c5d87c0ace47b5e98a1bca352d1ca",
+          "size": 1799
+        },
+        {
+          "path": "src/uosc/intl/ru.json",
+          "mode": "100644",
+          "sha": "2dc148e7044a6e6ee791a91c773d5885c7210e59",
+          "size": 2313
+        },
+        {
+          "path": "src/uosc/intl/tr.json",
+          "mode": "100644",
+          "sha": "4928c2fd1bfb6570fcff97f65821e0f328ffbf38",
+          "size": 4019
+        },
+        {
+          "path": "src/uosc/intl/uk.json",
+          "mode": "100644",
+          "sha": "a5ced6d9f8ae2f5ded9aa565acd8cd14d85f92a7",
+          "size": 3139
+        },
+        {
+          "path": "src/uosc/intl/zh-HK.json",
+          "mode": "100644",
+          "sha": "dd277c59d67481dc66a22c43af04d37dc68a732f",
+          "size": 3722
+        },
+        {
+          "path": "src/uosc/intl/zh-hans.json",
+          "mode": "100644",
+          "sha": "5411c6554000a26f8d163e4d87971cd9d33ddad1",
+          "size": 3471
+        },
+        {
+          "path": "src/uosc/lib/ass.lua",
+          "mode": "100644",
+          "sha": "2cd78cd6ec1c8ff2beb9fd16390d73f34dba82e3",
+          "size": 11511
+        },
+        {
+          "path": "src/uosc/lib/buttons.lua",
+          "mode": "100644",
+          "sha": "b4551aa2e79e346660ef22679fb49c91a05a8f11",
+          "size": 1888
+        },
+        {
+          "path": "src/uosc/lib/char_conv.lua",
+          "mode": "100644",
+          "sha": "07085b237962769249fc1d3fda428fe1486f2609",
+          "size": 1556
+        },
+        {
+          "path": "src/uosc/lib/cursor.lua",
+          "mode": "100644",
+          "sha": "db671a5fa53dddb0b5ab249047ec5a7483062a40",
+          "size": 16972
+        },
+        {
+          "path": "src/uosc/lib/fzy.lua",
+          "mode": "100644",
+          "sha": "014a80082d02486afcd2514aa5ea6f339f07c449",
+          "size": 8164
+        },
+        {
+          "path": "src/uosc/lib/intl.lua",
+          "mode": "100644",
+          "sha": "79a7c64ec4c7f41fd1a349e4af477ff0c3c3ac56",
+          "size": 1599
+        },
+        {
+          "path": "src/uosc/lib/menus.lua",
+          "mode": "100644",
+          "sha": "41752f479115eb1c5cec02dd79575848782aa05e",
+          "size": 36771
+        },
+        {
+          "path": "src/uosc/lib/std.lua",
+          "mode": "100644",
+          "sha": "2974bcb0824d993b6f37c155142fc2d448776312",
+          "size": 9961
+        },
+        {
+          "path": "src/uosc/lib/text.lua",
+          "mode": "100644",
+          "sha": "a102d4c1c0325eb565706aecb41f40fdceb50684",
+          "size": 22231
+        },
+        {
+          "path": "src/uosc/lib/utils.lua",
+          "mode": "100644",
+          "sha": "58bdace82e5f3c328698ace51add4f30f0141295",
+          "size": 34667
+        },
+        {
+          "path": "src/uosc/main.lua",
+          "mode": "100644",
+          "sha": "2797f645a293930383380e4fb31429d7b710fd9b",
+          "size": 43478
+        },
+        {
+          "path": "src/ziggy/commands/clipboard.go",
+          "mode": "100644",
+          "sha": "d5fa22b1cedcdf7d541f2bc5510a64335c8d47bf",
+          "size": 1066
+        },
+        {
+          "path": "src/ziggy/commands/download.go",
+          "mode": "100644",
+          "sha": "3e08a996626df54d4377b7f341ef06e00beadba7",
+          "size": 2406
+        },
+        {
+          "path": "src/ziggy/commands/http.go",
+          "mode": "100644",
+          "sha": "d602eece01ac89c762d999de09acd70d86e0d885",
+          "size": 1783
+        },
+        {
+          "path": "src/ziggy/commands/open.go",
+          "mode": "100644",
+          "sha": "3c45da83474c9a9c3f31d245dc96525b94ba5cfc",
+          "size": 546
+        },
+        {
+          "path": "src/ziggy/commands/subtitles.go",
+          "mode": "100644",
+          "sha": "9f24aebd072a745663af5fbfec7fd83b23b407e9",
+          "size": 5219
+        },
+        {
+          "path": "src/ziggy/lib/utils.go",
+          "mode": "100644",
+          "sha": "dc661f4e7d5784153f68ccf195075405267a58f8",
+          "size": 2092
+        },
+        {
+          "path": "src/ziggy/ziggy.go",
+          "mode": "100644",
+          "sha": "7a4b6497a7f6e70c52205742246fa2569047b28f",
+          "size": 818
+        },
+        {
+          "path": "tests/test_ranges.lua",
+          "mode": "100644",
+          "sha": "b4cbba29e9798fb7c8c66c0066a1aa7ddae6df95",
+          "size": 1734
+        },
+        {
+          "path": "tools/build",
+          "mode": "100755",
+          "sha": "b2200f7a7a3ee2b9ef1bff570b40d6265aa8774e",
+          "size": 2030
+        },
+        {
+          "path": "tools/build.ps1",
+          "mode": "100644",
+          "sha": "dbe02fd52e250cec51edca10f10dae5a387c8c62",
+          "size": 2242
+        },
+        {
+          "path": "tools/intl",
+          "mode": "100755",
+          "sha": "69ac7eaf1ef000c8233f8cba9f308a06f218a6ca",
+          "size": 215
+        },
+        {
+          "path": "tools/intl.ps1",
+          "mode": "100644",
+          "sha": "6bad20cd832eb8fc7ba560bba5ab4208f95980b1",
+          "size": 39
+        },
+        {
+          "path": "tools/package",
+          "mode": "100755",
+          "sha": "5c990c4ad10e41944fc1ef5246b38d3b719ee558",
+          "size": 221
+        },
+        {
+          "path": "tools/package.ps1",
+          "mode": "100644",
+          "sha": "3968341f7b360c2636591544f5404c59294d785b",
+          "size": 42
+        },
+        {
+          "path": "tools/tools-darwin",
+          "mode": "100755",
+          "sha": "001197b97da39e37f08ec852708278eedc415834",
+          "size": 725008
+        },
+        {
+          "path": "tools/tools-linux",
+          "mode": "100755",
+          "sha": "87bb3bbda7748861bdc0c3699575dba5400524bc",
+          "size": 699388
+        },
+        {
+          "path": "tools/tools.exe",
+          "mode": "100644",
+          "sha": "e00d65023a194fc19626535e2630426918eb14d1",
+          "size": 721408
+        }
+      ],
+      "licenseMirrors": {
+        "LICENSE.LGPL": "uosc-LGPL-2.1.txt"
+      }
+    }
+  ]
+}

@@ -1,0 +1,148 @@
+{
+  "schemaVersion": 1,
+  "verificationMode": "selected-go-source-notice-supplement",
+  "selectedInputReport": {
+    "file": ".local/v010-tests/uosc-rebuild-2bvd19tx/selected-files.json",
+    "size": 182483,
+    "sha256": "e9a0f289d20dfcf7ef71d184432a676d2bde6ae731c884875a59d1414b81c28b"
+  },
+  "selectedInputCount": 952,
+  "selectedKinds": {
+    "standard": 923,
+    "module": 22,
+    "uosc": 7
+  },
+  "binaryInput": "go/src/crypto/internal/nistec/p256_asm_table.bin",
+  "selectedFileHashesVerified": true,
+  "completePerFileCopyrightReview": false,
+  "newExcerpts": [
+    {
+      "path": "go/src/crypto/aes/block.go",
+      "size": 6574,
+      "sha256": "49c2cb40f5784b27601f555274c43aea1d2e709803fbf14fdf10f70d38332aec",
+      "ranges": [
+        [
+          160,
+          1683
+        ]
+      ],
+      "reason": "固定选中AES实现的参考作者、公有领域及完整免责声明；保留原文，不据此推断整个helper授权",
+      "rawExcerptSha256": "f03df79e99b01918fa0d4f339a426991e76ca78192f9d6a5e9264791d2591bd6"
+    },
+    {
+      "path": "go/src/math/exp_amd64.s",
+      "size": 4344,
+      "sha256": "6b0b9ca5b73d27e457fa3ce283dec9fdbc8411ac3b28afe262059330c32e9980",
+      "ranges": [
+        [
+          183,
+          816
+        ]
+      ],
+      "reason": "固定选中amd64指数实现的论文/原实现与公有领域来源说明；不以当前SLEEF版本许可替代历史原文",
+      "rawExcerptSha256": "39560d76c96a55aa9694eb537a24eccb1d2d8f6b338c5498d5a09bd06e8fba8b"
+    }
+  ],
+  "noticeCollection": {
+    "entries": 46,
+    "independentNoticeFiles": 33,
+    "reviewedSourceExcerpts": 13,
+    "file": "resources/licenses/uosc-go-NOTICES.txt",
+    "size": 90469,
+    "sha256": "1cc8c91b9bb436cfa3e69059aadc405218fa9b0a11f55815365dfb042586af3b",
+    "previousPrefixBytes": 88051,
+    "previousPrefixUnchanged": true,
+    "appendedBytes": 2418
+  },
+  "validation": {
+    "ordinaryBackend": {
+      "passed": 56,
+      "failed": 0,
+      "ignored": 6,
+      "seconds": 4.39
+    },
+    "realArchive": {
+      "passed": 1,
+      "failed": 0,
+      "ignored": 0,
+      "seconds": 33.92,
+      "files": 63,
+      "bytes": 132788727
+    },
+    "collectorRiskTests": {
+      "passed": 2,
+      "seconds": 4.843
+    },
+    "logs": [
+      {
+        "file": ".local/v010-tests/go-selected-notices-check.json",
+        "size": 196,
+        "sha256": "0e747d3c972989590f0ce64f04b849629b0c2d04f4e42a14641da7b2608c2f15"
+      },
+      {
+        "file": ".local/v010-tests/go-selected-notices-tests.log",
+        "size": 105,
+        "sha256": "d3224945bbfa2b5cdca3bb6fb93433a0170a61e4288c54b882e1c2d393f52c3e"
+      },
+      {
+        "file": ".local/v010-tests/go-selected-notices-clippy.log",
+        "size": 150,
+        "sha256": "55e78f84af017420e98053e1b7e6f4cee2ba0e4e2ebc81e5528ad30d6b02b5c4"
+      },
+      {
+        "file": ".local/v010-tests/go-selected-notices-backend.log",
+        "size": 6668,
+        "sha256": "9017b8ebdde2e8522bb3412bff3c5e83e09384dac8a7ae570fc1d2c3a2997dde"
+      },
+      {
+        "file": ".local/v010-tests/go-selected-notices-real-archives.log",
+        "size": 880,
+        "sha256": "5d08aa64709ae7d06f19f97a21844c7c3a174ab2d00ba5b665c57f5fda8e438d"
+      },
+      {
+        "file": ".local/v010-tests/go-selected-notices-debug-build.log",
+        "size": 1146,
+        "sha256": "3bd4b6e689c5fb639bf20dc665efca86bff88bf04d6b2e6b0c19d518f2450078"
+      },
+      {
+        "file": ".local/v010-tests/go-selected-notices-release-build.log",
+        "size": 1580,
+        "sha256": "cb301751640947c0e64233ce2cd27b5593c552e65e72103cacf20dfefaae5e34"
+      }
+    ],
+    "finalAudit": {
+      "textFiles": 108,
+      "localLinks": 240,
+      "productInputsMatched": 75,
+      "artifactHashesMatched": 2,
+      "validationLogHashesMatched": 7,
+      "mantineOriginalsMatched": 15,
+      "originalLicenseUnchanged": true,
+      "appPackages": 321,
+      "appMaterials": 567,
+      "missingAppMaterials": [],
+      "goNoticeCheckPassed": true
+    }
+  },
+  "changedProductInputs": [
+    "resources/licenses/uosc-go-NOTICES.txt",
+    "resources/source-materials.json",
+    "src-tauri/src/components.rs"
+  ],
+  "productInputCount": 75,
+  "artifacts": [
+    {
+      "file": "src-tauri/target/release/mpvkit.exe",
+      "size": 14775808,
+      "sha256": "8895f6170d9bcd52c7d89f8f77e0037b17f05677006b8a9818d520f4962b7895"
+    },
+    {
+      "file": "src-tauri/target/release/bundle/nsis/MpvKit_0.1.0_x64-setup.exe",
+      "size": 3863444,
+      "sha256": "2affc50f9f2ad8f1da15ab970600630851e4cd29d3cfa03770a4463052db94e4"
+    }
+  ],
+  "stagedResources": 8,
+  "releaseReady": false,
+  "completeDistributionReview": false
+}

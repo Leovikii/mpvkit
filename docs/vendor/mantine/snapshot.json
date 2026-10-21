@@ -1,0 +1,104 @@
+{
+  "retrievedOn": "2026-10-20",
+  "packageVersion": "9.7.3",
+  "note": "官方站点LLM页面为下载时快照，不声称URL按包版本锁定；已对安装的9.7.3声明和构建核对。原文不修改；README与此清单为项目记录。",
+  "files": [
+    {
+      "file": "LICENSE.txt",
+      "url": "https://raw.githubusercontent.com/mantinedev/mantine/9.7.3/LICENSE",
+      "size": 1073,
+      "sha256": "61c765e625bc25d55143f14de7554685c52f21d9e671d3d204304691a163d06a"
+    },
+    {
+      "file": "core-alert.md",
+      "url": "https://mantine.dev/llms/core-alert.md",
+      "size": 2759,
+      "sha256": "2cc7126d73e77e658815bd904322ce138e45caa0643e6d067cf0bee4205b7baa"
+    },
+    {
+      "file": "core-button.md",
+      "url": "https://mantine.dev/llms/core-button.md",
+      "size": 16940,
+      "sha256": "655452e9f98b87c89021da961e84640a119b7c5b37efa5ae3b27ba738b2685af"
+    },
+    {
+      "file": "core-checkbox.md",
+      "url": "https://mantine.dev/llms/core-checkbox.md",
+      "size": 28038,
+      "sha256": "b587506bfad1c9ddc6fb2e5fc7d3a7c8c5bc7d77c1ad8ddc1a71d0f506b79705"
+    },
+    {
+      "file": "core-native-select.md",
+      "url": "https://mantine.dev/llms/core-native-select.md",
+      "size": 12948,
+      "sha256": "7c118182a8d344c67a50fd9620144a1adf99c43fc6c1dfab15382f9dac67cdfe"
+    },
+    {
+      "file": "core-paper.md",
+      "url": "https://mantine.dev/llms/core-paper.md",
+      "size": 1731,
+      "sha256": "00f118a323c02b0505075d060e0df5b47da15049dff0476054c3baea47fca87a"
+    },
+    {
+      "file": "core-text-input.md",
+      "url": "https://mantine.dev/llms/core-text-input.md",
+      "size": 8563,
+      "sha256": "88c04d983cfee7bb55afcdc60d9a32cc8e263cbf9a8bb2d894ed6e4ce9dc9f28"
+    },
+    {
+      "file": "core-textarea.md",
+      "url": "https://mantine.dev/llms/core-textarea.md",
+      "size": 10083,
+      "sha256": "073e1006bb7399ba79d4d6e396f905c6e6887df1ad55422a37932ce780829a8b"
+    },
+    {
+      "file": "getting-started.md",
+      "url": "https://mantine.dev/llms/getting-started.md",
+      "size": 9898,
+      "sha256": "fbfa7203e3bb26727586102e06c33b30c2a49ddc3bd3ba6d8731204a27824f5a"
+    },
+    {
+      "file": "guides-vite.md",
+      "url": "https://mantine.dev/llms/guides-vite.md",
+      "size": 1449,
+      "sha256": "a7493a6c63eb1b40962271383e83dbe94fbd4c8a9e37ae491a514da62b5aa5b3"
+    },
+    {
+      "file": "llms.txt",
+      "url": "https://mantine.dev/llms.txt",
+      "size": 45725,
+      "sha256": "93611d4002d98b7f93d4e8676547a6adb126f066f9cad6d31c10db897e20e0f4"
+    },
+    {
+      "file": "styles-global-styles.md",
+      "url": "https://mantine.dev/llms/styles-global-styles.md",
+      "size": 3581,
+      "sha256": "9eda7afdc6b337143ea29973d136dc2572d9a4fcf987a7053893f070e4c14fe0"
+    },
+    {
+      "file": "styles-postcss-preset.md",
+      "url": "https://mantine.dev/llms/styles-postcss-preset.md",
+      "size": 9909,
+      "sha256": "7a98043f4354886d30597cc3bf5f08e75f26520451d392604c7e1d6768ba4a7e"
+    },
+    {
+      "file": "theming-mantine-provider.md",
+      "url": "https://mantine.dev/llms/theming-mantine-provider.md",
+      "size": 12927,
+      "sha256": "c77eabc1d366d7248f8728c6f42bbe26a348d9d0f035913dab3e3a8760ed92a2"
+    },
+    {
+      "file": "theming-theme-object.md",
+      "url": "https://mantine.dev/llms/theming-theme-object.md",
+      "size": 19310,
+      "sha256": "36ba80450497e4616386269808d4c57e199dcd7c6e1cd30d59865a336d3a18b9"
+    },
+    {
+      "file": "core-modal.md",
+      "url": "https://mantine.dev/llms/core-modal.md",
+      "size": 28111,
+      "sha256": "b1889eabaf8b3ca7d423711c831936b5ce80b35dc54ac321b819da8504d7cbc4",
+      "retrievedOn": "2026-10-21"
+    }
+  ]
+}

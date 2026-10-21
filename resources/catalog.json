@@ -1,0 +1,122 @@
+{
+  "schemaVersion": 1,
+  "id": "windows-x64-20261020",
+  "releaseReady": false,
+  "releaseBlockers": [
+    "MPV 聚合构建完整依赖/源码/许可材料尚待齐备",
+    "uosc 字体与 Go 辅助程序依赖的分发材料尚待齐备",
+    "目标设备矩阵、HDR、干净系统与安装包验收未完成"
+  ],
+  "components": [
+    {
+      "id": "mpv",
+      "version": "20261020-6a262d11f6",
+      "project": "https://github.com/mpv-player/mpv",
+      "distributor": "https://github.com/shinchiro/mpv-winbuild-cmake",
+      "commit": "6a262d11f63733d37e3ee6d5fafcb1be1ef83952",
+      "platform": "windows-x64",
+      "url": "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261020/mpv-x86_64-20261020-git-6a262d11f6.7z",
+      "size": 34014613,
+      "sha256": "cbeda25235a24e9145f6ab3e784052e437e6e5aac306b682afd2bbf0070ddea8",
+      "checksumSource": "GitHub fixed release asset digest",
+      "license": {
+        "identifier": null,
+        "status": "review-required",
+        "materials": [
+          "https://github.com/mpv-player/mpv/blob/6a262d11f63733d37e3ee6d5fafcb1be1ef83952/Copyright",
+          "https://github.com/shinchiro/mpv-winbuild-cmake/actions/runs/39344977314"
+        ],
+        "note": "实测 GPL feature enabled，FFmpeg 构建启用 GPL/version3；聚合依赖和完整分发材料未完成。"
+      },
+      "dependencies": [],
+      "conflicts": [
+        "existing same-name runtime files"
+      ],
+      "modified": false,
+      "minimumCapabilities": [
+        "config-dir",
+        "load-scripts",
+        "gpu-next",
+        "d3d11"
+      ],
+      "validation": [
+        "Windows 11 x64 MPV v0.41.0-1224-g6a262d11f; D3D11VA 720p H.264 SDR; three profiles and thumbnails"
+      ]
+    },
+    {
+      "id": "uosc",
+      "version": "5.13.0",
+      "project": "https://github.com/tomasklaen/uosc",
+      "distributor": "https://github.com/tomasklaen/uosc",
+      "commit": "d124c2c930d69446448022851373e00ae592390d",
+      "platform": "windows-x64",
+      "url": "https://github.com/tomasklaen/uosc/releases/download/5.13.0/uosc.zip",
+      "size": 8163987,
+      "sha256": "4be9da3289285300fa374496c3f1bfd7bb20ac08e890d25bd5a06b28eebe4882",
+      "checksumSource": "GitHub fixed release asset digest",
+      "license": {
+        "identifier": null,
+        "status": "review-required",
+        "materials": [
+          "https://github.com/tomasklaen/uosc/blob/d124c2c930d69446448022851373e00ae592390d/LICENSE.LGPL",
+          "https://github.com/tomasklaen/uosc/blob/d124c2c930d69446448022851373e00ae592390d/go.mod"
+        ],
+        "note": "上游 LGPL 2.1 文本；uosc_icons.otf 已逐字节匹配 Google 固定提交的 Material Icons Round，Apache-2.0 原文已保留；纹理字体映射、Go完整分发材料及精确适用审阅未完成。"
+      },
+      "dependencies": [
+        "mpv"
+      ],
+      "conflicts": [
+        "native OSC",
+        "other OSC scripts"
+      ],
+      "modified": false,
+      "minimumCapabilities": [
+        "Lua",
+        "ASS overlays"
+      ],
+      "validation": [
+        "uosc startup 5.13.0; actual thumbnail overlay; F6 menu and profile shortcut integration"
+      ],
+      "excludedAssets": [
+        "ziggy-linux",
+        "ziggy-macos"
+      ]
+    },
+    {
+      "id": "thumbfast",
+      "version": "0f711de3138c9bd6718209d819ac54022c23ded2",
+      "project": "https://github.com/po5/thumbfast",
+      "distributor": "https://github.com/po5/thumbfast",
+      "commit": "0f711de3138c9bd6718209d819ac54022c23ded2",
+      "platform": "windows-x64",
+      "url": "https://raw.githubusercontent.com/po5/thumbfast/0f711de3138c9bd6718209d819ac54022c23ded2/thumbfast.lua",
+      "size": 32495,
+      "sha256": "a3d08e71eae8b892f6cd39f9593ea219768e709312d176bca883841b156448bf",
+      "checksumSource": "fixed Git blob 6f71902500a8e9e776f48e17f745af85b4196170, local SHA-256",
+      "license": {
+        "identifier": "MPL-2.0",
+        "status": "text-verified",
+        "materials": [
+          "https://github.com/po5/thumbfast/blob/0f711de3138c9bd6718209d819ac54022c23ded2/LICENSE"
+        ]
+      },
+      "dependencies": [
+        "mpv",
+        "uosc"
+      ],
+      "conflicts": [
+        "other thumbnail overlay providers"
+      ],
+      "modified": false,
+      "minimumCapabilities": [
+        "Lua",
+        "subprocess",
+        "raw BGRA encoding"
+      ],
+      "validation": [
+        "three profiles; actual 400x225 360000-byte BGRA thumbnail; explicit selected MPV path"
+      ]
+    }
+  ]
+}

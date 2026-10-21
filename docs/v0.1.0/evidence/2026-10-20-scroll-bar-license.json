@@ -1,0 +1,110 @@
+{
+  "schemaVersion": 1,
+  "package": "npm:react-remove-scroll-bar@2.3.8",
+  "licenseCommit": "8ca9ba5ea52de03308fe8ced94f7b159a44d28ff",
+  "inputs": [
+    {
+      "file": "2.3.7.json",
+      "url": "https://registry.npmjs.org/react-remove-scroll-bar/2.3.7",
+      "size": 2908,
+      "sha256": "791a5a87d0ac5aaedde298c3fdae19ac6cab88969beeaf77a0c466e03b631fbc"
+    },
+    {
+      "file": "2.3.7.tgz",
+      "url": "https://registry.npmjs.org/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.7.tgz",
+      "size": 4938,
+      "sha256": "5ee31e784254a1a0c80b2a14a569c3dc254af4c75d709a04f79ff409e856df91"
+    },
+    {
+      "file": "2.3.8.json",
+      "url": "https://registry.npmjs.org/react-remove-scroll-bar/2.3.8",
+      "size": 3540,
+      "sha256": "9be252ca1cf5a92f4b89c0a5e08cb22f733e825e109b238ba857f4723a2688c5"
+    },
+    {
+      "file": "2.3.8.tgz",
+      "url": "https://registry.npmjs.org/react-remove-scroll-bar/-/react-remove-scroll-bar-2.3.8.tgz",
+      "size": 4937,
+      "sha256": "ccc872d7a2dc007cbf9d755f30d56b8d80eabdbe22c44c95a709129bfdc46f01"
+    },
+    {
+      "file": "source-29e9fcd1.tar.gz",
+      "url": "https://codeload.github.com/theKashey/react-remove-scroll-bar/tar.gz/29e9fcd1eecf7d3b77a767941c4a57fe461fc1e4",
+      "size": 246949,
+      "sha256": "54ccf3547c99da41a58b862bdb279d93483014ca9184bf6d35efa2ba0aa57caf"
+    },
+    {
+      "file": "source-8ca9ba5e.tar.gz",
+      "url": "https://codeload.github.com/theKashey/react-remove-scroll-bar/tar.gz/8ca9ba5ea52de03308fe8ced94f7b159a44d28ff",
+      "size": 247749,
+      "sha256": "51a4b368f1c71fc699716d157233f4d1d5537794a63e47511f287645909d8c37"
+    }
+  ],
+  "result": {
+    "identicalPublishedFiles": {
+      "README.md": "486442209236ffa3893312e508694699a6b8834d30a2f9c083c1f3379983e4f9",
+      "constants/package.json": "9b557c166960d4a096abc83259b8787a4072516f666856f8cf51656e38ed904b",
+      "dist/es2015/component.d.ts": "8b9441c9166045f81e5000001f95521319692124baea142b228efdc370883736",
+      "dist/es2015/component.js": "3baec61523006aedf14321423427b0c50aa17bfe48faf344bebff9d883149f29",
+      "dist/es2015/constants.d.ts": "cd9dd3a7b0b95c3068f3b43b82da6dc6bee018f56d975b248d4bb6c484e61ed1",
+      "dist/es2015/constants.js": "1c73582ef730bbca1d536a6995c7eea438dcd0632fee2856337627e44b5872e2",
+      "dist/es2015/index.d.ts": "130bc4c810a84aeae180ba8fe1e7fd96f706d5d3a0cf6728419ff2c74708185f",
+      "dist/es2015/index.js": "130bc4c810a84aeae180ba8fe1e7fd96f706d5d3a0cf6728419ff2c74708185f",
+      "dist/es2015/utils.d.ts": "c4304c2114b48bb2778de565b4a0274ebbbbd71f6d7f5c57e116bd1656ea2c32",
+      "dist/es2015/utils.js": "2c4105ab772a5cbf4b3d1e54f49e94d03fde867d20767b46bb3e5c27f4d82f00",
+      "dist/es2019/component.d.ts": "8b9441c9166045f81e5000001f95521319692124baea142b228efdc370883736",
+      "dist/es2019/component.js": "ac214bb2783fdf743a0c949fef47784741db109dcc6f4426f46e77386dee1c8f",
+      "dist/es2019/constants.d.ts": "cd9dd3a7b0b95c3068f3b43b82da6dc6bee018f56d975b248d4bb6c484e61ed1",
+      "dist/es2019/constants.js": "f597b4036280caca4cc58d3476ffc02dc5c16564090229e6685e98b80a8e2a33",
+      "dist/es2019/index.d.ts": "130bc4c810a84aeae180ba8fe1e7fd96f706d5d3a0cf6728419ff2c74708185f",
+      "dist/es2019/index.js": "130bc4c810a84aeae180ba8fe1e7fd96f706d5d3a0cf6728419ff2c74708185f",
+      "dist/es2019/utils.d.ts": "c4304c2114b48bb2778de565b4a0274ebbbbd71f6d7f5c57e116bd1656ea2c32",
+      "dist/es2019/utils.js": "dafd773a756cca848d359153df92315235becb2ed8e10b1146458be4bfd38826",
+      "dist/es5/component.d.ts": "8b9441c9166045f81e5000001f95521319692124baea142b228efdc370883736",
+      "dist/es5/component.js": "d95ae68cda75b262f01b7c3eba3d530c6a24579778cbb3e320b2449348dabb13",
+      "dist/es5/constants.d.ts": "cd9dd3a7b0b95c3068f3b43b82da6dc6bee018f56d975b248d4bb6c484e61ed1",
+      "dist/es5/constants.js": "20bf238e562be0830b10b1813d36fa321e81cd07fd99b27724833132304b73bc",
+      "dist/es5/index.d.ts": "130bc4c810a84aeae180ba8fe1e7fd96f706d5d3a0cf6728419ff2c74708185f",
+      "dist/es5/index.js": "0e1ab245d6b12ef80409b988b0f29b498c562b6cff6e7365714cb0c351914a12",
+      "dist/es5/utils.d.ts": "c4304c2114b48bb2778de565b4a0274ebbbbd71f6d7f5c57e116bd1656ea2c32",
+      "dist/es5/utils.js": "ee6c64e8690475db96ec1a1b2ede342ffdc45ccf739bd28dd6f86c8c9a5917c3"
+    },
+    "identicalSourceFiles": {
+      ".eslintrc.js": "ddfb56a963d00886b4d8a091e8d2e13a896ce307154295a13ff1c3250501a837",
+      ".github/stale.yml": "19f501c512809014ceaef8c4041a06e74bc2b35597dfc3fd79788d7e9efe8641",
+      ".gitignore": "a8c8aff63df09fe9d1e380f782fb77a3644537d90b5c47855ecf8ab0184874fd",
+      ".npmignore": "4af8e7d69a2f4f55d87e1f0a7eeb38085019654f4fd0fc17f1ccdb73fc7f3cad",
+      ".npmrc": "c2df2465884206f81fd8d518a4a05b9bb69372bdf4a8297c150843433737fe72",
+      ".nvmrc": "4ec9599fc203d176a301536c2e091a19bc852759b255bd6818810a42c5fed14a",
+      ".size-limit": "67e9c98f84012dc5346aef8431fca063d2314f7f0987fff716213e35c3fa74e8",
+      ".size.json": "4cc0689bf2f73fab73fef1e329e77b92d01f4f335ce9311a0c590fd4cccf6662",
+      ".storybook/.babelrc": "85bb3a82bbb29940a8043eb31624689b06930f24002324b798da040e1bca8327",
+      ".storybook/main.js": "b0bc87d36d5d7954f77170b38817d4ecbbec3659ff7571c6a5af7f1abbc25d20",
+      ".storybook/preview.js": "f70f32331a61c7a191333a5e7a85bbbf471b1b536b11947cc63f8be8b0776352",
+      ".travis.yml": "c5d3ec66f8aa2b3b21c2363c0a93cedf2f24a64af9a5d1858e53ebae96ed942a",
+      "CHANGELOG.md": "1e910ba5049a5db641d102be92734ce52d477960fb1ff9834e44410931e211ad",
+      "README.md": "486442209236ffa3893312e508694699a6b8834d30a2f9c083c1f3379983e4f9",
+      "__tests__/index.tsx": "803581e2343cb5eab93903aa0e27a2501f6ff086cc257c406148df3b31f112ce",
+      "constants/package.json": "9b557c166960d4a096abc83259b8787a4072516f666856f8cf51656e38ed904b",
+      "example/app.tsx": "35466a4739d6cea18c25145ed467cceb6c94db56b874525ae5ccba757e787679",
+      "example/assets/.gitkeep": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "example/index.html": "5a9a2fb4bfc25065f292e82bb9f8cc82bebf315f34dffc51c4ba9c78a6eadf68",
+      "example/index.tsx": "ff4b710c6d09b14e6022c9e82247e68bc0bd0dd843d24469f3d8587434c6ccb5",
+      "example/utils.ts": "e6aee786abe9e4efbca5119eac03c9a29e6f9485cf9de77e75c1ad620becb43c",
+      "jest.config.js": "799c45a00f822b0a6242b5ad213c676803b03d2e33d329f70e94c857d8920eba",
+      "package.json": "484ad46c8cc261e168d7e2602bbb70b80f8d10307b7de91d99485da28c350a03",
+      "src/component.tsx": "9cf7f1768847ee331747101493a5ed7860199f730fd814e85f37f05368e56b55",
+      "src/constants.ts": "f597b4036280caca4cc58d3476ffc02dc5c16564090229e6685e98b80a8e2a33",
+      "src/index.ts": "46c5f7a742c3838959d33077733e634aad9c5cfc4041bcd38dba5f7cf3e05200",
+      "src/utils.ts": "c7d2d318bca380ff6a13ed35d1264cdfac9d9bc9389802f7bcacae24611865d1",
+      "stories/cases.stories.tsx": "387cee0735bfeae06756f48bc3a4f6901e87daf0d4922d01b1e8a8d2310546ea",
+      "tsconfig.json": "e51de516f983a3acd974f56239876b422cd77aa3b32b858075ac4363a99e6cfc",
+      "yarn.lock": "dda7f6f624d46586862dfdd6b87065b82c3f6a373c775934a8a457a8a665bdb4"
+    },
+    "licenseSha256": "a79aae0c0f21990d9d963bb3c5a79cdcea9a46f8523ba55c58d7fe776b6ebc84",
+    "licenseSize": 1093,
+    "sameCodeLicenseMapped": true,
+    "published238GitHeadAccessible": false,
+    "fullSourceReviewComplete": false
+  }
+}

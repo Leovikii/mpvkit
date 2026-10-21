@@ -1,0 +1,8 @@
+{
+  "file": "go1.23.1.windows-amd64.zip",
+  "url": "https://dl.google.com/go/go1.23.1.windows-amd64.zip",
+  "size": 81905152,
+  "sha256": "32dedf277c86610e380e1765593edb66876f00223df71690bd6be68ee17675c0",
+  "checksumSource": "https://go.dev/dl/?mode=json&include=all",
+  "purpose": "Isolated verification of third-party uosc helper; no system install"
+}

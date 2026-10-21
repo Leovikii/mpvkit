@@ -1,0 +1,492 @@
+{
+  "schemaVersion": 1,
+  "verificationMode": "selected-helper-module-license-and-generation-review",
+  "selectedInputs": {
+    "file": ".local/v010-tests/uosc-rebuild-2bvd19tx/selected-files.json",
+    "size": 182483,
+    "sha256": "e9a0f289d20dfcf7ef71d184432a676d2bde6ae731c884875a59d1414b81c28b"
+  },
+  "scope": {
+    "moduleFiles": 22,
+    "uoscFiles": 7,
+    "sdkGeneratedFiles": 1
+  },
+  "modules": [
+    {
+      "module": "github.com/atotto/clipboard",
+      "version": "v0.1.4",
+      "archive": "clipboard-v0.1.4.zip",
+      "sha256": "d67b2c36c662751309fd2ec351df3651584bea840bd27be9a90702c3a238b43f",
+      "h1": "h1:EH0zSVneZPSuFR11BlR9YppQTVDbh5+16AmcJi4g1z4=",
+      "selectedFiles": [
+        {
+          "kind": "module",
+          "path": "github.com/atotto/clipboard@v0.1.4/clipboard.go",
+          "size": 554,
+          "sha256": "731101f1a72856da50ff1fa791ff3d1b8fefbc3aabfe641d9007d80484a8cf20",
+          "header": "// Copyright 2013 @atotto. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "github.com/atotto/clipboard@v0.1.4/clipboard_windows.go",
+          "size": 4190,
+          "sha256": "ac9a8e2358f0ec7553cc95f6652a64817ce0b2c7b3c4a46d5a1d81c23d71923b",
+          "header": "// Copyright 2013 @atotto. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        }
+      ],
+      "retainedRootMaterials": [
+        {
+          "archivePath": "github.com/atotto/clipboard@v0.1.4/LICENSE",
+          "retainedFile": "resources/licenses/uosc-clipboard-BSD-3.txt",
+          "size": 1471,
+          "sha256": "2c4bac8e2a97180d6e7758c37de85d1cda1859aaf85b56da15d935d2d9a5564f"
+        }
+      ],
+      "nestedDeclarationFiles": [],
+      "generatorSources": []
+    },
+    {
+      "module": "github.com/pkg/browser",
+      "version": "v0.0.0-20240102092130-5ac0b6a4141c",
+      "archive": "browser-5ac0b6a4141c.zip",
+      "sha256": "8524ae36d809564d1f218978593b5c565cf3ee8dccd035d66b336ad0c56e60d1",
+      "h1": "h1:+mdjkGKdHQG3305AYmdv1U2eRNDiU2ErMBj1gwrq8eQ=",
+      "selectedFiles": [
+        {
+          "kind": "module",
+          "path": "github.com/pkg/browser@v0.0.0-20240102092130-5ac0b6a4141c/browser.go",
+          "size": 1472,
+          "sha256": "b4488569f0da8b066e892945038767c2198f7a743aa7630153ff2bc0ebe6e2cc",
+          "header": null,
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "github.com/pkg/browser@v0.0.0-20240102092130-5ac0b6a4141c/browser_windows.go",
+          "size": 192,
+          "sha256": "5e5e01012741ccd26ec5e9f622642a5fa87245704eb45e8bfdef6f16d1237b67",
+          "header": null,
+          "moduleLicense": "LICENSE",
+          "generated": false
+        }
+      ],
+      "retainedRootMaterials": [
+        {
+          "archivePath": "github.com/pkg/browser@v0.0.0-20240102092130-5ac0b6a4141c/LICENSE",
+          "retainedFile": "resources/licenses/uosc-browser-BSD-2.txt",
+          "size": 1312,
+          "sha256": "4801bb0c5d70b980b3e1f63d1d2df8d84fec22548e3d73f03a68df1fb808791f"
+        }
+      ],
+      "nestedDeclarationFiles": [],
+      "generatorSources": []
+    },
+    {
+      "module": "golang.org/x/sys",
+      "version": "v0.28.0",
+      "archive": "sys-v0.28.0.zip",
+      "sha256": "0ed47a83fe7d7a7e743e815172bc10c1ac0ed0d31ebb095e75717428e09aa895",
+      "h1": "h1:Fksou7UEQUWlKvIdsqzJmUmCX3cZuD2+P3XyyzwMhlA=",
+      "selectedFiles": [
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/aliases.go",
+          "size": 281,
+          "sha256": "83f3e3fa7ca4af1f37ee2d68f3a8c9b51e488953dff60ddf779527ebcda84eb9",
+          "header": "// Copyright 2018 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/dll_windows.go",
+          "size": 12311,
+          "sha256": "d2f517b94cccd49e40e750596754a29950751d2273605d11367d491e1256ba07",
+          "header": "// Copyright 2011 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/env_windows.go",
+          "size": 1367,
+          "sha256": "fcfa69bb220a15cc151240ecc57bb144cf25c6628e899bc72d8217171376ab5b",
+          "header": "// Copyright 2010 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/eventlog.go",
+          "size": 825,
+          "sha256": "0162de9581d94b7f73c2125e310a8c08d1f5f6ec9d99d68b450ea330cdab33e0",
+          "header": "// Copyright 2012 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/exec_windows.go",
+          "size": 7513,
+          "sha256": "9c4824d3c8a1d54189f9d81e54a5786971b338c6d8b116ad188c1746212534a8",
+          "header": "// Copyright 2009 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/memory_windows.go",
+          "size": 1405,
+          "sha256": "070342979027b739e224a8d35c5dabd9ac6ea662b9a58954446f27103c2443c4",
+          "header": "// Copyright 2017 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/race0.go",
+          "size": 454,
+          "sha256": "fd656479b0761b07939c12b95733002fe0437f33e6a9b317cdaf8b3fe3e116e4",
+          "header": "// Copyright 2012 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/security_windows.go",
+          "size": 54357,
+          "sha256": "d1fa1f37a7dd7b0d6404a77494f42074a1fb7f8d6ee1e9841c5c159aa33bc37b",
+          "header": "// Copyright 2012 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/service.go",
+          "size": 10503,
+          "sha256": "88b18aaac8358e790f5f723acac90799e84b813bc02c9c7ddad2e0f15a0503d7",
+          "header": "// Copyright 2012 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/setupapi_windows.go",
+          "size": 68854,
+          "sha256": "72097fc028210a5700ede92673d155af6de97210292770bfb31363691dad07c4",
+          "header": "// Copyright 2021 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/str.go",
+          "size": 504,
+          "sha256": "6c8cc24a3e0c11c6b4950dbb49a5f7eb72e65fcb861a8cd71cdad376125a43cb",
+          "header": "// Copyright 2009 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/syscall.go",
+          "size": 3238,
+          "sha256": "60b6c688bece9fb3550cb369311b55dc33d1e2350a93f9c8a5f8fa0cd8ddb2cc",
+          "header": "// Copyright 2009 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/syscall_windows.go",
+          "size": 86531,
+          "sha256": "4494535aebf89120fc74e2fc9405750f9e388ff569774abe82af42e23c88c456",
+          "header": "// Copyright 2009 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/types_windows.go",
+          "size": 113823,
+          "sha256": "751d9b13a06a68817668fa8a2dd2aa95f8f68057e9152c1d4c4dd798e523aa9d",
+          "header": "// Copyright 2011 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/types_windows_amd64.go",
+          "size": 817,
+          "sha256": "c375406875cabc6447a9a8ca917eccab2227ea33a17ac3ed02a3a8fca0af8ce1",
+          "header": "// Copyright 2011 The Go Authors. All rights reserved.\n// Use of this source code is governed by a BSD-style\n// license that can be found in the LICENSE file.",
+          "moduleLicense": "LICENSE",
+          "generated": false
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/zerrors_windows.go",
+          "size": 945502,
+          "sha256": "fdf634bbd093494501a9aec0660aa53b434fdc2c2bb989e8d0925323e511358d",
+          "header": "// Code generated by 'mkerrors.bash'; DO NOT EDIT.",
+          "moduleLicense": "LICENSE",
+          "generated": true
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/zknownfolderids_windows.go",
+          "size": 19145,
+          "sha256": "3815bbaa8adf5400041954decc56e8889eb56eb20bfc30053e7799703af0fc95",
+          "header": "// Code generated by 'mkknownfolderids.bash'; DO NOT EDIT.",
+          "moduleLicense": "LICENSE",
+          "generated": true
+        },
+        {
+          "kind": "module",
+          "path": "golang.org/x/sys@v0.28.0/windows/zsyscall_windows.go",
+          "size": 206316,
+          "sha256": "3182516f373d9992934ed52fee0efd37f9b721e0f73640f03ad541d09c790c50",
+          "header": "// Code generated by 'go generate'; DO NOT EDIT.",
+          "moduleLicense": "LICENSE",
+          "generated": true
+        }
+      ],
+      "retainedRootMaterials": [
+        {
+          "archivePath": "golang.org/x/sys@v0.28.0/LICENSE",
+          "retainedFile": "resources/licenses/uosc-sys-BSD-3.txt",
+          "size": 1453,
+          "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+        },
+        {
+          "archivePath": "golang.org/x/sys@v0.28.0/PATENTS",
+          "retainedFile": "resources/licenses/uosc-go-PATENTS.txt",
+          "size": 1303,
+          "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+        }
+      ],
+      "nestedDeclarationFiles": [],
+      "generatorSources": [
+        {
+          "path": "golang.org/x/sys@v0.28.0/windows/mkerrors.bash",
+          "size": 2168,
+          "sha256": "1e8ad2fee707012f9df5b217fb17fc08bbe65677d249d167d065c7d83c215e43"
+        },
+        {
+          "path": "golang.org/x/sys@v0.28.0/windows/mkknownfolderids.bash",
+          "size": 1382,
+          "sha256": "3b7f6ac42ae1e73aa8d06d4f89f18b91916f153b030e9c01e15d41959b6b5fc6"
+        },
+        {
+          "path": "golang.org/x/sys@v0.28.0/windows/mksyscall.go",
+          "size": 367,
+          "sha256": "ece9a0ac70f7ee5765046bed09762c27e22b7a3777ab82d65ba696806cdcd264"
+        },
+        {
+          "path": "golang.org/x/sys@v0.28.0/windows/mkwinsyscall/mkwinsyscall.go",
+          "size": 25086,
+          "sha256": "bb034c68f228fea04c5809a4874a41c63fc6369a917239fe4b48a5324c4e4839"
+        }
+      ]
+    }
+  ],
+  "completePerFileCopyrightReview": false,
+  "completeDistributionReview": false,
+  "releaseReady": false,
+  "productInputsChanged": false,
+  "syscallGeneration": {
+    "toolchain": {
+      "file": "go1.23.1.windows-amd64.zip",
+      "url": "https://dl.google.com/go/go1.23.1.windows-amd64.zip",
+      "size": 81905152,
+      "sha256": "32dedf277c86610e380e1765593edb66876f00223df71690bd6be68ee17675c0",
+      "checksumSource": "https://go.dev/dl/?mode=json&include=all",
+      "purpose": "Isolated verification of third-party uosc helper; no system install"
+    },
+    "goExecutable": {
+      "size": 13763072,
+      "sha256": "3eb60f9aa5cd6a85a41b828e5f6f5a3e134101aecbcc3bcc0d5b6845b4e8cde4"
+    },
+    "inputs": [
+      {
+        "path": "golang.org/x/sys@v0.28.0/windows/mkwinsyscall/mkwinsyscall.go",
+        "size": 25086,
+        "sha256": "bb034c68f228fea04c5809a4874a41c63fc6369a917239fe4b48a5324c4e4839"
+      },
+      {
+        "path": "golang.org/x/sys@v0.28.0/windows/eventlog.go",
+        "size": 825,
+        "sha256": "0162de9581d94b7f73c2125e310a8c08d1f5f6ec9d99d68b450ea330cdab33e0"
+      },
+      {
+        "path": "golang.org/x/sys@v0.28.0/windows/service.go",
+        "size": 10503,
+        "sha256": "88b18aaac8358e790f5f723acac90799e84b813bc02c9c7ddad2e0f15a0503d7"
+      },
+      {
+        "path": "golang.org/x/sys@v0.28.0/windows/syscall_windows.go",
+        "size": 86531,
+        "sha256": "4494535aebf89120fc74e2fc9405750f9e388ff569774abe82af42e23c88c456"
+      },
+      {
+        "path": "golang.org/x/sys@v0.28.0/windows/security_windows.go",
+        "size": 54357,
+        "sha256": "d1fa1f37a7dd7b0d6404a77494f42074a1fb7f8d6ee1e9841c5c159aa33bc37b"
+      },
+      {
+        "path": "golang.org/x/sys@v0.28.0/windows/setupapi_windows.go",
+        "size": 68854,
+        "sha256": "72097fc028210a5700ede92673d155af6de97210292770bfb31363691dad07c4"
+      },
+      {
+        "path": "golang.org/x/sys@v0.28.0/windows/zsyscall_windows.go",
+        "size": 206316,
+        "sha256": "3182516f373d9992934ed52fee0efd37f9b721e0f73640f03ad541d09c790c50"
+      }
+    ],
+    "exitCode": 0,
+    "generated": {
+      "size": 206316,
+      "sha256": "3182516f373d9992934ed52fee0efd37f9b721e0f73640f03ad541d09c790c50"
+    },
+    "matchesSelectedModuleFile": true,
+    "networkDisabled": true,
+    "localReport": {
+      "file": ".local/v010-tests/uosc-module-generator-fdqfpo7p/report.json",
+      "size": 3547,
+      "sha256": "dcb9ef0b4855169382ca93f750a278f9442e553d76e86ea530c982f8ab6c273e"
+    },
+    "args": [
+      "@ROOT@\\.local\\v010-tests\\uosc-rebuild-2bvd19tx\\sdk\\go\\bin\\go.exe",
+      "run",
+      "@ROOT@\\.local\\v010-tests\\uosc-rebuild-2bvd19tx\\modules\\golang.org\\x\\sys@v0.28.0\\windows\\mkwinsyscall\\mkwinsyscall.go",
+      "-output",
+      "@ROOT@\\.local\\v010-tests\\uosc-module-generator-fdqfpo7p\\zsyscall_windows.go",
+      "@ROOT@\\.local\\v010-tests\\uosc-rebuild-2bvd19tx\\modules\\golang.org\\x\\sys@v0.28.0\\windows\\eventlog.go",
+      "@ROOT@\\.local\\v010-tests\\uosc-rebuild-2bvd19tx\\modules\\golang.org\\x\\sys@v0.28.0\\windows\\service.go",
+      "@ROOT@\\.local\\v010-tests\\uosc-rebuild-2bvd19tx\\modules\\golang.org\\x\\sys@v0.28.0\\windows\\syscall_windows.go",
+      "@ROOT@\\.local\\v010-tests\\uosc-rebuild-2bvd19tx\\modules\\golang.org\\x\\sys@v0.28.0\\windows\\security_windows.go",
+      "@ROOT@\\.local\\v010-tests\\uosc-rebuild-2bvd19tx\\modules\\golang.org\\x\\sys@v0.28.0\\windows\\setupapi_windows.go"
+    ],
+    "stdout": {
+      "file": ".local/v010-tests/uosc-module-generator-fdqfpo7p/stdout.log",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    "stderr": {
+      "file": ".local/v010-tests/uosc-module-generator-fdqfpo7p/stderr.log",
+      "size": 0,
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    }
+  },
+  "uosc": {
+    "commit": "d124c2c930d69446448022851373e00ae592390d",
+    "selectedFiles": [
+      {
+        "kind": "uosc",
+        "path": "src/ziggy/commands/clipboard.go",
+        "size": 1066,
+        "sha256": "2843f99c056e21c1c5a3b54ffbd9007c83b70dd6e23ee3d3695bb05dcadecd08",
+        "startsWithPackageDeclaration": true,
+        "individualLicenseHeader": null
+      },
+      {
+        "kind": "uosc",
+        "path": "src/ziggy/commands/download.go",
+        "size": 2406,
+        "sha256": "b3485f191673409da95df35ccb2291e8efd3e3302f05c4839321ccf815bc3b56",
+        "startsWithPackageDeclaration": true,
+        "individualLicenseHeader": null
+      },
+      {
+        "kind": "uosc",
+        "path": "src/ziggy/commands/http.go",
+        "size": 1783,
+        "sha256": "57232d5333afa03ca10eb8e99af8dd9997d0200e08a72e00bcea19005a506816",
+        "startsWithPackageDeclaration": true,
+        "individualLicenseHeader": null
+      },
+      {
+        "kind": "uosc",
+        "path": "src/ziggy/commands/open.go",
+        "size": 546,
+        "sha256": "f260052b6e9fd51fb4c0b3c00f28a8b787ec0452aa675096fb769667764034a4",
+        "startsWithPackageDeclaration": true,
+        "individualLicenseHeader": null
+      },
+      {
+        "kind": "uosc",
+        "path": "src/ziggy/commands/subtitles.go",
+        "size": 5219,
+        "sha256": "f8126605af185d000fe7e0241b1ad6938229180936fc9aad9657e0cd48813c24",
+        "startsWithPackageDeclaration": true,
+        "individualLicenseHeader": null
+      },
+      {
+        "kind": "uosc",
+        "path": "src/ziggy/lib/utils.go",
+        "size": 2092,
+        "sha256": "b7d3ba06770bc165a25437e2b6b4d3792b975b0723dcbd2d7488be027f3e6e7e",
+        "startsWithPackageDeclaration": true,
+        "individualLicenseHeader": null
+      },
+      {
+        "kind": "uosc",
+        "path": "src/ziggy/ziggy.go",
+        "size": 818,
+        "sha256": "b0eb813fd5121ce2fd24a06f47f7f5d3a84436df9dfcfa324c9642bf8c127e33",
+        "startsWithPackageDeclaration": true,
+        "individualLicenseHeader": null
+      }
+    ],
+    "rootLicense": {
+      "archivePath": "LICENSE.LGPL",
+      "retainedFile": "resources/licenses/uosc-LGPL-2.1.txt",
+      "size": 26530,
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+    },
+    "exactHelperLicenseExpressionConfirmed": false
+  },
+  "sdkGenerated": {
+    "path": "go/src/runtime/internal/sys/zversion.go",
+    "size": 61,
+    "sha256": "f69c03727973664529c2e6fa2d2c53b2d3440c887938d0d9b22254f7984052f2",
+    "matchesGeneratorLiteral": true,
+    "generatorSources": [
+      {
+        "path": "go/src/cmd/dist/buildruntime.go",
+        "size": 2537,
+        "sha256": "9540526039025905439efd7445deee8b2f765178e3943cb3281b6812d49cb768"
+      },
+      {
+        "path": "go/src/cmd/dist/buildgo.go",
+        "size": 4352,
+        "sha256": "166d2a95ed900fc3b87e6f098ba164efe95ad005c17c08ddada8577d31e40971"
+      }
+    ],
+    "fullToolDistReexecuted": false
+  },
+  "remaining": [
+    "Go标准库其余选中输入的逐文件版权/适用审阅尚未完成",
+    "x/sys mkerrors/mkknownfolderids选择当时本机最新Windows SDK头文件，归档未固定该输入版本；未重生成两张表",
+    "uosc七文件无单独许可头，只有根LGPL2.1正文；不由模板推断helper精确授权表达",
+    "原始helper代码/数据节与重建不同，不能由本次单文件重生成证明整个二进制可复现",
+    "MPV聚合来源、纹理字体材料及W/P仍未完成"
+  ],
+  "finalAudit": {
+    "textFiles": 110,
+    "localLinks": 246,
+    "productInputsMatched": 75,
+    "artifactHashesMatched": 2,
+    "validationLogHashesMatched": 7,
+    "mantineOriginalsMatched": 15,
+    "originalLicenseUnchanged": true,
+    "localGeneratorReportAndOutputMatched": true,
+    "appBuildAndPlaybackTestsRepeated": false
+  }
+}

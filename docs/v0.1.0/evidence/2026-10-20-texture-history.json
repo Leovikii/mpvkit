@@ -1,0 +1,42 @@
+{
+  "schemaVersion": 1,
+  "sourceHistoryVerified": true,
+  "licenseMappingComplete": false,
+  "generationReproduced": false,
+  "introduction": {
+    "commit": "c909409254321e437dcb392ed235a60cdf4aa160",
+    "url": "https://github.com/tomasklaen/uosc/commit/c909409254321e437dcb392ed235a60cdf4aa160",
+    "font": "d25fed5abcaf8a99a97ce75e2010c3ac6f912dec",
+    "project": "e8fd2f43c405d2490546c09369c7bbeceeec191f"
+  },
+  "alignment": {
+    "commit": "cabe84daf9f974b7cd9cb6f4bbb57f1b0c43e93b",
+    "url": "https://github.com/tomasklaen/uosc/commit/cabe84daf9f974b7cd9cb6f4bbb57f1b0c43e93b",
+    "font": "e89f1d8cb87262b02db089894e92a52e71f8bf8c",
+    "changedSource": "a71634046bff05ed9dea629b795bb6f838deb6de",
+    "projectChanged": false,
+    "discussion": "https://github.com/tomasklaen/uosc/pull/222"
+  },
+  "dist": {
+    "url": "https://api.github.com/repos/tomasklaen/uosc/contents/dist/fonts/uosc_textures.ttf?ref=656ddcfb9bd31bf10ff7fe043b8c09b71c860030",
+    "commit": "656ddcfb9bd31bf10ff7fe043b8c09b71c860030",
+    "path": "dist/fonts/uosc_textures.ttf",
+    "gitBlob": "e89f1d8cb87262b02db089894e92a52e71f8bf8c",
+    "size": 38228,
+    "sha256": "ccc0660f284dfceb5ab31eb363ccb2355df30fcdf628e781ee374b7d4172ada5"
+  },
+  "currentPath": {
+    "commit": "c173641ea54e22168b4013a0395b02519434725d",
+    "url": "https://github.com/tomasklaen/uosc/commit/c173641ea54e22168b4013a0395b02519434725d",
+    "filename": "src/fonts/uosc_textures.ttf",
+    "previous_filename": "dist/fonts/uosc_textures.ttf",
+    "sha": "e89f1d8cb87262b02db089894e92a52e71f8bf8c",
+    "status": "renamed"
+  },
+  "authorStatement": {
+    "author": "tomasklaen",
+    "url": "https://github.com/tomasklaen/uosc/issues/206#issuecomment-1248139886",
+    "excerpt": "I'll research creating my own font and implementing it that way."
+  },
+  "limitation": "来源与修改历史不构成精确许可声明或源工程可重建证明；JSON工程没有随最终字体对齐修正更新。"
+}

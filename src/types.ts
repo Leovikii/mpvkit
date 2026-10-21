@@ -1,0 +1,14 @@
+export type AppSettings = { schemaVersion: number; language: string; theme: string; accent: string; background: string };
+export type Environment = { languages: string[]; dark: boolean; accent: string; highContrast: boolean; materialAllowed: boolean };
+export type IntegrationState = { registered: boolean; valid: boolean; recoveryRequired: boolean; issue: string | null };
+export type Report = { root: string; externalMpv: string | null; configDirectory: string; generation: string | null; components: { id: string; version: string | null; ready: boolean; issues: string[] }[]; playerReady: boolean; componentsReady: boolean; settingsReady: boolean; completed: boolean; nextStep: string; recoveryRequired: boolean; integration: IntegrationState; issues: string[] };
+export type Settings = { schemaVersion: number; profile: string; overrides: { subtitleSize?: number | null; osdSize?: number | null; volume?: number | null; hardwareDecoding?: boolean | null }; playback: { displayId: string | null; width: number | null; height: number | null; manualProfile: boolean; hdr: string; audioLanguages: string[]; subtitleLanguages: string[] } };
+export type Device = { preferredDisplay: string | null; displays: { id: string; name: string; adapter: string; primary: boolean; width: number; height: number; hdrSupported: boolean | null; hdrEnabled: boolean | null }[]; adapters: string[]; onBattery: boolean | null; batterySaver: boolean | null; recommendedProfile: string; notes: string[] };
+export type Asset = { id: string; version: string; size: number; url: string; sha256: string };
+export type Deployment = { id: string; root: string; conflicts: string[]; noChanges: boolean; changes: {path: string; before: string | null; after: string | null}[] };
+export type Registration = { id: string; conflicts: string[]; skipped: string[]; action: string; values: {key: string; name: string; before: unknown; after: unknown}[] };
+export type TargetPreview = { id: string; beforeUnavailable: boolean; before: {root: string}; after: {root: string} };
+export type Progress = {component: string; phase: string; received: number; total: number};
+export type Preview = { kind: "target"; data: TargetPreview } | { kind: "install" | "playback" | "maintenance"; data: Deployment } | { kind: "integration"; data: Registration } | { kind: "download"; data: null } | {kind: "logs" | "assets" | "diagnostics"; data: {id: string; [key: string]: unknown}};
+export const defaultSettings: Settings = {schemaVersion: 2, profile: "balanced", overrides: {}, playback: {displayId:null,width:null,height:null,manualProfile:false,hdr:"auto",audioLanguages:[],subtitleLanguages:[]}};
+export const defaultAppSettings: AppSettings = {schemaVersion:1,language:"system",theme:"system",accent:"system",background:"auto"};

@@ -1,0 +1,37 @@
+{
+  "query": "https://api.github.com/repos/tomasklaen/uosc/commits?sha=d124c2c930d69446448022851373e00ae592390d&path=src%2Fziggy&per_page=20",
+  "fixedRevision": "d124c2c930d69446448022851373e00ae592390d",
+  "scope": "src/ziggy history at the fixed revision; not a binary VCS attestation",
+  "commits": [
+    {
+      "sha": "6b53f5a95e779554de6d0779331bd048689998db",
+      "committerDate": "2024-12-07T18:12:51Z",
+      "subject": "feat: added `open` ziggy command",
+      "url": "https://github.com/tomasklaen/uosc/commit/6b53f5a95e779554de6d0779331bd048689998db"
+    },
+    {
+      "sha": "50ae36e14890891a231185e400c32d92a77e13f0",
+      "committerDate": "2024-12-07T12:23:12Z",
+      "subject": "feat: added http and file download commands to ziggy",
+      "url": "https://github.com/tomasklaen/uosc/commit/50ae36e14890891a231185e400c32d92a77e13f0"
+    },
+    {
+      "sha": "6ef8af59ea5dddcb34df6fb392bfd2d2fc2663f5",
+      "committerDate": "2024-09-06T09:34:49Z",
+      "subject": "fix: getting unsuported formats from clipboard returning unhelpful error message",
+      "url": "https://github.com/tomasklaen/uosc/commit/6ef8af59ea5dddcb34df6fb392bfd2d2fc2663f5"
+    },
+    {
+      "sha": "81f402ad736db7b180731a4cd1501c2d98d22f1f",
+      "committerDate": "2023-11-04T11:22:23Z",
+      "subject": "feat: support for paste in menus",
+      "url": "https://github.com/tomasklaen/uosc/commit/81f402ad736db7b180731a4cd1501c2d98d22f1f"
+    },
+    {
+      "sha": "542f0db0fc65cf307ccb383cae15065dfaca3e05",
+      "committerDate": "2023-10-31T16:21:23Z",
+      "subject": "feat: added menu for downloading subtitles from opensubtitles.com (#756)",
+      "url": "https://github.com/tomasklaen/uosc/commit/542f0db0fc65cf307ccb383cae15065dfaca3e05"
+    }
+  ]
+}
