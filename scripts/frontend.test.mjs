@@ -13,5 +13,5 @@ test("all translations have identical named parameters and non-empty text",()=>{
     assert.equal(pair.length,2,key); assert(pair.every(x=>x.trim().length),key);
     assert.deepEqual([...pair[0].matchAll(/\{\w+\}/g)].map(x=>x[0]).sort(),[...pair[1].matchAll(/\{\w+\}/g)].map(x=>x[0]).sort(),key);
   }
-  assert.equal(translator("en")("progress",{current:2,total:4}),"Step 2 of 4");
+  assert.equal(translator("en")("fileChanges",{count:2}),"File changes (2)");
 });

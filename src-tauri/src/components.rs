@@ -436,16 +436,11 @@ mod tests;
 
 pub fn prepare_install(
     root: &std::path::Path,
-    external_mpv: Option<&str>,
+    integration_enabled: bool,
     replace_existing: bool,
     cancel: &AtomicBool,
     progress: &mut impl FnMut(Progress),
 ) -> Result<deploy::DeploymentPlan> {
-    let external = external_mpv.map(crate::mpv::executable_path).transpose()?;
-    if let Some(player) = &external {
-        crate::mpv::inspect(player)?;
-        crate::mpv::ensure_managed_options(player)?;
-    }
     // Inspect ownership and interrupted operations before fetching anything.
     if crate::deploy::status(root)?.recovery_required {
         return Err(AppError::new(
@@ -457,9 +452,6 @@ pub fn prepare_install(
     let mut payloads = Vec::new();
     let mut versions = std::collections::BTreeMap::new();
     for asset in crate::components::ASSETS {
-        if asset.id == "mpv" && external.is_some() {
-            continue;
-        }
         let bytes = acquire(asset, cancel, progress)?;
         progress(Progress {
             component: asset.id.into(),
@@ -470,13 +462,32 @@ pub fn prepare_install(
         payloads.extend(crate::components::unpack(asset, &bytes, cancel)?);
         versions.insert(asset.id.into(), asset.version.into());
     }
-    payloads.extend(license_materials(external.is_none()));
-    let player = external
-        .as_ref()
-        .cloned()
-        .unwrap_or_else(|| root.join("mpv.exe"));
-    let settings = crate::config::read(root)?;
-    payloads.extend(crate::config::generate(root, &player, &settings)?);
+    payloads.extend(license_materials());
+    payloads.extend(crate::config::runtime_files()?);
+    let state_path = root.join(".mpvkit/settings.json");
+    let state_hash = deploy::file_hash(&state_path)?;
+    let mut state = crate::config::portable::read_state(root)?;
+    state.integration_enabled = integration_enabled;
+    state.manual_config |= crate::config::modified(root)?;
+    payloads.push(Payload {
+        path: ".mpvkit/settings.json".into(),
+        bytes: serde_json::to_vec_pretty(&state)
+            .map_err(|_| error("settings_encode", "无法生成设置。"))?,
+    });
+    if let Some(m) = deploy::status(root)?.manifest {
+        for f in &m.files {
+            if crate::config::editable(&f.path) {
+                // Do not recreate missing user configuration during component updates.
+                payloads.retain(|p| p.path != f.path);
+                if deploy::file_hash(&root.join(&f.path))?.is_some() {
+                    payloads.push(Payload {
+                        path: f.path.clone(),
+                        bytes: deploy::read_bytes(&root.join(&f.path))?,
+                    });
+                }
+            }
+        }
+    }
     if cancel.load(std::sync::atomic::Ordering::Relaxed) {
         return Err(AppError::new(
             "cancelled",
@@ -484,7 +495,9 @@ pub fn prepare_install(
             "components",
         ));
     }
-    crate::deploy::prepare_install(root, payloads, replace_existing, external, versions)
+    let mut plan = crate::deploy::prepare_install(root, payloads, replace_existing, versions)?;
+    plan.guard(state_path, state_hash);
+    Ok(plan)
 }
 
 fn acquire(
@@ -521,7 +534,7 @@ fn acquire(
     download(asset, cancel, progress)
 }
 
-fn license_materials(include_player: bool) -> Vec<Payload> {
+fn license_materials() -> Vec<Payload> {
     let mut files = vec![
         ("LXGWWenKaiScreen-OFL.txt",include_bytes!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt").as_slice()),
         ("uosc-LGPL-2.1.txt",include_bytes!("../../resources/licenses/uosc-LGPL-2.1.txt").as_slice()),
@@ -535,28 +548,26 @@ fn license_materials(include_player: bool) -> Vec<Payload> {
         ("uosc-go-NOTICES.txt",include_bytes!("../../resources/licenses/uosc-go-NOTICES.txt").as_slice()),
         ("source-materials.json",include_bytes!("../../resources/source-materials.json").as_slice()),
         ("catalog.json",include_bytes!("../../resources/catalog.json").as_slice()),
-        ("THIRD-PARTY.txt", "MpvKit 开发基线第三方材料\n\n这些文本保留固定组件已核对的上游许可与来源，不代表聚合分发材料齐备或发布已验收。\nMPV 核心 Copyright 声明 GPLv2 或以后；实际 FFmpeg 构建日志声明 GPLv3 或以后。\nuosc 上游附 LGPL2.1 文本，Go 辅助程序内嵌依赖版本及三份模块许可、Go1.23.1许可/PATENTS已保留；Go源码33份独立声明和14个已审阅版权/许可段落已保守保留；完整对应源码及链接适用仍需审阅。\nuosc_icons.otf 与 Google Material Icons Round 固定提交 1c575764826fa5752ddc2bdc6b31ef7cc3233371 原文件逐字节一致，未修改；Apache-2.0 许可原文已保留。Copyright 2019 Google LLC. All Rights Reserved. 纹理字体的完整许可映射仍未完成。\nthumbfast 固定源码及 MPL2 文本未修改。外部播放器仍归用户所有。\n完整固定来源见 catalog.json / source-materials.json；releaseReady=false。\n".as_bytes()),
+        ("THIRD-PARTY.txt", "MpvKit 开发基线第三方材料\n\n这些文本保留固定组件已核对的上游许可与来源，不代表聚合分发材料齐备或发布已验收。\nMPV 核心 Copyright 声明 GPLv2 或以后；实际 FFmpeg 构建日志声明 GPLv3 或以后。\nuosc 上游附 LGPL2.1 文本，Go 辅助程序内嵌依赖版本及三份模块许可、Go1.23.1许可/PATENTS已保留；Go源码33份独立声明和14个已审阅版权/许可段落已保守保留；完整对应源码及链接适用仍需审阅。\nuosc_icons.otf 与 Google Material Icons Round 固定提交 1c575764826fa5752ddc2bdc6b31ef7cc3233371 原文件逐字节一致，未修改；Apache-2.0 许可原文已保留。Copyright 2019 Google LLC. All Rights Reserved. 纹理字体的完整许可映射仍未完成。\nthumbfast 固定源码及 MPL2 文本未修改。\n完整固定来源见 catalog.json / source-materials.json；releaseReady=false。\n".as_bytes()),
     ];
-    if include_player {
-        files.extend([
-            (
-                "mpv-Copyright.txt",
-                include_bytes!("../../resources/licenses/mpv-Copyright.txt").as_slice(),
-            ),
-            (
-                "mpv-GPL-2.txt",
-                include_bytes!("../../resources/licenses/mpv-GPL-2.txt").as_slice(),
-            ),
-            (
-                "mpv-LGPL-2.1.txt",
-                include_bytes!("../../resources/licenses/mpv-LGPL-2.1.txt").as_slice(),
-            ),
-            (
-                "ffmpeg-GPL-3.txt",
-                include_bytes!("../../resources/licenses/ffmpeg-GPL-3.txt").as_slice(),
-            ),
-        ]);
-    }
+    files.extend([
+        (
+            "mpv-Copyright.txt",
+            include_bytes!("../../resources/licenses/mpv-Copyright.txt").as_slice(),
+        ),
+        (
+            "mpv-GPL-2.txt",
+            include_bytes!("../../resources/licenses/mpv-GPL-2.txt").as_slice(),
+        ),
+        (
+            "mpv-LGPL-2.1.txt",
+            include_bytes!("../../resources/licenses/mpv-LGPL-2.1.txt").as_slice(),
+        ),
+        (
+            "ffmpeg-GPL-3.txt",
+            include_bytes!("../../resources/licenses/ffmpeg-GPL-3.txt").as_slice(),
+        ),
+    ]);
     files
         .into_iter()
         .map(|(name, bytes)| Payload {

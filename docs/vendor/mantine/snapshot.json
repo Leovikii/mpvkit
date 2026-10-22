@@ -99,6 +99,69 @@
       "size": 28111,
       "sha256": "b1889eabaf8b3ca7d423711c831936b5ce80b35dc54ac321b819da8504d7cbc4",
       "retrievedOn": "2026-10-21"
+    },
+    {
+      "file": "core-tabs.md",
+      "url": "https://mantine.dev/llms/core-tabs.md",
+      "retrievedOn": "2026-10-22",
+      "size": 21288,
+      "sha256": "3f1759f48abbdfd2485d134e7a55cf686ee835be8965071734e2b1b5c4976b2d"
+    },
+    {
+      "file": "core-app-shell.md",
+      "url": "https://mantine.dev/llms/core-app-shell.md",
+      "retrievedOn": "2026-10-22",
+      "size": 27890,
+      "sha256": "ec89d5360a5c56ab0dff6e090a3c4f4f8be8e22e4e228951328f34b7e8496de0"
+    },
+    {
+      "file": "core-nav-link.md",
+      "url": "https://mantine.dev/llms/core-nav-link.md",
+      "retrievedOn": "2026-10-22",
+      "size": 7994,
+      "sha256": "aeacbcc78daf78d9cb81b181c9b4a1f26d7c48eb0e0b7ae10b6883bfd73b98cd"
+    },
+    {
+      "file": "core-accordion.md",
+      "url": "https://mantine.dev/llms/core-accordion.md",
+      "retrievedOn": "2026-10-22",
+      "size": 20246,
+      "sha256": "b6a44e0ecf3655e10f89c924f60fb38e9cca643129f1eb0e5f0d60081fd43426"
+    },
+    {
+      "file": "core-group.md",
+      "url": "https://mantine.dev/llms/core-group.md",
+      "retrievedOn": "2026-10-22",
+      "size": 4641,
+      "sha256": "75491abadac2f13bd6156823395a6499852adc0d5fb299f32762bed7b1a60be0"
+    },
+    {
+      "file": "core-stack.md",
+      "url": "https://mantine.dev/llms/core-stack.md",
+      "retrievedOn": "2026-10-22",
+      "size": 2071,
+      "sha256": "195174a00520994a70ef9b38859d64fa939e02d67762ec0006efb797074c7012"
+    },
+    {
+      "file": "core-tooltip.md",
+      "url": "https://mantine.dev/llms/core-tooltip.md",
+      "retrievedOn": "2026-10-22",
+      "size": 19402,
+      "sha256": "9a9db3b65ecb34659d8e6ef2b20eb598c16215717f3a393559869b9d201b3d48"
+    },
+    {
+      "file": "core-transition.md",
+      "url": "https://mantine.dev/llms/core-transition.md",
+      "retrievedOn": "2026-10-22",
+      "size": 7907,
+      "sha256": "6973f082d749f71dde58f58caf7d75ae6249e0d7066d055afe669496016e64f7"
+    },
+    {
+      "file": "hooks-use-reduced-motion.md",
+      "url": "https://mantine.dev/llms/hooks-use-reduced-motion.md",
+      "retrievedOn": "2026-10-22",
+      "size": 1444,
+      "sha256": "5ca7d16e24fc11659fae50dbca4be04af4c5598d5a3b72db24d6f5a4eff9e554"
     }
   ]
 }

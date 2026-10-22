@@ -59,9 +59,7 @@ pub fn managed_executable(
     root: &Path,
     manifest: &crate::deploy::InstallManifest,
 ) -> Result<PathBuf> {
-    let player = if let Some(external) = &manifest.external_mpv {
-        external.clone()
-    } else {
+    let player = {
         if !manifest
             .files
             .iter()
@@ -86,7 +84,7 @@ pub fn managed_executable(
                 ));
             }
         }
-        crate::config::player_path(root, manifest)
+        crate::config::player_path(root)
     };
     executable_path(
         player
@@ -159,7 +157,6 @@ pub(crate) fn capture_command(mut command: Command, timeout: Duration) -> Result
 pub struct MpvInfo {
     pub executable: PathBuf,
     pub version: String,
-    pub ownership: &'static str,
 }
 
 pub fn inspect(executable: &Path) -> Result<MpvInfo> {
@@ -202,10 +199,10 @@ pub fn inspect(executable: &Path) -> Result<MpvInfo> {
     Ok(MpvInfo {
         executable: executable.to_path_buf(),
         version,
-        ownership: "external",
     })
 }
 
+#[cfg(test)]
 pub fn launch_args(config: &Path, media: &Path) -> Vec<OsString> {
     let mut config_arg = OsString::from("--config-dir=");
     config_arg.push(config);

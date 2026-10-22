@@ -72,7 +72,11 @@ pub fn helper(args: &[String]) -> i32 {
         let revision = args[4]
             .parse::<u64>()
             .map_err(|_| error("helper_arguments", "修订数无效。"))?;
-        save(Path::new(&args[2]), profile, revision, &args[5])
+        let root = crate::platform::app_root()?;
+        if Path::new(&args[2]) != root {
+            return Err(error("fixed_root", "只能保存当前播放器配置。"));
+        }
+        save(&root, profile, revision, &args[5])
     })();
     match result {
         Ok(value) => {

@@ -1,6 +1,6 @@
 {
   "name": "mpvkit",
-  "version": "0.1.3",
+  "version": "0.1.5",
   "private": true,
   "type": "module",
   "packageManager": "pnpm@11.25.0",
@@ -12,9 +12,9 @@
     "typecheck": "tsc --noEmit",
     "build": "pnpm typecheck && vite build",
     "tauri": "tauri",
-    "test:e2e": "node --test --test-concurrency=1 scripts/native-v013.test.mjs",
+    "test:e2e": "node --test --test-concurrency=1 scripts/native-v015.test.mjs",
     "test:frontend": "node --test scripts/frontend.test.mjs",
-    "test:e2e:smoke": "node --test --test-concurrency=1 --test-name-pattern=\"native defaults\" scripts/native-v013.test.mjs"
+    "test:e2e:smoke": "node --test --test-concurrency=1 --test-name-pattern=\"native sidebar\" scripts/native-v015.test.mjs"
   },
   "dependencies": {
     "@mantine/core": "9.7.3",

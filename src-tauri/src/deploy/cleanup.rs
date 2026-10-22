@@ -313,7 +313,6 @@ mod tests {
                     bytes: value.as_bytes().into(),
                 }],
                 true,
-                None,
                 Default::default(),
             )
             .unwrap(),

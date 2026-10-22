@@ -218,7 +218,7 @@ fn fixed_archives_extract_and_deploy() {
             font["sha256"].as_str().unwrap()
         );
     }
-    files.extend(license_materials(true));
+    files.extend(license_materials());
     let total: usize = files.iter().map(|p| p.bytes.len()).sum();
     let count = files.len();
     let root = std::env::temp_dir().join(format!("mpvkit-components-{}", deploy::operation_id()));
@@ -226,15 +226,15 @@ fn fixed_archives_extract_and_deploy() {
         .iter()
         .map(|a| (a.id.into(), a.version.into()))
         .collect();
-    let plan = deploy::prepare_install(&root, files, false, None, versions).unwrap();
+    let plan = deploy::prepare_install(&root, files, false, versions).unwrap();
     assert!(!root.exists());
     let status = deploy::execute(plan).unwrap();
     assert_eq!(status.manifest.unwrap().files.len(), count);
-    for material in license_materials(true) {
+    for material in license_materials() {
         assert_eq!(fs::read(root.join(&material.path)).unwrap(), material.bytes);
     }
     deploy::execute(deploy::prepare_uninstall(&root).unwrap()).unwrap();
-    for material in license_materials(true) {
+    for material in license_materials() {
         assert!(!root.join(&material.path).exists());
     }
     println!(
@@ -323,7 +323,6 @@ fn exercise_graphics(
             &root,
             files,
             false,
-            None,
             ASSETS
                 .iter()
                 .map(|a| (a.id.into(), a.version.into()))
@@ -370,7 +369,7 @@ mp.add_timeout(12, report)
             profile,
             ..Default::default()
         };
-        deploy::execute(crate::config::prepare(&root, settings).unwrap()).unwrap();
+        deploy::execute(crate::config::prepare_portable(&root, settings, false).unwrap()).unwrap();
         let session = root.join(format!("probe-{}", profile.id()));
         fs::create_dir(&session).unwrap();
         let log = session.join("player.log");
@@ -466,11 +465,11 @@ fn embedded_provenance_matches_actual_download_contract_and_has_honest_release_g
 }
 
 #[test]
-fn deployed_license_materials_preserve_fixed_bytes_and_external_player_ownership() {
+fn deployed_license_materials_preserve_fixed_bytes() {
     let index: serde_json::Value =
         serde_json::from_str(include_str!("../../../resources/source-materials.json")).unwrap();
     assert_eq!(index["releaseReady"], false);
-    let files = license_materials(true);
+    let files = license_materials();
     for material in index["materials"].as_array().unwrap() {
         let path = format!("licenses/{}", material["file"].as_str().unwrap());
         let file = files.iter().find(|f| f.path == path).unwrap();
@@ -480,11 +479,6 @@ fn deployed_license_materials_preserve_fixed_bytes_and_external_player_ownership
             material["sha256"].as_str().unwrap()
         );
     }
-    assert!(
-        !license_materials(false)
-            .iter()
-            .any(|f| f.path == "licenses/mpv-Copyright.txt")
-    );
 }
 
 #[test]

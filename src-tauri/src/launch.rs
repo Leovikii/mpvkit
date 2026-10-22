@@ -38,14 +38,13 @@ pub struct LaunchPlan {
     generation: Option<String>,
 }
 
-pub fn prepare(root: &Path, executable: &str, media: &str) -> Result<LaunchPlan> {
+fn new_plan(root: &Path, info: MpvInfo, media: &str) -> Result<LaunchPlan> {
     platform::validate_local_path(root)?;
     crate::logs::check_capacity(root)?;
-    let executable = mpv::executable_path(executable)?;
+    let executable = &info.executable;
     let media = PathBuf::from(media);
-    let executable_stamp = mpv::file_stamp(&executable)?;
+    let executable_stamp = mpv::file_stamp(executable)?;
     let media_stamp = mpv::file_stamp(&media)?;
-    let info = mpv::inspect(&executable)?;
     let nanos = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap_or_default()
@@ -56,10 +55,6 @@ pub fn prepare(root: &Path, executable: &str, media: &str) -> Result<LaunchPlan>
         NEXT_ID.fetch_add(1, Ordering::Relaxed)
     );
     let config_directory = crate::logs::directory(root)?.join(&id);
-    let arguments = mpv::launch_args(&config_directory, &media)
-        .into_iter()
-        .map(|value| value.to_string_lossy().into_owned())
-        .collect();
     Ok(LaunchPlan {
         root: root.into(),
         preview: LaunchPreview {
@@ -67,11 +62,8 @@ pub fn prepare(root: &Path, executable: &str, media: &str) -> Result<LaunchPlan>
             mpv: info,
             media,
             config_directory: config_directory.clone(),
-            arguments,
-            changes: vec![
-                "创建本次专用空配置目录及 session.json、session.log；不覆盖现有文件。".into(),
-                "执行所选外部 MPV，使用原生默认值播放所选本地文件。".into(),
-            ],
+            arguments: vec![],
+            changes: vec![],
         },
         created: Instant::now(),
         executable_stamp,
@@ -83,6 +75,13 @@ pub fn prepare(root: &Path, executable: &str, media: &str) -> Result<LaunchPlan>
 }
 
 pub fn prepare_managed(root: &Path, media: &str) -> Result<LaunchPlan> {
+    if !crate::config::portable::ready(root)? {
+        return Err(AppError::new(
+            "settings_required",
+            "请先安装或修复播放配置。",
+            "launch",
+        ));
+    }
     let status = crate::deploy::status(root)?;
     if status.recovery_required {
         return Err(AppError::new(
@@ -130,18 +129,7 @@ pub fn prepare_managed(root: &Path, media: &str) -> Result<LaunchPlan> {
         crate::deploy::file_hash(&manifest_path)?,
     ));
     let config_directory = root.join(&manifest.config_directory);
-    let mut plan = prepare(
-        root,
-        player
-            .to_str()
-            .ok_or_else(|| AppError::new("invalid_path", "播放器路径不是有效文本。", "launch"))?,
-        media,
-    )?;
-    plan.preview.mpv.ownership = if manifest.external_mpv.is_some() {
-        "external"
-    } else {
-        "managed"
-    };
+    let mut plan = new_plan(root, mpv::inspect(&player)?, media)?;
     plan.preview.config_directory = config_directory;
     let mut args = vec![
         "--config=yes".into(),

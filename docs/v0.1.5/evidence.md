@@ -1,0 +1,57 @@
+# v0.1.5 本地验证
+
+日期：2026-10-22。Windows x64，Mantine 9.7.3，固定 MPV 构建与组件来源不变。用户已批准本版实现及必要测试；无 GitHub Actions、历史版迁移、安装包或发布。
+
+## 已完成
+
+- 删除硬件检测模块/IPC、显示器/分辨率字段、供电推荐和 HDR 硬件预校验；固定默认均衡、HDR Auto。保留 Mica/主题/DPI 平台行为。
+- AppShell/NavLink 侧栏、完整应用设置页、统一 Paper/Accordion；页面 fade-up 与库内动效、reduce 回退。移除语种控件与默认语种/文件编辑说明、自动 HDR 冗余提示；画质建议、冲突与删除/重置后果保留。
+- alang/slang 初次写入非 GUI 管理区；手改或删除后保存画质继续保留，重置主配置才恢复默认。没有新设置文件或旧格式兼容。
+
+## 检查结果
+
+| 检查 | 结果 |
+| --- | --- |
+| Rust 默认测试 | 55 通过，6 个显式环境入口默认忽略 |
+| Windows 原生登记私有蜂巢 | 1 通过；没有触及实际用户注册表 |
+| 前端翻译与语言测试 | 2 通过 |
+| 类型检查 / Vite | 通过 |
+| cargo fmt / clippy --all-targets -D warnings | 通过 |
+| 依赖声明 collect-app-notices --check | 321 包、567 份材料，缺失为空 |
+| 单 EXE | pnpm tauri build --debug --no-bundle；bundle.active=false |
+
+最终 EXE 原生回归：4 通过、0 失败/忽略，136.71 秒。真实 MPV 选轨 52 组通过。覆盖安装/配置分离、预览取消、差异展开、GUI/原生 profile 与稳定 helper、默认集成及关闭、手改/删除语种保留、重置/撤销、卸载重装保留与核心丢失后草稿恢复。
+
+侧栏交互检查：双语/主题，640×600、900×700、1200×800 三页横向边界，200% 根字号，键盘 Tab/Enter/窄栏提示，页面正常/reduce 动效与重复选择不重挂载。浏览器原生窗口截图已查看播放器、播放设置与配置差异；Mica 的底层合成不由 WebView 页面截图证明；PNG 中窗口基底 alpha=0、深色选中底 alpha=14（白色），查看器忽略 alpha 时可能显示黑底/白块，不能据此判定真实材质或对比度。完整焦点锁/回焦/Esc 验证此前在隔离 Mantine 预览通过；本版原生测试验证取消和状态保留，不冒充全面屏幕阅读器验收。
+
+文档本地链接、Mantine 原文快照摘要、git diff --check 通过。
+
+## 验证边界
+
+所有安装、配置、默认语种和系统登记测试使用全新隔离目录；真实播放只用合成媒体和经过摘要校验的固定 MPV/FFmpeg。原生登记测试使用私有蜂巢，应用测试使用隔离登记后端，不更改实际默认应用。
+
+选轨覆盖默认表所有标签、标准二/三字母与大小写别名、四组语言逐级缺失、默认/强制标记、缺失标签、外挂字幕和显式手动选轨。语种标签错误或未枚举的地区标签仍不是无条件保证。
+
+实体 HDR 输出、高刷/功耗、原生 Mica/DPI/高对比与屏幕阅读器全面验收、干净系统和完整来源许可审阅仍未完成。vo=null 选轨及参数检查不证明 HDR 显示正确；截图不证明原生材质。普通自动测试默认忽略的真实网络/归档矩阵未全部重跑。
+
+## 本机记录
+
+日志位于忽略目录 .local：v015-unit.log、v015-private-hive.log、v015-clippy.log、v015-build.log、v015-native-final.log。首次沙盒测试因原子替换/回环网络权限失败，在宿主隔离环境重跑通过；选轨样例的大小写文件名冲突已修正，弹窗差异检查改为等待 Accordion 展开。
+
+## 最终测试程序
+
+- 路径：src-tauri/target/debug/mpvkit.exe
+- 版本：0.1.5；构建时间：2026-10-22 19:45:45（Asia/Hong_Kong）。
+- 大小：31457280 字节。
+- SHA-256：56BA4E6476B496BE6BD43D9DA040D703ECA9DB3393789137A933A4D20E070E61。
+- 最终四组原生测试使用此 EXE；其后仅更新交接文档，没有修改产品源码或重建。
+
+本机证据目录（Git 忽略）：
+
+- .local/e2e-artifacts/mpvkit-v015-RVM5Ro：安装、配置差异、手改保护和 helper。
+- .local/e2e-artifacts/mpvkit-v015-ui-6xOeoQ：双语、主题、窄栏键盘、正常/reduce 动效。
+- .local/e2e-artifacts/mpvkit-v015-lifecycle-0meClY：生命周期、配置草稿及三页多尺寸截图。
+- 真实播放组见 .local/e2e-artifacts/mpvkit-v015-player-*，本次 run 时间对应 v015-native-final.log。
+- 52 组选轨 JSON：系统临时目录 mpvkit-v015-tracks-hGf6aZ。
+
+交付后复核：独立预览补删页面推荐、默认行为和写入前说明，并重新通过 preview/check.mjs；源码界面原本已删除，最终 EXE 无需重建。当前批次（含尚未提交的 v0.1.4 基础工作）已获用户提交/推送授权。

@@ -62,7 +62,7 @@ pub struct Registry {
 impl Registry {
     pub fn current(root: &Path) -> Self {
         #[cfg(debug_assertions)]
-        if std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
+        if cfg!(test) || std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
             return Self::isolated(root);
         }
         let _ = root;
@@ -173,6 +173,10 @@ impl Registry {
         Ok(Some(RegistryData { kind, bytes }))
     }
     pub fn write(&self, key: &str, name: &str, data: Option<&RegistryData>) -> Result<()> {
+        #[cfg(test)]
+        if FAIL_WRITE.with(|fail| fail.replace(false)) {
+            return Err(error());
+        }
         if !allowed(key, name) || data.is_some_and(|d| d.bytes.len() > 65536) {
             return Err(error());
         }
@@ -237,3 +241,6 @@ impl Registry {
         }
     }
 }
+
+#[cfg(test)]
+thread_local! { pub(crate) static FAIL_WRITE: std::cell::Cell<bool> = const { std::cell::Cell::new(false) }; }

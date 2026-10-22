@@ -1,4 +1,16 @@
 use super::*;
+pub(super) fn prepare(root: &Path, executable: &str, media: &str) -> Result<LaunchPlan> {
+    let mut plan = new_plan(
+        root,
+        mpv::inspect(&mpv::executable_path(executable)?)?,
+        media,
+    )?;
+    plan.preview.arguments = mpv::launch_args(&plan.session_directory, &plan.preview.media)
+        .into_iter()
+        .map(|s| s.to_string_lossy().into_owned())
+        .collect();
+    Ok(plan)
+}
 use std::sync::OnceLock;
 
 pub(super) struct Sandbox(PathBuf);
@@ -73,7 +85,6 @@ fn preview_is_read_only_and_preserves_unicode_arguments() {
     let plan = sandbox.plan();
     assert!(!sandbox.path("managed").exists());
     assert_eq!(plan.preview.mpv.version, "mpv 0.40.0-fixture");
-    assert_eq!(plan.preview.mpv.ownership, "external");
     assert_eq!(
         plan.preview.arguments.last().unwrap(),
         sandbox.media().to_str().unwrap()
@@ -94,12 +105,21 @@ fn changed_media_invalidates_preview_without_writes() {
 fn changed_executable_invalidates_preview() {
     let sandbox = Sandbox::new();
     let plan = sandbox.plan();
-    OpenOptions::new()
-        .append(true)
-        .open(&plan.preview.mpv.executable)
-        .unwrap()
-        .write_all(b"changed")
-        .unwrap();
+    let deadline = Instant::now() + Duration::from_secs(2);
+    let mut file = loop {
+        match OpenOptions::new()
+            .append(true)
+            .open(&plan.preview.mpv.executable)
+        {
+            Ok(file) => break file,
+            Err(e) if e.raw_os_error() == Some(32) && Instant::now() < deadline => {
+                thread::sleep(Duration::from_millis(20))
+            }
+            Err(e) => panic!("fixture could not be changed: {e}"),
+        }
+    };
+    file.write_all(b"changed").unwrap();
+    drop(file);
     assert_eq!(execute(plan).unwrap_err().code, "stale_preview");
     assert!(!sandbox.path("managed").exists());
 }
@@ -233,17 +253,19 @@ fn managed_launch_checks_owned_files_and_user_additions_before_execution() {
     let sandbox = Sandbox::new();
     let player = sandbox.player("");
     let root = sandbox.path("managed");
-    let files =
-        crate::config::generate(&root, &player, &crate::config::Settings::default()).unwrap();
+    let mut files = crate::config::generate(
+        &root,
+        &root.join("mpv.exe"),
+        &crate::config::Settings::default(),
+    )
+    .unwrap();
+    files.push(crate::deploy::Payload {
+        path: "mpv.exe".into(),
+        bytes: fs::read(&player).unwrap(),
+    });
     crate::deploy::execute(
-        crate::deploy::prepare_install(
-            &root,
-            files,
-            false,
-            Some(player),
-            std::collections::BTreeMap::new(),
-        )
-        .unwrap(),
+        crate::deploy::prepare_install(&root, files, false, std::collections::BTreeMap::new())
+            .unwrap(),
     )
     .unwrap();
     let media = sandbox.media();
@@ -280,10 +302,14 @@ fn missing_optional_components_fall_back_without_loading_scripts_but_modified_co
     let sandbox = Sandbox::new();
     let player = sandbox.player("");
     let root = sandbox.path("managed");
-    let files = crate::config::generate(&root, &player, &Default::default()).unwrap();
+    let mut files =
+        crate::config::generate(&root, &root.join("mpv.exe"), &Default::default()).unwrap();
+    files.push(crate::deploy::Payload {
+        path: "mpv.exe".into(),
+        bytes: fs::read(&player).unwrap(),
+    });
     crate::deploy::execute(
-        crate::deploy::prepare_install(&root, files, false, Some(player), Default::default())
-            .unwrap(),
+        crate::deploy::prepare_install(&root, files, false, Default::default()).unwrap(),
     )
     .unwrap();
     let media = sandbox.media();
@@ -309,34 +335,12 @@ fn missing_optional_components_fall_back_without_loading_scripts_but_modified_co
 }
 
 #[test]
-fn unsupported_player_can_launch_native_but_cannot_deploy_or_load_unsupported_managed_configuration()
- {
-    let sandbox = Sandbox::new();
-    let player = sandbox.player("missing-managed-capability");
-    let media = sandbox.media();
-    let root = sandbox.path("managed");
-    assert!(prepare(&root, player.to_str().unwrap(), media.to_str().unwrap()).is_ok());
-    let result = crate::components::prepare_install(
-        &root,
-        Some(player.to_str().unwrap()),
-        false,
-        &std::sync::atomic::AtomicBool::new(false),
-        &mut |_| {},
-    );
-    assert_eq!(result.err().unwrap().code, "managed_mpv_unsupported");
-    assert!(
-        !root.exists(),
-        "reject unsupported options before download or deployment"
-    );
-}
-
-#[test]
 fn managed_runtime_is_verified_before_launch_and_diagnostic_probes() {
     for changed in ["player", "library", "missing-library", "unowned-player"] {
         let sandbox = Sandbox::new();
         let player_bytes = fs::read(sandbox.player("")).unwrap();
         let root = sandbox.path("managed");
-        let files = vec![
+        let mut files = vec![
             crate::deploy::Payload {
                 path: "mpv.exe".into(),
                 bytes: player_bytes.clone(),
@@ -350,8 +354,14 @@ fn managed_runtime_is_verified_before_launch_and_diagnostic_probes() {
                 bytes: b"volume=40\n".to_vec(),
             },
         ];
+        files.extend(
+            crate::config::generate(&root, &root.join("mpv.exe"), &Default::default())
+                .unwrap()
+                .into_iter()
+                .filter(|f| f.path != "portable_config/mpv.conf"),
+        );
         crate::deploy::execute(
-            crate::deploy::prepare_install(&root, files, false, None, Default::default()).unwrap(),
+            crate::deploy::prepare_install(&root, files, false, Default::default()).unwrap(),
         )
         .unwrap();
         fs::write(root.join("mode"), "record-probes").unwrap();

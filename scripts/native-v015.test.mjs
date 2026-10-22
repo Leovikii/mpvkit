@@ -105,73 +105,77 @@ async function startApp(sandbox, root, appFile = executable) {
   // Verify isolation before any UI action can write preferences or integration state.
   try {
     await page.waitForFunction(()=>!!window.__TAURI_INTERNALS__);
-    const target=await page.evaluate(()=>window.__TAURI_INTERNALS__.invoke("target_status"));
-    assert.equal(path.normalize(target.defaultRoot),path.normalize(path.join(root,"player")),"This binary does not support the isolated test root; no UI mutations allowed");
+    const target=await page.evaluate(()=>window.__TAURI_INTERNALS__.invoke("setup_status"));
+    assert.equal(path.normalize(target.root),path.normalize(path.join(root,"player")),"This binary does not support the isolated test root; no UI mutations allowed");
   } catch(error) {await browser.close().catch(()=>{});if(app.exitCode===null)controlProcess(app.pid,appFile,"stop");throw error;}
   const errors=[];page.on("pageerror",e=>errors.push(e.message));
   return {app,appFile,browser,page,errors,async stop(){await browser.close().catch(()=>{});if(app.exitCode===null)controlProcess(app.pid,appFile,"stop");}};
 }
 const ipc=(page,command,args={})=>page.evaluate(async({command,args})=>{try{return {ok:true,value:await window.__TAURI_INTERNALS__.invoke(command,args)};}catch(error){return {ok:false,error};}},{command,args}).then(r=>{if(!r.ok)throw Object.assign(new Error(r.error.message),r.error);return r.value;});
-async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:"Confirm",exact:true}).click();}
+async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Install configuration|Save changes|Apply changes|Clean cache|Reset configuration|Undo last change|Uninstall player)$/,exact:true}).click();}
 async function settled(page) { await page.locator("main[aria-busy=false]").waitFor(); }
 async function english(page) {
-  await page.getByRole("button",{name:/^(设置|Settings)$/}).first().click();
+  await page.getByRole("button",{name:/^(应用设置|App settings)$/}).click();
   await page.getByRole("combobox",{name:/^(界面语言|Display language)$/}).selectOption("en");
-  await page.getByRole("dialog").getByRole("button",{name:"Close",exact:true}).click();
+  await page.getByRole("button",{name:"Player",exact:true}).click();
 }
-async function advanced(page) { const summary=page.locator("main summary").filter({hasText:/^Advanced options$/}); if (!(await summary.evaluate(el=>el.parentElement.open))) await summary.click(); }
-async function customFolder(page,folder) { await advanced(page);await page.getByLabel("Custom install folder",{exact:true}).check();await page.getByLabel("Install folder",{exact:true}).fill(folder); }
+async function advanced(page) { const summary=page.locator("main button").filter({hasText:/^Advanced options$/}); if (await summary.getAttribute("aria-expanded") !== "true") await summary.click(); }
 async function heading(page,name) {await page.getByRole("heading",{name,exact:true}).first().waitFor();}
-test("native v013 install, manual configuration, native profiles and unified save", {timeout:600000}, async()=>{
- const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-v013-')); const global=path.join(sandbox,'data'); const root=path.join(global,'player');
+test("native v015 install, manual configuration, native profiles and unified save", {timeout:900000}, async()=>{
+ const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-v015-')); const global=path.join(sandbox,'data'); const root=path.join(global,'player');
  const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});let session;const children=[];
+ const copied=path.join(sandbox,'mpvkit.exe');await fs.copyFile(executable,copied);
  try{
-  session=await startApp(sandbox,global);const p=session.page;await english(p);
-  await heading(p,'Install player');assert.equal(await p.getByLabel('Custom install folder',{exact:true}).count(),1);
-  await p.getByRole('button',{name:'Download components',exact:true}).click();await confirm(p);
-  await p.getByRole('dialog').locator('.changes').waitFor();await confirm(p);await heading(p,'Playback settings');
+  session=await startApp(sandbox,global,copied);const p=session.page;await english(p);
+  await heading(p,"Player");assert.equal(await p.getByLabel("Custom install folder",{exact:true}).count(),0);
+  assert.equal(await p.getByRole("button",{name:"Playback",exact:true}).count(),0);
+  await p.getByRole('button',{name:'Install player',exact:true}).click();await confirm(p);
+  await p.getByRole('dialog').locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);await heading(p,'Player');
   let report=await ipc(p,'setup_status');assert.equal(report.componentsReady,true);assert.equal(report.root,root);
-  for(const name of ['mpv.exe','d3dcompiler_43.dll','portable_config/mpv.conf','.mpvkit/settings.json','.mpvkit/launcher/mpvkit.exe'])assert(await exists(path.join(root,name)),name);
+  assert(!await exists(path.join(root,'portable_config/mpv.conf'))); assert(!report.settingsReady); assert(!report.integration.registered);
+  for(const name of ['mpv.exe','d3dcompiler_43.dll','.mpvkit/settings.json','.mpvkit/launcher/mpvkit.exe'])assert(await exists(path.join(root,name)),name);
   for(const name of ['config','runtime','state','launcher','portable_config/user.conf','portable_config/mpvkit-context.json','portable_config/mpvkit-profiles.json'])assert(!await exists(path.join(root,name)),name);
+  await p.getByRole('button',{name:'Generate configuration',exact:true}).click();await heading(p,'Playback');await settled(p);
+  await p.getByRole('button',{name:'Install configuration',exact:true}).click();await p.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert(!await exists(path.join(root,'portable_config/mpv.conf')));
+  await p.getByRole('button',{name:'Install configuration',exact:true}).click();await confirm(p);await settled(p);
   const confPath=path.join(root,'portable_config/mpv.conf');let conf=await fs.readFile(confPath,'utf8');
   assert(conf.includes('[mpvkit-balanced]'));assert(!conf.includes('user.conf'));
-  await p.getByRole('button',{name:'Save and continue',exact:true}).click();await confirm(p);await heading(p,'Add to Open with');
-  await p.getByRole('button',{name:'Add to Open with',exact:true}).click();await confirm(p);await p.getByRole('button',{name:'Finish',exact:true}).click();await heading(p,'Status');
-  assert((await ipc(p,'setup_status')).completed);assert(await exists(path.join(global,'mpvkit.json')));assert(!await exists(path.join(root,'.mpvkit/setup.json')));
-  conf=(await fs.readFile(confPath,'utf8')).replace('save-position-on-quit=yes','save-position-on-quit=no')+'\n# User option\nvolume=23\n';await fs.writeFile(confPath,conf);
-  const settings=await ipc(p,'read_settings');settings.playback.audioLanguages=['ja'];
+  console.log(run(process.execPath,['scripts/test-media-preferences.mjs'],{env:{...process.env,MPVKIT_REAL_MPV:path.join(root,'mpv.exe')},timeout:180000}));
+  assert((await ipc(p,'setup_status')).integration.valid);assert(await exists(path.join(global,'mpvkit.json')));assert(!await exists(path.join(root,'.mpvkit/setup.json')));
+  conf=(await fs.readFile(confPath,'utf8')).replace('save-position-on-quit=yes','save-position-on-quit=no').replace(/^alang=.*$/m,'alang=ja').replace(/^slang=.*\n/m,'')+'\n# User option\nvolume=23\n';await fs.writeFile(confPath,conf);
+  const settings=await ipc(p,'read_settings');settings.profile='high-quality';
   const plan=await ipc(p,'preview_settings',{settings});assert.equal(plan.conflicts.length,0);assert(plan.configurationDiffs.some(d=>d.after.includes('save-position-on-quit=no')));
-  await ipc(p,'apply_deployment',{previewId:plan.id});conf=await fs.readFile(confPath,'utf8');assert(conf.includes('save-position-on-quit=no'));assert(conf.includes('volume=23'));assert(conf.includes('alang=ja'));
-  await fs.writeFile(confPath,conf.replace('alang=ja','alang=en'));
+  await ipc(p,'apply_deployment',{previewId:plan.id});conf=await fs.readFile(confPath,'utf8');assert(conf.includes('save-position-on-quit=no'));assert(conf.includes('volume=23'));assert(conf.includes('alang=ja'));assert(!conf.includes('slang='));
+  await fs.writeFile(confPath,conf.replace('target-trc=auto','target-trc=pq'));
   await assert.rejects(ipc(p,'preview_settings',{settings}),e=>e.code==='config_manual_conflict');
-  await p.getByRole('navigation').getByRole('button',{name:'Playback settings',exact:true}).click();await advanced(p);
-  await p.getByLabel('Replace manually edited GUI settings',{exact:true}).check();await p.getByRole('button',{name:'Save',exact:true}).click();
-  await p.getByRole('dialog').locator('summary').filter({hasText:'portable_config/mpv.conf'}).click();
-  assert(await p.getByRole('dialog').getByText('Before',{exact:true}).isVisible());await p.screenshot({path:path.join(artifacts,'configuration-diff.png')});
-  await p.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert((await fs.readFile(confPath,'utf8')).includes('alang=en'));
+  await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);await advanced(p);
+  await p.getByLabel('Replace manual edits to managed settings',{exact:true}).check();await p.getByRole('button',{name:'Save changes',exact:true}).click();
+  await p.getByRole('dialog').getByRole('button',{name:'portable_config/mpv.conf',exact:true}).click();
+  await p.getByRole('dialog').getByText('Before',{exact:true}).waitFor();await p.screenshot({animations:"disabled",path:path.join(artifacts,'configuration-diff.png')});
+  await p.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert((await fs.readFile(confPath,'utf8')).includes('target-trc=pq'));
   const approved=await ipc(p,'preview_settings',{settings,replaceManual:true});await ipc(p,'apply_deployment',{previewId:approved.id});
   // Real MPV: launch directly beside portable_config, without --config-dir or MPV_HOME.
   const media=path.join(sandbox,'媒体 test.wav');await fs.writeFile(media,wav());const mpv=path.join(root,'mpv.exe');
   const start=async(label,managed)=>{
-    const pipe='\\\\.\\pipe\\mpvkit-v013-'+crypto.randomUUID();
-    if(managed){await fs.appendFile(confPath,'\ninput-ipc-server='+pipe+'\nao=null\nidle=yes\n');const preview=await ipc(p,'preview_launch',{executable:'',media,managed:true});assert(!preview.arguments.some(a=>a.startsWith('--include=')||a.startsWith('--scale=')));await ipc(p,'launch_mpv',{previewId:preview.id});const pid=await latestPlayer(root);children.push({pid,mpv});}
+    const pipe='\\\\.\\pipe\\mpvkit-v015-'+crypto.randomUUID();
+    if(managed){await fs.appendFile(confPath,'\ninput-ipc-server='+pipe+'\nao=null\nidle=yes\n');const preview=await ipc(p,'preview_launch',{media});assert(!preview.arguments.some(a=>a.startsWith('--include=')||a.startsWith('--scale=')));await ipc(p,'launch_mpv',{previewId:preview.id});const pid=await latestPlayer(root);children.push({pid,mpv});}
     else{const env={...process.env,MPVKIT_TEST_MODE:"1",MPVKIT_TEST_ROOT:global};delete env.MPV_HOME;const child=spawn(mpv,['--input-ipc-server='+pipe,'--ao=null','--idle=yes','--pause=yes','--log-file='+path.join(artifacts,label+'.log'),media],{env,windowsHide:true,stdio:'ignore'});children.push({pid:child.pid,mpv});}
     return pipe;
   };
   const direct=await start('direct',false);const values=await probeMpv(direct,[['get_property','volume'],['get_property','save-position-on-quit'],['get_property','sub-font'],['get_property','user-data/mpvkit']]);
-  assert.equal(values[0],23);assert.equal(values[1],false);assert.equal(values[2],'LXGW WenKai Screen');assert.equal(values[3].profile,'balanced');
+  assert.equal(values[0],23);assert.equal(values[1],false);assert.equal(values[2],'LXGW WenKai Screen');assert.equal(values[3].profile,settings.profile);
   const bindings=(await probeMpv(direct,[['get_property','input-bindings']]))[0];assert(bindings.some(b=>b.key==='UP'&&b.cmd==='add volume 10'));
   await probeMpv(direct,[['script-message-to','mpvkit','profile','high-quality']]);await sleep(300);assert.equal((await probeMpv(direct,[['get_property','scale']]))[0],'ewa_lanczossharp');
   // Stop the GUI before asking the helper to save.
-  await session.stop();session=null;await probeMpv(direct,[['script-message-to','mpvkit','save']]);
+  await session.stop();session=null;await fs.rename(copied,copied+'.moved.exe');await probeMpv(direct,[['script-message-to','mpvkit','save']]);
   let saved;for(let i=0;i<600;i++){saved=JSON.parse(await fs.readFile(path.join(root,'.mpvkit/settings.json')));if(saved.settings.profile==='high-quality')break;await sleep(100);}
   assert.equal(saved.settings.profile,'high-quality');
   let saving=true;for(let i=0;i<600;i++){saving=(await probeMpv(direct,[['get_property','user-data/mpvkit']]))[0].saving;if(!saving)break;await sleep(100);}
   assert.equal(saving,false,'save helper completed');assert(!await exists(path.join(root,'.mpvkit/pending.json')));
   assert(!await exists(path.join(root,'.mpvkit/playback.json')));await probeMpv(direct,[['quit']]);children.pop();
-  session=await startApp(sandbox,global);await heading(session.page,'Status');assert.equal((await ipc(session.page,'read_settings')).profile,'high-quality');
-  const q=session.page;const managedPipe='\\\\.\\pipe\\mpvkit-v013-'+crypto.randomUUID();await fs.appendFile(confPath,'\ninput-ipc-server='+managedPipe+'\nao=null\nidle=yes\n');
-  const launch=await ipc(q,'preview_launch',{executable:'',media,managed:true});const launched=await ipc(q,'launch_mpv',{previewId:launch.id});children.push({pid:launched.processId,mpv});
+  session=await startApp(sandbox,global);await heading(session.page,'Player');assert.equal((await ipc(session.page,'read_settings')).profile,'high-quality');
+  const q=session.page;const managedPipe='\\\\.\\pipe\\mpvkit-v015-'+crypto.randomUUID();await fs.appendFile(confPath,'\ninput-ipc-server='+managedPipe+'\nao=null\nidle=yes\n');
+  const launch=await ipc(q,'preview_launch',{media});const launched=await ipc(q,'launch_mpv',{previewId:launch.id});children.push({pid:launched.processId,mpv});
   assert.equal((await probeMpv(managedPipe,[['get_property','scale']]))[0],'ewa_lanczossharp');assert.equal((await probeMpv(managedPipe,[['get_property','volume']]))[0],23);
   await probeMpv(managedPipe,[['quit']]);children.pop();
   assert.equal((await ipc(q,'setup_status')).configurationModified,true);
@@ -181,47 +185,45 @@ test("native v013 install, manual configuration, native profiles and unified sav
   await ipc(q,'apply_deployment',{previewId:reset.id});assert((await fs.readFile(confPath,'utf8')).includes('# >>> MpvKit'));
   const undo=await ipc(q,'preview_maintenance',{action:'restore'});await ipc(q,'apply_deployment',{previewId:undo.id});assert.equal(await fs.readFile(confPath,'utf8'),'volume=31\n');
   await fs.writeFile(confPath,prior);
-  await q.screenshot({path:path.join(artifacts,'status.png')});assert.deepEqual(session.errors,[]);
+  await q.screenshot({animations:"disabled",path:path.join(artifacts,'status.png')});assert.deepEqual(session.errors,[]);
   await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({sandbox,root,checks:['native install','isolated integration','direct config','manual edits','preview cancel','native profile','GUI-closed save','managed launch'],passed:true},null,2));
- }catch(error){console.error(error);throw error;}finally{for(const c of children)try{controlProcess(c.pid,c.mpv,'stop');}catch{}if(session)await session.stop();console.log('v013 evidence: '+artifacts);}
+ }catch(error){console.error(error);throw error;}finally{for(const c of children)try{controlProcess(c.pid,c.mpv,'stop');}catch{}if(session)await session.stop();console.log('v015 evidence: '+artifacts);}
 });
 
 
-test("native defaults and advanced options preserve the default folder without confirmation",{timeout:90000},async()=>{
- const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-v013-ui-'));const global=path.join(sandbox,'data');let session;
- try{session=await startApp(sandbox,global);const p=session.page;await english(p);await heading(p,'Install player');
-  await advanced(p);assert.equal(await p.getByLabel('Custom install folder',{exact:true}).isChecked(),false);
-  await p.getByLabel('Custom install folder',{exact:true}).check();await p.getByLabel('Install folder',{exact:true}).fill(path.join(sandbox,'custom'));
-  await p.getByLabel('Custom install folder',{exact:true}).uncheck();assert.equal(await p.getByRole('dialog').count(),0);
-  const target=await ipc(p,'target_status');assert.equal(target.root,path.join(global,'player'));assert.equal(target.configDirectory,'portable_config');
-  const prefs=JSON.parse(await fs.readFile(path.join(global,'mpvkit.json')));assert.equal(prefs.settings.language,'en');
-  await p.setViewportSize({width:640,height:600});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));assert.deepEqual(session.errors,[]);
- }finally{if(session)await session.stop();}
-});
-
-test("native custom directory and external player preserve independent files",{timeout:600000},async()=>{
- const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-v013-external-'));const global=path.join(sandbox,'data');const root=path.join(sandbox,'custom player');let session;
- try{
-  session=await startApp(sandbox,global);const p=session.page;await english(p);await heading(p,'Install player');
-  const target=await ipc(p,'preview_target',{root});await ipc(p,'apply_target',{previewId:target.id});await p.reload();await heading(p,'Install player');
-  await p.getByRole('button',{name:'Download components',exact:true}).click();await confirm(p);await p.getByRole('dialog').locator('.changes').waitFor();await confirm(p);await heading(p,'Playback settings');
-  const external=path.join(root,'mpv.exe'),externalRoot=path.join(sandbox,'external config');const oldHash=hash(await fs.readFile(external));
-  const originalConf=await fs.readFile(path.join(root,'portable_config/mpv.conf'));
-  const selection=await ipc(p,'preview_target',{root:externalRoot});await ipc(p,'apply_target',{previewId:selection.id});
-  await p.reload();await heading(p,'Install player');await advanced(p);
-  await p.getByLabel('Use an existing MPV', {exact:true}).check();await p.getByLabel('MPV executable',{exact:true}).fill(external);
-  await p.getByRole('button',{name:'Download components',exact:true}).click();await confirm(p);await p.getByRole('dialog').locator('.changes').waitFor();await confirm(p);await heading(p,'Playback settings');
-  assert.equal(hash(await fs.readFile(external)),oldHash);assert(!await exists(path.join(externalRoot,'mpv.exe')));
-  assert(await exists(path.join(externalRoot,'portable_config/mpv.conf')));assert.equal((await ipc(p,'target_status')).configDirectory,'portable_config');
-  assert.deepEqual(await fs.readFile(path.join(root,'portable_config/mpv.conf')),originalConf);
-  const remove=await ipc(p,'preview_maintenance',{action:'uninstall'});await ipc(p,'apply_deployment',{previewId:remove.id});
-  assert.equal(hash(await fs.readFile(external)),oldHash);assert.deepEqual(await fs.readFile(path.join(root,'portable_config/mpv.conf')),originalConf);
+test("native sidebar, language, theme and fixed paths",{timeout:90000},async()=>{
+ const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-v015-ui-'));const global=path.join(sandbox,'data');let session;
+ const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
+ try{session=await startApp(sandbox,global);const p=session.page;await english(p);await heading(p,'Player');
+  assert.equal(await p.locator('.sidebar button').count(),2);assert.equal(await p.getByRole('dialog').count(),0);
+  await advanced(p);assert(await p.getByLabel('Add to system Open with',{exact:true}).isChecked());
+  assert.equal(await p.getByLabel('Custom install folder',{exact:true}).count(),0);
+  await assert.rejects(ipc(p,'detect_device'));await assert.rejects(ipc(p,'target_status'));await assert.rejects(ipc(p,'discover_mpv'));await assert.rejects(ipc(p,'confirm_setup'));
+  await assert.rejects(ipc(p,'preview_settings',{settings:await ipc(p,'read_settings')}),e=>e.code==='components_required');
+  await p.getByRole('button',{name:'Player',exact:true}).focus();await p.keyboard.press('Tab');await p.keyboard.press('Enter');await heading(p,'App settings');
+  await p.getByRole('combobox',{name:'Appearance mode',exact:true}).selectOption('dark');await settled(p);
+  await p.setViewportSize({width:640,height:600});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));await p.screenshot({animations:"disabled",path:path.join(artifacts,'settings-dark.png')});
+  await p.getByRole('combobox',{name:'Display language',exact:true}).selectOption('zh-Hans');await heading(p,'应用设置');
+  await p.getByRole('combobox',{name:'明暗模式',exact:true}).selectOption('light');await p.screenshot({animations:"disabled",path:path.join(artifacts,'settings-light-zh.png')});
+  await p.getByRole('button',{name:'播放器',exact:true}).click();await heading(p,'播放器');
+  assert.equal(await p.getByRole('button',{name:'打开文件夹',exact:true}).isEnabled(),false);
+  await p.emulateMedia({reducedMotion:'no-preference'});
+  await p.getByRole('button',{name:'应用设置',exact:true}).click();
+  assert.equal(await p.locator('.page-content').evaluate(e=>getComputedStyle(e).transitionDuration),'0.2s');
+  await p.waitForFunction(()=>getComputedStyle(document.querySelector('.page-content')).opacity==='1');
+  await p.emulateMedia({reducedMotion:'reduce'});
+  await p.getByRole('button',{name:'播放器',exact:true}).click();
+  assert.equal(await p.locator('.page-content').evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
+  const current=await p.locator('.page-content').elementHandle();await p.getByRole('button',{name:'播放器',exact:true}).click();
+  assert(await current.evaluate(e=>e.isConnected));
+  await p.getByRole('button',{name:'播放器',exact:true}).focus();await p.keyboard.press('Tab');
+  await p.getByRole('tooltip',{name:'应用设置',exact:true}).waitFor();await p.keyboard.press('Enter');await heading(p,'应用设置');
   assert.deepEqual(session.errors,[]);
- }finally{if(session)await session.stop();console.log('external sandbox: '+sandbox);}
+ }finally{if(session)await session.stop();console.log('UI evidence: '+artifacts);}
 });
 
-test("native v013 real playback: keys, menu, position-only resume, screenshots and font", {timeout:240000}, async()=>{
-  const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),"mpvkit-v013-player-")),global=path.join(sandbox,"data"),root=path.join(global,"player");
+test("native v015 real playback: keys, menu, position-only resume, screenshots and font", {timeout:600000}, async()=>{
+  const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),"mpvkit-v015-player-")),global=path.join(sandbox,"data"),root=path.join(global,"player");
   const artifacts=path.join(repository,".local/e2e-artifacts",path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
   const ffmpeg=process.env.MPVKIT_FFMPEG;assert(ffmpeg,"Set MPVKIT_FFMPEG to the fixed fixture generator");
   assert.equal(hash(await fs.readFile(ffmpeg)),"7491af2d1d44f695d7c169db5f12b51d61667d585619dea75d3a0fc96215a5f1");
@@ -231,16 +233,16 @@ test("native v013 real playback: keys, menu, position-only resume, screenshots a
   let session,playerId;const player=path.join(root,"mpv.exe"),pipe=String.raw`\\.\pipe\mpvkit-player-`+path.basename(sandbox);
   const call=async(...commands)=>probeMpv(pipe,commands);const get=async key=>(await call(["get_property",key]))[0];
   async function waitFor(check){for(let i=0;i<80;i++){if(await check())return;await sleep(100);}assert.fail("player condition timed out");}
-  async function launch(){const preview=await ipc(session.page,"preview_launch",{executable:"",media,managed:true});await ipc(session.page,"launch_mpv",{previewId:preview.id});playerId=await latestPlayer(root);await waitFor(async()=>{try{return await get("duration")>=29;}catch{return false;}});await sleep(500);}
+  async function launch(){const preview=await ipc(session.page,"preview_launch",{media});await ipc(session.page,"launch_mpv",{previewId:preview.id});playerId=await latestPlayer(root);await waitFor(async()=>{try{return await get("duration")>=29;}catch{return false;}});await sleep(500);}
   async function quit(){await call(["quit"]);for(let n=0;n<60;n++){try{await get("pid");}catch{playerId=null;return;}await sleep(100);}assert.fail("player did not quit");}
   try {
-    session=await startApp(sandbox,global);const p=session.page;await p.getByRole("heading",{name:/安装播放器|Install player/}).waitFor();await english(p);
-    await p.getByRole("button",{name:"Download components",exact:true}).click();await confirm(p);await p.getByRole("dialog").locator(".changes").waitFor();await confirm(p);await heading(p,"Playback settings");await settled(p);
+    session=await startApp(sandbox,global);const p=session.page;await p.getByRole("heading",{name:/播放器|Player/}).waitFor();await english(p);
+    await p.getByRole("button",{name:"Install player",exact:true}).click();await confirm(p);await p.getByRole("dialog").locator(".changes").waitFor({state:"attached"});await confirm(p);await settled(p);await p.getByRole("button",{name:"Generate configuration",exact:true}).click();await heading(p,"Playback");await settled(p);
     const font=path.join(root,"portable_config/fonts/LXGWWenKaiScreen.ttf");assert.equal(hash(await fs.readFile(font)),"abd13364163e3cd84372b333f2fdcee9efb848634668f1c0ce5788dcd059ee61");
     assert.equal(await p.getByRole("checkbox",{name:/resume|续播/i}).count(),0);
     const shots=path.join(sandbox,"截图 # 空格");await advanced(p);
     await p.getByRole("combobox",{name:"When playback ends",exact:true}).selectOption("keep");await p.getByLabel("Screenshot folder",{exact:true}).fill(shots);await p.getByLabel("Include subtitles in screenshots",{exact:true}).check();
-    await p.getByRole("button",{name:"Save and continue",exact:true}).click();await confirm(p);await heading(p,"Add to Open with");await settled(p);
+    await p.getByRole("button",{name:"Install configuration",exact:true}).click();await confirm(p);await heading(p,"Playback");await settled(p);
     const draft=await ipc(p,"read_settings");assert.equal(draft.playback.keepOpen,true);assert.equal(draft.playback.screenshotDirectory,shots);assert.equal(draft.playback.screenshotSubtitles,true);assert(!(await exists(shots)));
     const user=path.join(root,"portable_config/mpv.conf"),log=path.join(artifacts,"mpv.log");
     const userText="volume=50\nao=null\npause=yes\ninput-ipc-server="+pipe+"\nlog-file="+log.replaceAll("\\","/")+"\nmsg-level=ass=debug\n";
@@ -271,6 +273,58 @@ test("native v013 real playback: keys, menu, position-only resume, screenshots a
     const fontLog=await fs.readFile(log,"utf8");assert.match(fontLog,/LXGWWenKaiScreen|LXGW WenKai Screen/);
     assert.deepEqual(session.errors,[]);await fs.copyFile(path.join(shots,(await fs.readdir(shots)).find(f=>f.endsWith(".png"))),path.join(artifacts,"with-subtitles.png"));await fs.copyFile(path.join(shots,(await fs.readdir(shots)).find(f=>f.endsWith(".jpg"))),path.join(artifacts,"without-subtitles.jpg"));
     await fs.writeFile(path.join(artifacts,"result.json"),JSON.stringify({passed:true,keys:true,menuPriority:true,resumePositionOnly:true,userOverride:true,fontHash:true,screenshotFormats:true,thumbnail:true,root},null,2));
-  } catch(error){if(session)await session.page.screenshot({path:path.join(artifacts,"failure.png")}).catch(()=>{});throw error;}
+  } catch(error){if(session)await session.page.screenshot({animations:"disabled",path:path.join(artifacts,"failure.png")}).catch(()=>{});throw error;}
   finally {controlProcess(0,player,"cleanup-image");if(session)await session.stop();}
+});
+
+
+test("native lifecycle preserves configuration through update, uninstall and reinstall",{timeout:900000},async()=>{
+ const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-v015-lifecycle-')),global=path.join(sandbox,'data'),root=path.join(global,'player');let session;
+ const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
+ try {
+  session=await startApp(sandbox,global);const p=session.page;await english(p);
+  async function install(){await advanced(p);await p.getByRole('button',{name:/^(Install player|Repair components|Update components)$/}).click();await confirm(p);await p.getByRole('dialog').locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);}
+  await advanced(p);await p.getByLabel('Add to system Open with',{exact:true}).uncheck();assert.equal(await p.getByRole('dialog').count(),0);
+  await install();assert(!(await ipc(p,'setup_status')).integrationEnabled);assert(!await exists(path.join(root,'portable_config/mpv.conf')));
+  await p.getByRole('button',{name:'Generate configuration',exact:true}).click();await settled(p);await advanced(p);
+  await p.getByRole('combobox',{name:'Quality',exact:true}).selectOption('high-quality');
+  await p.getByRole('button',{name:'App settings',exact:true}).click();await heading(p,'App settings');
+  await p.getByRole('button',{name:'Playback',exact:true}).click();await advanced(p);assert.equal(await p.getByRole('combobox',{name:'Quality',exact:true}).inputValue(),'high-quality');
+  await p.getByRole('button',{name:'Install configuration',exact:true}).click();await confirm(p);await settled(p);
+  let state=await ipc(p,'setup_status');assert(state.settingsReady);assert(!state.integration.registered);
+  assert.equal(await p.getByLabel('HDR output',{exact:true}).inputValue(),'auto');
+  for(const hdr of ['on','off','auto']){const config=await ipc(p,'read_settings');config.playback.hdr=hdr;const plan=await ipc(p,'preview_settings',{settings:config});assert(plan.configurationDiffs.every(d=>!d.after.includes('displayId')));}
+  for(const size of [{width:1200,height:800},{width:900,height:700},{width:640,height:600}]){
+    await p.setViewportSize(size);
+    for(const title of ['Player','Playback','App settings']){
+      await p.getByRole('button',{name:title,exact:true}).click();await heading(p,title);
+      if(title==='Playback')await advanced(p);
+      assert(await p.evaluate(()=>[...document.querySelectorAll('.page-content,.page-surface')].every(e=>e.scrollWidth<=e.clientWidth+1)),title+' overflow');
+      await p.screenshot({animations:"disabled",path:path.join(artifacts,title+'-'+size.width+'.png')});
+    }
+  }
+  await p.setViewportSize({width:1200,height:800});await p.evaluate(()=>document.documentElement.style.fontSize='32px');
+  assert(await p.evaluate(()=>document.querySelector('.page-content').scrollWidth<=document.querySelector('.page-content').clientWidth+1));
+  await p.evaluate(()=>document.documentElement.style.fontSize='');await p.getByRole('button',{name:'Player',exact:true}).click();await settled(p);
+
+  const conf=path.join(root,'portable_config/mpv.conf');await fs.appendFile(conf,'\n# private\nvolume=37\n');const bytes=await fs.readFile(conf);const originalTime=(await fs.stat(conf)).mtimeMs;
+  await p.getByRole('button',{name:'Player',exact:true}).click();await settled(p);state=await ipc(p,'setup_status');assert(state.configurationModified);assert(Math.abs(state.configModifiedAt-originalTime)<2);
+  const enable=await ipc(p,'preview_integration_intent',{enabled:true});assert.equal(enable.integration.action,'register');await ipc(p,'apply_deployment',{previewId:enable.id});assert((await ipc(p,'setup_status')).integration.valid);
+  const disable=await ipc(p,'preview_integration_intent',{enabled:false});assert.equal(disable.integration.action,'unregister');await ipc(p,'apply_deployment',{previewId:disable.id});
+  await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);
+  await install();assert.deepEqual(await fs.readFile(conf),bytes);assert.equal((await ipc(p,'setup_status')).integrationEnabled,false);
+  const unknown=path.join(root,'portable_config/private.txt'),watch=path.join(root,'portable_config/watch_later');await fs.writeFile(unknown,'keep');await fs.mkdir(watch,{recursive:true});await fs.writeFile(path.join(watch,'position'),'start=10');
+  const removal=await ipc(p,'preview_maintenance',{action:'uninstall'});assert(removal.retained.includes('portable_config/mpv.conf'));await ipc(p,'apply_deployment',{previewId:removal.id});
+  await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);assert.equal(await p.getByRole('button',{name:'Playback',exact:true}).count(),0);
+  assert(!await exists(path.join(root,'mpv.exe')));assert.deepEqual(await fs.readFile(conf),bytes);assert(await exists(unknown));assert(await exists(path.join(watch,'position')));
+  await install();state=await ipc(p,'setup_status');assert(state.playerReady&&state.settingsReady);assert(!state.integrationEnabled);assert.deepEqual(await fs.readFile(conf),bytes);
+  // Losing core returns to management while preserving the unsaved draft.
+  await p.getByRole('button',{name:'Playback',exact:true}).click();await advanced(p);await p.getByRole('combobox',{name:'Quality',exact:true}).selectOption('balanced');
+  await fs.rename(path.join(root,'mpv.exe'),path.join(root,'mpv.test-removed'));await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);await heading(p,'Player');
+  assert.equal(await p.getByRole('button',{name:'Playback',exact:true}).count(),0);
+  await fs.rename(path.join(root,'mpv.test-removed'),path.join(root,'mpv.exe'));await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);
+  await p.getByRole('button',{name:'Playback',exact:true}).click();await advanced(p);assert.equal(await p.getByRole('combobox',{name:'Quality',exact:true}).inputValue(),'balanced');
+  await p.screenshot({animations:"disabled",path:path.join(artifacts,'retained-draft.png')});assert.deepEqual(session.errors,[]);
+  await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({passed:true,root,uninstallPreserves:true,reinstallPreserves:true,integrationIntent:true,mtime:true,draft:true},null,2));
+ } finally {if(session)await session.stop();console.log('Lifecycle evidence: '+artifacts);}
 });

@@ -46,7 +46,6 @@ pub(crate) struct Record {
     schema_version: u32,
     owner: String,
     pub settings: AppSettings,
-    pub target: Option<crate::targets::Target>,
 }
 pub(crate) fn record_path(root: &Path) -> std::path::PathBuf {
     root.join("mpvkit.json")
@@ -78,16 +77,12 @@ pub(crate) fn load(root: &Path) -> Result<Record> {
             ));
         }
         r.settings.validate()?;
-        if let Some(t) = &r.target {
-            crate::targets::validate(t)?;
-        }
         return Ok(r);
     }
     Ok(Record {
         schema_version: 1,
         owner: "MpvKit".into(),
         settings: AppSettings::default(),
-        target: None,
     })
 }
 pub(crate) fn write(root: &Path, record: &Record) -> Result<()> {
@@ -102,7 +97,7 @@ pub fn read(root: &Path) -> Result<AppSettings> {
 }
 pub fn save(root: &Path, settings: AppSettings) -> Result<AppSettings> {
     settings.validate()?;
-    let _selection = crate::targets::selection_lock(root)?;
+    let _lock = deploy::acquire(root)?;
     let mut record = load(root)?;
     record.settings = settings.clone();
     write(root, &record)?;
@@ -133,25 +128,12 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
-    fn shared_record_and_lock_preserve_target_and_preferences() {
+    fn preferences_are_locked_across_processes() {
         let root = std::env::temp_dir().join(format!("mpvkit-global-{}", deploy::operation_id()));
-        let preferences = AppSettings {
-            language: "en".into(),
-            theme: "dark".into(),
-            ..Default::default()
-        };
-        save(&root, preferences.clone()).unwrap();
-        let target = root.join("custom");
-        crate::targets::execute(crate::targets::prepare(&root, target.clone()).unwrap()).unwrap();
-        assert_eq!(read(&root).unwrap(), preferences);
-        let stale = crate::targets::prepare(&root, root.join("another")).unwrap();
-        save(&root, AppSettings::default()).unwrap();
-        assert!(crate::targets::execute(stale).is_err());
-        assert_eq!(crate::targets::read(&root).unwrap().root, target);
-        let lock = crate::targets::selection_lock(&root).unwrap();
-        assert!(save(&root, preferences).is_err());
+        let lock = deploy::acquire(&root).unwrap();
+        assert!(save(&root, AppSettings::default()).is_err());
         drop(lock);
-        assert_eq!(read(&root).unwrap(), AppSettings::default());
+        save(&root, AppSettings::default()).unwrap();
         std::fs::remove_dir_all(root).unwrap();
     }
 }

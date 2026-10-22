@@ -138,7 +138,6 @@ pub struct InstallManifest {
     pub installation_id: String,
     pub config_directory: String,
     pub files: Vec<OwnedFile>,
-    pub external_mpv: Option<PathBuf>,
     pub components: BTreeMap<String, String>,
 }
 
@@ -336,7 +335,6 @@ pub fn prepare_install(
     root: &Path,
     payloads: Vec<Payload>,
     replace_existing: bool,
-    external_mpv: Option<PathBuf>,
     components: BTreeMap<String, String>,
 ) -> Result<DeploymentPlan> {
     let old_text = manifest_text(root)?;
@@ -348,9 +346,6 @@ pub fn prepare_install(
     }
     if payloads.len() > MAX_FILES {
         return Err(error("file_limit", "组件文件过多。"));
-    }
-    if let Some(path) = &external_mpv {
-        platform::validate_local_path(path)?;
     }
     let old: Option<InstallManifest> = old_text.as_deref().map(decode).transpose()?;
     let owned: BTreeMap<_, _> = old
@@ -371,22 +366,6 @@ pub fn prepare_install(
     let mut total = 0u64;
     for payload in payloads {
         let path = target(root, &payload.path)?;
-        if [
-            external_mpv.as_ref(),
-            old.as_ref().and_then(|m| m.external_mpv.as_ref()),
-        ]
-        .into_iter()
-        .flatten()
-        .any(|external| {
-            external
-                .to_string_lossy()
-                .eq_ignore_ascii_case(&path.to_string_lossy())
-        }) {
-            return Err(error(
-                "external_player_conflict",
-                "外部播放器不能变成待覆盖或卸载的受管理文件。",
-            ));
-        }
         let key = payload.path.to_ascii_lowercase();
         if !seen.insert(key.clone()) {
             return Err(error("duplicate_path", "组件文件路径重复。"));
@@ -438,6 +417,10 @@ pub fn prepare_install(
         .filter(|f| !seen.contains(&f.path.to_ascii_lowercase()))
     {
         let before = file_hash(&target(root, &previous.path)?)?;
+        if before.is_none() && crate::config::editable(&previous.path) {
+            files.push((*previous).clone());
+            continue;
+        }
         if before.as_deref() != Some(&previous.sha256) {
             conflicts.push(previous.path.clone());
         }
@@ -468,16 +451,13 @@ pub fn prepare_install(
         installation_id: id.clone(),
         files,
         config_directory: default_config_directory(),
-        external_mpv,
         components,
     };
     conflicts.extend(script_conflicts(root, &manifest)?);
     let no_changes = changes.is_empty()
-        && old.as_ref().is_some_and(|m| {
-            m.files == manifest.files
-                && m.external_mpv == manifest.external_mpv
-                && m.components == manifest.components
-        });
+        && old
+            .as_ref()
+            .is_some_and(|m| m.files == manifest.files && m.components == manifest.components);
     let new_text = serde_json::to_string_pretty(&manifest)
         .map_err(|_| error("state_write", "无法生成安装记录。"))?;
     make_plan(
@@ -591,7 +571,7 @@ pub fn prepare_uninstall(root: &Path) -> Result<DeploymentPlan> {
             "请先在系统集成区预览并移除打开方式登记，再移除播放器环境。",
         ));
     }
-    let mut plan = prepare_install(root, vec![], false, None, BTreeMap::new())?;
+    let mut plan = prepare_install(root, vec![], false, BTreeMap::new())?;
     plan.journal.new_manifest = None;
     plan.preview.no_changes = plan.journal.old_manifest.is_none();
     Ok(plan)
@@ -678,7 +658,7 @@ pub(crate) fn acquire(root: &Path) -> Result<File> {
     Ok(file)
 }
 
-fn validate_plan(plan: &DeploymentPlan) -> Result<()> {
+fn validate_plan(plan: &DeploymentPlan, before_unregister: bool) -> Result<()> {
     for (path, hash) in &plan.guards {
         if file_hash(path)? != *hash {
             return Err(error("stale_preview", "配置在预览后改变，请重新预览。"));
@@ -696,7 +676,13 @@ fn validate_plan(plan: &DeploymentPlan) -> Result<()> {
     if read_optional(&control(&plan.preview.root, "association-pending.json")?)?.is_some() {
         return Err(error("recovery_required", "请先恢复系统集成操作。"));
     }
-    if plan.journal.new_manifest.is_none()
+    let removes_runtime = plan
+        .journal
+        .changes
+        .iter()
+        .any(|c| c.path == ".mpvkit/launcher/mpvkit.exe" && c.after.is_none());
+    if !before_unregister
+        && (plan.journal.new_manifest.is_none() || removes_runtime)
         && read_optional(&control(&plan.preview.root, "associations.json")?)?.is_some()
     {
         return Err(error(
@@ -786,31 +772,45 @@ fn apply_change(root: &Path, journal: &Journal, index: usize) -> Result<()> {
 }
 
 impl DeploymentPlan {
+    pub(crate) fn validate_before_integration(&self) -> Result<()> {
+        validate_plan(self, true)
+    }
+
+    pub(crate) fn expected_files(&self) -> Result<Vec<(PathBuf, Option<String>)>> {
+        let mut result = Vec::new();
+        let manifest_text = if self.preview.no_changes {
+            &self.journal.old_manifest
+        } else {
+            &self.journal.new_manifest
+        };
+        if let Some(text) = manifest_text {
+            let manifest: InstallManifest = decode(text)?;
+            for file in manifest.files {
+                result.push((self.preview.root.join(file.path), Some(file.sha256)));
+            }
+            result.push((
+                self.preview.root.join(".mpvkit/install.json"),
+                Some(hash_bytes(text.as_bytes())),
+            ));
+        }
+        Ok(result)
+    }
+
     pub(crate) fn guard(&mut self, path: PathBuf, hash: Option<String>) {
         self.guards.push((path, hash));
     }
 }
 
 pub fn execute(plan: DeploymentPlan) -> Result<DeploymentStatus> {
-    validate_plan(&plan)?;
+    validate_plan(&plan, false)?;
     let root = &plan.preview.root;
     let _lock = acquire(root)?;
     if status(root)?.recovery_required {
         return Err(error("recovery_required", "请先恢复未完成操作。"));
     }
-    validate_plan(&plan)?;
+    validate_plan(&plan, false)?;
     if plan.preview.no_changes {
         return status(root);
-    }
-    // Output availability may change after preview. Check before any transaction write.
-    for (change, payload) in plan.journal.changes.iter().zip(&plan.payloads) {
-        if change.path == ".mpvkit/settings.json"
-            && let Some(bytes) = payload
-        {
-            let state: crate::config::portable::State = serde_json::from_slice(bytes)
-                .map_err(|_| error("settings_invalid", "设置记录无效。"))?;
-            crate::config::validate_output(&state.settings)?;
-        }
     }
     let applied = (|| {
         begin(&plan)?;

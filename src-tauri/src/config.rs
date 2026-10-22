@@ -1,3 +1,4 @@
+const DEFAULT_LANGUAGES: &str = "zh-Hans-CN,zh-Hans-SG,zh-Hant-TW,zh-Hant-HK,zh-Hant-MO,zh-Hans,zh-Hant,zh-CN,zh-SG,zh-TW,zh-HK,zh-MO,zh,cmn-Hans-CN,cmn-Hant-TW,cmn-Hans,cmn-Hant,cmn-CN,cmn-TW,cmn,yue-Hant-HK,yue-Hant,yue-HK,yue,chs,cht,ja-JP,ja,en-US,en-GB,en-AU,en-CA,en,es-ES,es-MX,es-419,es-AR,es";
 use crate::{
     deploy::{self, Payload},
     error::{AppError, Result},
@@ -33,13 +34,7 @@ pub struct Overrides {
 #[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Playback {
-    pub display_id: Option<String>,
-    pub width: Option<u32>,
-    pub height: Option<u32>,
-    pub manual_profile: bool,
     pub hdr: Hdr,
-    pub audio_languages: Vec<String>,
-    pub subtitle_languages: Vec<String>,
     pub keep_open: bool,
     pub screenshot_directory: Option<String>,
     pub screenshot_format: ScreenshotFormat,
@@ -105,15 +100,6 @@ impl Settings {
             ));
         }
         let p = &self.playback;
-        if p.width.is_some() != p.height.is_some()
-            || p.width.is_some_and(|n| !(320..=16384).contains(&n))
-            || p.height.is_some_and(|n| !(200..=16384).contains(&n))
-            || p.display_id
-                .as_ref()
-                .is_some_and(|id| id.len() > 512 || id.chars().any(char::is_control))
-        {
-            return Err(error("display_range", "请填写有效的参考分辨率。"));
-        }
         if let Some(directory) = &p.screenshot_directory {
             if directory.is_empty()
                 || directory.len() > 4096
@@ -122,25 +108,6 @@ impl Settings {
                 return Err(error("screenshot_path", "截图目录无效。"));
             }
             crate::platform::validate_local_path(Path::new(directory))?;
-        }
-        for languages in [&p.audio_languages, &p.subtitle_languages] {
-            let mut seen = std::collections::BTreeSet::new();
-            if languages.len() > 8 {
-                return Err(error("language_limit", "最多选择八种语言。"));
-            }
-            for lang in languages {
-                let parts: Vec<_> = lang.split('-').collect();
-                if lang.len() > 35
-                    || !(2..=3).contains(&parts[0].len())
-                    || !parts[0].bytes().all(|b| b.is_ascii_alphabetic())
-                    || parts.iter().skip(1).any(|p| {
-                        p.is_empty() || p.len() > 8 || !p.bytes().all(|b| b.is_ascii_alphanumeric())
-                    })
-                    || !seen.insert(lang.to_ascii_lowercase())
-                {
-                    return Err(error("language_invalid", "语言代码无效或重复。"));
-                }
-            }
         }
         Ok(())
     }
@@ -161,6 +128,7 @@ pub fn profiles() -> BTreeMap<String, BTreeMap<String, String>> {
 
 pub(crate) mod portable;
 pub use portable::{editable, helper_path, modified, player_path, prepare_portable};
+#[cfg(test)]
 pub fn generate(root: &Path, player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
     portable::generate(root, player, settings)
 }
@@ -221,19 +189,10 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
             conf.push_str("target-colorspace-hint=no\ntarget-trc=bt.1886\ntarget-prim=bt.709\n")
         }
     }
-    for (key, list) in [
-        ("alang", &settings.playback.audio_languages),
-        ("slang", &settings.playback.subtitle_languages),
-    ] {
-        if !list.is_empty() {
-            conf.push_str(&format!("{key}={}\n", list.join(",")));
-        }
-    }
+    conf.push_str(&format!(
+        "alang={DEFAULT_LANGUAGES}\nslang={DEFAULT_LANGUAGES}\n"
+    ));
     let mut files = vec![
-        Payload {
-            path: "portable_config/scripts/mpvkit.lua".into(),
-            bytes: include_bytes!("../../resources/scripts/mpvkit.lua").to_vec(),
-        },
         Payload {
             path: "portable_config/input.conf".into(),
             bytes: include_bytes!("../../resources/input.conf").to_vec(),
@@ -255,6 +214,15 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
             bytes: Vec::new(),
         },
     ];
+    files.extend(runtime_files()?);
+    Ok(files)
+}
+
+pub fn runtime_files() -> Result<Vec<Payload>> {
+    let mut files = vec![Payload {
+        path: "portable_config/scripts/mpvkit.lua".into(),
+        bytes: include_bytes!("../../resources/scripts/mpvkit.lua").to_vec(),
+    }];
     let executable =
         std::env::current_exe().map_err(|_| error("helper_path", "无法取得启动入口。"))?;
     files.push(Payload {
@@ -305,42 +273,6 @@ pub fn directory(root: &Path) -> Result<std::path::PathBuf> {
 }
 pub fn read(root: &Path) -> Result<Settings> {
     portable::read_state(root).map(|state| state.settings)
-}
-
-pub fn validate_output(settings: &Settings) -> Result<()> {
-    if settings.playback.hdr == Hdr::On {
-        let device = crate::platform::detect_device();
-        let selected = settings
-            .playback
-            .display_id
-            .as_ref()
-            .and_then(|id| device.displays.iter().find(|d| &d.id == id))
-            .or_else(|| {
-                settings
-                    .playback
-                    .display_id
-                    .is_none()
-                    .then(|| {
-                        device
-                            .displays
-                            .iter()
-                            .find(|d| d.primary)
-                            .or_else(|| device.displays.first())
-                    })
-                    .flatten()
-            });
-        if !selected.is_some_and(|d| d.hdr_supported == Some(true) && d.hdr_enabled == Some(true)) {
-            return Err(error(
-                "hdr_unavailable",
-                "请先启用目标屏幕的系统 HDR，或选择自动模式。",
-            ));
-        }
-    }
-    Ok(())
-}
-
-pub fn prepare(root: &Path, settings: Settings) -> Result<deploy::DeploymentPlan> {
-    prepare_portable(root, settings, false)
 }
 
 #[cfg(test)]
@@ -443,20 +375,9 @@ mod tests {
         assert!(settings.validate().is_err());
     }
     #[test]
-    fn languages_and_hdr_parameters_are_validated() {
+    fn fixed_languages_and_hdr_parameters_are_generated() {
         let root = std::env::temp_dir().join(format!("mpvkit-config-{}", deploy::operation_id()));
         let mut edited = Settings::default();
-        for languages in [
-            vec!["en", "EN"],
-            vec!["en,ja"],
-            vec!["en--US"],
-            vec!["en\nvolume=0"],
-        ] {
-            edited.playback.audio_languages = languages.into_iter().map(String::from).collect();
-            assert!(edited.validate().is_err());
-        }
-        edited.playback.audio_languages = vec!["ja".into(), "en-US".into()];
-        edited.playback.subtitle_languages = vec!["zh-Hans".into()];
         for (hdr, expected) in [
             (Hdr::Auto, "target-trc=auto"),
             (Hdr::On, "target-trc=pq"),
@@ -473,10 +394,11 @@ mod tests {
             )
             .unwrap();
             assert!(conf.contains(expected));
-            assert!(conf.contains("alang=ja,en-US"));
-            assert!(conf.contains("slang=zh-Hans"));
+            assert!(conf.contains(&format!("alang={DEFAULT_LANGUAGES}\n")));
+            assert!(conf.contains(&format!("slang={DEFAULT_LANGUAGES}\n")));
         }
-        edited.playback.width = Some(1);
-        assert!(edited.validate().is_err());
+        let mut invalid = serde_json::to_value(&edited).unwrap();
+        invalid["playback"]["hdr"] = "invalid".into();
+        assert!(serde_json::from_value::<Settings>(invalid).is_err());
     }
 }

@@ -17,8 +17,7 @@ use windows_sys::Win32::{
     Storage::FileSystem::GetDriveTypeW,
     System::{Com::CoTaskMemFree, Pipes::PeekNamedPipe},
     UI::Shell::{
-        FOLDERID_LocalAppData, FOLDERID_Pictures, FOLDERID_Profile, FOLDERID_ProgramFiles,
-        KF_FLAG_DONT_VERIFY, SHGetKnownFolderPath,
+        FOLDERID_LocalAppData, FOLDERID_Pictures, KF_FLAG_DONT_VERIFY, SHGetKnownFolderPath,
     },
 };
 
@@ -80,7 +79,9 @@ pub fn pictures_directory() -> Result<PathBuf> {
 }
 
 pub fn app_root() -> Result<PathBuf> {
-    Ok(crate::targets::read(&default_root()?)?.root)
+    let root = default_root()?.join("player");
+    validate_local_path(&root)?;
+    Ok(root)
 }
 
 // Check the drive before touching file metadata. Never enumerate mounted volumes.
@@ -177,83 +178,6 @@ pub fn drain_pipe<R: Read + AsRawHandle>(pipe: &mut R, bytes: &mut Vec<u8>) -> i
         }
         bytes.extend_from_slice(&buffer[..count]);
     }
-}
-
-pub struct MpvSearchLocations {
-    pub locations: Vec<(PathBuf, String)>,
-    pub notes: Vec<String>,
-    pub path_truncated: bool,
-}
-
-fn path_mpv_locations(value: &std::ffi::OsStr) -> (Vec<(PathBuf, String)>, bool) {
-    // ponytail: 最多检查 PATH 前 64 项；其它位置由手动路径入口处理。
-    let entries: Vec<_> = std::env::split_paths(value).take(65).collect();
-    let truncated = entries.len() > 64;
-    let locations = entries
-        .into_iter()
-        .take(64)
-        .enumerate()
-        // Empty PATH entries must not turn into a search of the working directory.
-        .filter(|(_, entry)| !entry.as_os_str().is_empty())
-        .map(|(index, directory)| {
-            (
-                directory.join("mpv.exe"),
-                format!("PATH 第 {} 项", index + 1),
-            )
-        })
-        .collect();
-    (locations, truncated)
-}
-
-pub fn mpv_search_locations() -> MpvSearchLocations {
-    let mut search = MpvSearchLocations {
-        locations: vec![],
-        notes: vec![],
-        path_truncated: false,
-    };
-    for (id, relative, source) in [
-        (
-            &FOLDERID_LocalAppData,
-            "MpvKit/player/mpv.exe",
-            "MpvKit 播放器位置",
-        ),
-        (
-            &FOLDERID_LocalAppData,
-            "Programs/mpv/mpv.exe",
-            "用户 Programs 位置",
-        ),
-        (&FOLDERID_ProgramFiles, "mpv/mpv.exe", "Program Files 位置"),
-        (
-            &FOLDERID_Profile,
-            "scoop/apps/mpv/current/mpv.exe",
-            "用户 Scoop 默认位置",
-        ),
-    ] {
-        match known_folder(id) {
-            Ok(root) => search.locations.push((root.join(relative), source.into())),
-            Err(_) => search.notes.push(format!("无法获取{source}，已跳过。")),
-        }
-    }
-    match std::env::current_exe() {
-        Ok(path) => {
-            if let Some(parent) = path.parent() {
-                search
-                    .locations
-                    .push((parent.join("mpv.exe"), "MpvKit 程序同级位置".into()));
-            }
-        }
-        Err(_) => search
-            .notes
-            .push("无法获取 MpvKit 程序同级位置，已跳过。".into()),
-    }
-    if let Some(value) = std::env::var_os("PATH") {
-        let (locations, truncated) = path_mpv_locations(&value);
-        search.locations.extend(locations);
-        search.path_truncated = truncated;
-    } else {
-        search.notes.push("PATH 未设置，已跳过 PATH 查找。".into());
-    }
-    search
 }
 
 pub fn replace_file(source: &Path, destination: &Path) -> Result<()> {
@@ -440,33 +364,5 @@ pub fn process_active(pid: u32) -> bool {
         let ok = GetExitCodeProcess(handle, &mut code);
         CloseHandle(handle);
         ok == 0 || code == STILL_ACTIVE as u32
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn path_search_is_bounded_and_preserves_order() {
-        let paths: Vec<_> = (0..70)
-            .map(|index| PathBuf::from(format!(r"C:\test\{index}")))
-            .collect();
-        let value = std::env::join_paths(&paths).unwrap();
-        let (locations, truncated) = path_mpv_locations(&value);
-        assert!(truncated);
-        assert_eq!(locations.len(), 64);
-        assert_eq!(locations[0].0, paths[0].join("mpv.exe"));
-        assert_eq!(locations[63].0, paths[63].join("mpv.exe"));
-    }
-
-    #[test]
-    fn quoted_unicode_path_is_preserved_and_empty_entries_are_not_cwd() {
-        let (locations, truncated) =
-            path_mpv_locations(std::ffi::OsStr::new(";\"C:\\播放器 空格\";;C:\\tools;"));
-        assert!(!truncated);
-        assert_eq!(locations.len(), 2);
-        assert_eq!(locations[0].0, PathBuf::from(r"C:\播放器 空格\mpv.exe"));
-        assert_eq!(locations[0].1, "PATH 第 2 项");
     }
 }

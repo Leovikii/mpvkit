@@ -1,4 +1,5 @@
 //! Opt-in tests only: no download, registry, user config or global env changes.
+use super::tests::prepare;
 use super::*;
 
 const TEST_NAME: &str = "launch::real_tests::real_mpv_contract";

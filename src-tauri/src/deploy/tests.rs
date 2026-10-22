@@ -28,7 +28,6 @@ fn plan(root: &Path, content: &str) -> DeploymentPlan {
         root,
         vec![payload("portable_config/mpv.conf", content)],
         false,
-        None,
         BTreeMap::new(),
     )
     .unwrap()
@@ -74,7 +73,6 @@ fn unknown_file_requires_explicit_replace_and_original_is_restored() {
         &root,
         vec![payload("portable_config/mpv.conf", "managed")],
         true,
-        None,
         BTreeMap::new(),
     )
     .unwrap();
@@ -128,7 +126,7 @@ fn modified_managed_files_block_update_restore_and_uninstall() {
 }
 
 #[test]
-fn previous_success_can_be_restored_and_external_binary_is_never_owned() {
+fn previous_success_can_be_restored_and_unknown_files_are_preserved() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
     let external = sandbox.0.join("mpv.exe");
@@ -137,7 +135,6 @@ fn previous_success_can_be_restored_and_external_binary_is_never_owned() {
         &root,
         vec![payload("portable_config/mpv.conf", "one")],
         false,
-        Some(external.clone()),
         BTreeMap::new(),
     )
     .unwrap();
@@ -146,17 +143,12 @@ fn previous_success_can_be_restored_and_external_binary_is_never_owned() {
         &root,
         vec![payload("portable_config/mpv.conf", "two")],
         false,
-        Some(external.clone()),
         BTreeMap::new(),
     )
     .unwrap();
     execute(second).unwrap();
     execute(prepare_restore(&root).unwrap()).unwrap();
     assert_eq!(read(&root, "portable_config/mpv.conf"), "one");
-    assert_eq!(
-        status(&root).unwrap().manifest.unwrap().external_mpv,
-        Some(external.clone())
-    );
     execute(prepare_uninstall(&root).unwrap()).unwrap();
     assert_eq!(fs::read(external).unwrap(), b"external player");
 }
@@ -171,7 +163,6 @@ fn corrupt_original_or_previous_backup_never_replaces_current_files() {
             &root,
             vec![payload("portable_config/mpv.conf", "one")],
             true,
-            None,
             BTreeMap::new(),
         )
         .unwrap(),
@@ -209,14 +200,13 @@ fn occupied_file_rolls_back_prior_replacements_and_keeps_last_success() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
     let initial = vec![payload("a.conf", "old a"), payload("b.conf", "old b")];
-    execute(prepare_install(&root, initial, false, None, BTreeMap::new()).unwrap()).unwrap();
+    execute(prepare_install(&root, initial, false, BTreeMap::new()).unwrap()).unwrap();
     let manifest = read_optional(&control(&root, "install.json").unwrap()).unwrap();
     let previous = read_optional(&control(&root, "previous.json").unwrap()).unwrap();
     let update = prepare_install(
         &root,
         vec![payload("a.conf", "new a"), payload("b.conf", "new b")],
         false,
-        None,
         BTreeMap::new(),
     )
     .unwrap();
@@ -369,7 +359,6 @@ fn path_boundaries_and_case_collisions_are_rejected() {
             &root,
             vec![payload(".mpvkit/install.json", "bad")],
             false,
-            None,
             BTreeMap::new()
         )
         .err()
@@ -382,7 +371,6 @@ fn path_boundaries_and_case_collisions_are_rejected() {
             &root,
             vec![payload("a.conf", "one"), payload("A.conf", "two")],
             false,
-            None,
             BTreeMap::new()
         )
         .err()
@@ -391,20 +379,6 @@ fn path_boundaries_and_case_collisions_are_rejected() {
         "duplicate_path"
     );
     assert!(!root.exists());
-    let protected = root.join("mpv.exe");
-    assert_eq!(
-        prepare_install(
-            &root,
-            vec![payload("mpv.exe", "must not overwrite")],
-            true,
-            Some(protected),
-            BTreeMap::new()
-        )
-        .err()
-        .unwrap()
-        .code,
-        "external_player_conflict"
-    );
 }
 
 #[test]
@@ -425,7 +399,6 @@ fn junction_target_cannot_redirect_deployment() {
             &root,
             vec![payload("portable_config/mpv.conf", "never")],
             false,
-            None,
             BTreeMap::new()
         )
         .err()
@@ -451,7 +424,7 @@ fn configuration_replacement_checks_scripts_repairs_missing_files_and_restores_o
             payload("portable_config/scripts/mpvkit.lua", "script"),
         ]
     };
-    let blocked = prepare_install(&root, files(), false, None, versions.clone()).unwrap();
+    let blocked = prepare_install(&root, files(), false, versions.clone()).unwrap();
     assert!(
         blocked
             .preview
@@ -463,7 +436,7 @@ fn configuration_replacement_checks_scripts_repairs_missing_files_and_restores_o
         b"keep old",
     )
     .unwrap();
-    let blocked = prepare_install(&root, files(), true, None, versions.clone()).unwrap();
+    let blocked = prepare_install(&root, files(), true, versions.clone()).unwrap();
     assert!(
         blocked
             .preview
@@ -472,17 +445,17 @@ fn configuration_replacement_checks_scripts_repairs_missing_files_and_restores_o
             .any(|s| s.contains("old-osc"))
     );
     fs::remove_file(root.join("portable_config/scripts/old-osc.lua")).unwrap();
-    let stale = prepare_install(&root, files(), true, None, versions.clone()).unwrap();
+    let stale = prepare_install(&root, files(), true, versions.clone()).unwrap();
     write_new(&root.join("portable_config/scripts/late.lua"), b"late").unwrap();
     assert_eq!(execute(stale).unwrap_err().code, "script_conflict");
     fs::remove_file(root.join("portable_config/scripts/late.lua")).unwrap();
-    execute(prepare_install(&root, files(), true, None, versions.clone()).unwrap()).unwrap();
+    execute(prepare_install(&root, files(), true, versions.clone()).unwrap()).unwrap();
     assert_eq!(
         status(&root).unwrap().manifest.unwrap().config_directory,
         "portable_config"
     );
     fs::remove_file(root.join("portable_config/scripts/mpvkit.lua")).unwrap();
-    execute(prepare_install(&root, files(), false, None, versions).unwrap()).unwrap();
+    execute(prepare_install(&root, files(), false, versions).unwrap()).unwrap();
     assert_eq!(read(&root, "portable_config/scripts/mpvkit.lua"), "script");
     execute(prepare_uninstall(&root).unwrap()).unwrap();
     assert_eq!(read(&root, "portable_config/mpv.conf"), "original");

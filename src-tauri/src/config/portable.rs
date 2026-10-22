@@ -10,8 +10,7 @@ pub struct State {
     pub owner: String,
     pub revision: u64,
     pub settings: Settings,
-    pub confirmed: bool,
-    pub completed: bool,
+    pub integration_enabled: bool,
     pub manual_config: bool,
 }
 impl Default for State {
@@ -21,8 +20,7 @@ impl Default for State {
             owner: "MpvKit".into(),
             revision: 0,
             settings: Settings::default(),
-            confirmed: false,
-            completed: false,
+            integration_enabled: true,
             manual_config: false,
         }
     }
@@ -44,11 +42,8 @@ pub fn read_state(root: &Path) -> Result<State> {
     state.settings.validate()?;
     Ok(state)
 }
-pub fn player_path(root: &Path, manifest: &deploy::InstallManifest) -> PathBuf {
-    manifest
-        .external_mpv
-        .clone()
-        .unwrap_or_else(|| root.join("mpv.exe"))
+pub fn player_path(root: &Path) -> PathBuf {
+    root.join("mpv.exe")
 }
 pub fn helper_path(root: &Path) -> PathBuf {
     root.join(".mpvkit/launcher/mpvkit.exe")
@@ -77,8 +72,6 @@ fn gui_line(line: &str) -> bool {
         "target-colorspace-hint",
         "target-trc",
         "target-prim",
-        "alang",
-        "slang",
     ]
     .contains(&key)
 }
@@ -127,6 +120,7 @@ fn bounds(s: &str) -> Result<(usize, usize)> {
     }
     Ok((start, end))
 }
+#[cfg(test)]
 pub fn generate(root: &Path, player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
     generate_inner(root, player, settings, false, false)
 }
@@ -147,7 +141,11 @@ fn generate_inner(
     )?;
     let next_block = block(&raw, settings);
     let existing = deploy::status(root)?.manifest;
-    let conf = if let Some(manifest) = existing.as_ref().filter(|_| !reset) {
+    let conf = if let Some(manifest) = existing.as_ref().filter(|m| {
+        !reset
+            && m.files.iter().any(|f| f.path == "portable_config/mpv.conf")
+            && root.join("portable_config/mpv.conf").exists()
+    }) {
         let old = text(&deploy::read_bytes(&root.join("portable_config/mpv.conf"))?)?;
         let (start, end) = bounds(&old)?;
         let previous = read_state(root)?;
@@ -222,6 +220,27 @@ fn generate_inner(
         .map_err(|_| error("settings_encode", "无法保存设置。"))?;
     Ok(files)
 }
+pub fn ready(root: &Path) -> Result<bool> {
+    let Some(m) = deploy::status(root)?.manifest else {
+        return Ok(false);
+    };
+    for name in [
+        "portable_config/mpv.conf",
+        "portable_config/input.conf",
+        "portable_config/script-opts/thumbfast.conf",
+        ".mpvkit/settings.json",
+    ] {
+        if !m.files.iter().any(|f| f.path == name) || deploy::file_hash(&root.join(name))?.is_none()
+        {
+            return Ok(false);
+        }
+        if name.ends_with(".conf") {
+            text(&deploy::read_bytes(&root.join(name))?)?;
+        }
+    }
+    read_state(root)?;
+    Ok(true)
+}
 pub fn modified(root: &Path) -> Result<bool> {
     if read_state(root)?.manual_config {
         return Ok(true);
@@ -238,9 +257,16 @@ pub fn modified(root: &Path) -> Result<bool> {
     }
     Ok(false)
 }
-fn retain_files(root: &Path, m: &deploy::InstallManifest, files: &mut Vec<Payload>) -> Result<()> {
+pub(crate) fn retain_files(
+    root: &Path,
+    m: &deploy::InstallManifest,
+    files: &mut Vec<Payload>,
+) -> Result<()> {
     for f in &m.files {
         if files.iter().any(|p| p.path == f.path) {
+            continue;
+        }
+        if editable(&f.path) && deploy::file_hash(&root.join(&f.path))?.is_none() {
             continue;
         }
         let bytes = deploy::read_bytes(&root.join(&f.path))?;
@@ -270,8 +296,8 @@ fn prepare_portable_mode(
     replace: bool,
     reset: bool,
 ) -> Result<deploy::DeploymentPlan> {
+    crate::setup::require_components(root)?;
     settings.validate()?;
-    validate_output(&settings)?;
     let m = deploy::status(root)?
         .manifest
         .ok_or_else(|| error("not_installed", "请先安装播放器。"))?;
@@ -283,7 +309,7 @@ fn prepare_portable_mode(
         .iter()
         .map(|p| deploy::file_hash(p))
         .collect::<Result<Vec<_>>>()?;
-    let mut files = generate_inner(root, &player_path(root, &m), &settings, replace, reset)?;
+    let mut files = generate_inner(root, &player_path(root), &settings, replace, reset)?;
     for p in &files {
         if !m.files.iter().any(|f| f.path == p.path)
             && deploy::file_hash(&root.join(&p.path))?.is_some()
@@ -295,33 +321,47 @@ fn prepare_portable_mode(
         }
     }
     retain_files(root, &m, &mut files)?;
-    let mut plan = deploy::prepare_install(root, files, true, m.external_mpv, m.components)?;
+    let mut plan = deploy::prepare_install(root, files, true, m.components)?;
     for (path, hash) in watched.into_iter().zip(hashes) {
         plan.guard(path, hash);
     }
     Ok(plan)
 }
-pub fn save_state(root: &Path, state: State, generation: &str) -> Result<()> {
+pub fn prepare_intent(root: &Path, enabled: bool) -> Result<deploy::DeploymentPlan> {
+    let state_path = root.join(".mpvkit/settings.json");
+    let state_hash = deploy::file_hash(&state_path)?;
     let m = deploy::status(root)?
         .manifest
         .ok_or_else(|| error("not_installed", "请先安装播放器。"))?;
-    if m.installation_id != generation {
-        return Err(error("setup_changed", "安装状态已变化，请重新检查。"));
-    }
+    let mut state = read_state(root)?;
+    state.integration_enabled = enabled;
+    state.manual_config |= modified(root)?;
     let mut files = vec![Payload {
         path: ".mpvkit/settings.json".into(),
         bytes: serde_json::to_vec_pretty(&state)
             .map_err(|_| error("settings_encode", "无法保存设置。"))?,
     }];
     retain_files(root, &m, &mut files)?;
-    deploy::execute(deploy::prepare_install(
-        root,
-        files,
-        false,
-        m.external_mpv,
-        m.components,
-    )?)?;
-    Ok(())
+    let mut plan = deploy::prepare_install(root, files, false, m.components)?;
+    plan.guard(state_path, state_hash);
+    Ok(plan)
+}
+pub fn prepare_remove_player(root: &Path) -> Result<deploy::DeploymentPlan> {
+    let m = deploy::status(root)?
+        .manifest
+        .ok_or_else(|| error("not_installed", "播放器未安装。"))?;
+    let mut files = Vec::new();
+    for file in m.files {
+        if (editable(&file.path) || file.path == ".mpvkit/settings.json")
+            && deploy::file_hash(&root.join(&file.path))?.is_some()
+        {
+            files.push(Payload {
+                bytes: deploy::read_bytes(&root.join(&file.path))?,
+                path: file.path,
+            });
+        }
+    }
+    deploy::prepare_install(root, files, false, Default::default())
 }
 #[cfg(test)]
 mod tests {
@@ -342,10 +382,8 @@ mod tests {
                 bytes: b"-- fixture".to_vec(),
             });
         }
-        deploy::execute(
-            deploy::prepare_install(root, files, false, None, Default::default()).unwrap(),
-        )
-        .unwrap();
+        deploy::execute(deploy::prepare_install(root, files, false, Default::default()).unwrap())
+            .unwrap();
     }
     #[test]
     fn portable_configuration_preserves_edits_and_previews_only_explicit_replacement() {
@@ -357,7 +395,10 @@ mod tests {
         let path = root.join("portable_config/mpv.conf");
         let before = std::fs::read_to_string(&path).unwrap();
         assert!(before.contains("[mpvkit-balanced]"));
-        let manual = before.replace("save-position-on-quit=yes", "save-position-on-quit=no")
+        let manual = before
+            .replace("save-position-on-quit=yes", "save-position-on-quit=no")
+            .replace(&format!("alang={DEFAULT_LANGUAGES}"), "alang=ja")
+            .replace(&format!("slang={DEFAULT_LANGUAGES}\n"), "")
             + "\n# custom\nvolume=23\n";
         std::fs::write(&path, &manual).unwrap();
         std::fs::write(
@@ -366,7 +407,7 @@ mod tests {
         )
         .unwrap();
         let mut settings = read(&root).unwrap();
-        settings.playback.audio_languages = vec!["ja".into()];
+        settings.profile = Profile::HighQuality;
         let plan = prepare_portable(&root, settings.clone(), false).unwrap();
         assert!(plan.preview.conflicts.is_empty());
         assert!(!plan.preview.configuration_diffs.is_empty());
@@ -375,11 +416,12 @@ mod tests {
         assert!(after.contains("save-position-on-quit=no"));
         assert!(after.ends_with("# custom\nvolume=23\n"));
         assert!(after.contains("alang=ja"));
+        assert!(!after.contains("slang="));
         assert_eq!(
             std::fs::read_to_string(root.join("portable_config/input.conf")).unwrap(),
             "SPACE cycle pause\n"
         );
-        std::fs::write(&path, after.replace("alang=ja", "alang=en")).unwrap();
+        std::fs::write(&path, after.replace("target-trc=auto", "target-trc=pq")).unwrap();
         assert_eq!(
             prepare_portable(&root, settings.clone(), false)
                 .err()
@@ -437,12 +479,7 @@ mod tests {
         assert!(saved.revision > state.revision);
         deploy::execute(deploy::prepare_restore(&root).unwrap()).unwrap();
         assert_eq!(read(&root).unwrap().profile, Profile::Balanced);
-        let m = deploy::status(&root).unwrap().manifest.unwrap();
-        assert!(
-            crate::setup::confirm(&root, &m.installation_id, false)
-                .unwrap()
-                .settings_ready
-        );
+        assert!(crate::setup::status(&root).unwrap().settings_ready);
         assert!(!root.join(".mpvkit/setup.json").exists());
         std::fs::remove_dir_all(root).unwrap();
     }
