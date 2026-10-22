@@ -68,9 +68,8 @@ function App() {
             <Row title={t('系统打开方式', 'System Open with')} description={t('在“打开方式”中提供 MPV，不修改默认应用。', 'Make MPV available in Open with. Default apps stay unchanged.')}><Text size="sm" c={scenario === 'failed' ? 'red' : undefined}>{scenario === 'failed' ? t('登记失败', 'Registration failed') : !integrate ? t('未启用', 'Disabled') : ready && configured ? t('已添加', 'Added') : t('配置就绪后添加', 'Added after configuration')}</Text></Row>
             {scenario === 'failed' && <div className="inline-note"><Alert color="red">{t('配置已保存，系统登记未完成。', 'Configuration saved. System registration did not finish.')}<Group mt={12}>{button('重试登记', 'Retry registration', () => setDialog('integration'))}</Group></Alert></div>}
           </Paper>
-          <div className="location"><Text size="xs" c="dimmed">{t('安装位置', 'Install location')} · %LOCALAPPDATA%\MpvKit\player</Text>{button('打开文件夹', 'Open folder', mock)}</div>
-          {ready && configured && <Group mb={20}>{button('打开媒体文件', 'Open media file', mock, true)}</Group>}
           <Paper><Expand title={t('高级选项', 'Advanced options')} description={t('系统集成、修复与卸载', 'System integration, repair and uninstall')}>
+          <div className="location"><Text size="xs" c="dimmed">{t('安装位置', 'Install location')} · %LOCALAPPDATA%\MpvKit\player</Text>{button('打开文件夹', 'Open folder', mock)}</div>
             <Checkbox label={t('添加到系统打开方式', 'Add to system Open with')} checked={integrate} onChange={() => ready ? setDialog('integration') : setIntegrate(!integrate)} />
 
             <Group gap={8}>{button('检查支持版本', 'Check supported version', () => setNotice(t('已是当前支持版本（示例）。', 'Already on the supported version (sample).')))}{ready && button('修复播放器', 'Repair player', () => setDialog('repair'))}{ready && <Button variant="default" color="red" onClick={() => setDialog('uninstall')}>{t('卸载播放器', 'Uninstall player')}</Button>}</Group>
@@ -79,14 +78,12 @@ function App() {
         {page === 'configuration' && <>
           {scenario === 'conflict' && <Alert color="yellow" mb={16}>{t('配置文件有手动修改。保存前可查看差异。', 'Configuration was edited manually. Review changes before saving.')}</Alert>}
           <Paper mb={24}>
-            <Row title={t('播放方案', 'Playback settings')} description={qhint(quality)}><Text size="sm">{qname(quality)} · HDR {hdr === 'auto' ? t('自动', 'Auto') : hdr === 'on' ? t('强制开启', 'Forced on') : t('关闭（SDR）', 'Off (SDR)')}</Text></Row>
-          </Paper>
-          <Paper><Expand title={t('高级选项', 'Advanced options')} description={t('画质、HDR 与播放偏好', 'Quality, HDR and playback preferences')}>
             <Row title={t('画质', 'Quality')} description={qhint(quality)}><NativeSelect aria-label={t('画质', 'Quality')} value={quality} onChange={e => setQuality(e.currentTarget.value)} data={['efficient', 'balanced', 'quality'].map(value => ({ value, label: qname(value) }))} /></Row>
             <Row title={t("HDR 输出", "HDR output")} description={hdr === 'on' ? t("请先在系统中开启 HDR，并使用支持 HDR 的显示器。", "Enable HDR in system settings and use an HDR-capable display.") : undefined}><NativeSelect aria-label={t("HDR 输出", "HDR output")} value={hdr} onChange={e => setHdr(e.currentTarget.value)} data={[{ value: 'auto', label: t('自动（推荐）', 'Auto (recommended)') }, { value: 'on', label: t('强制开启 HDR', 'Force HDR on') }, { value: 'off', label: t('关闭 HDR（SDR）', 'HDR off (SDR)') }]} /></Row>
+          </Paper>
+          <Paper><Expand title={t('高级选项', 'Advanced options')}>
+            <div className="location"><Text size="xs" c="dimmed">portable_config</Text>{button('打开配置文件夹', 'Open config folder', mock)}</div>
           </Expand></Paper>
-          <Paper mt={8}><Expand title={t('播放快捷键', 'Playback shortcuts')}><Stack gap={8}><Text size="sm">{t('空格：播放 / 暂停　　回车：全屏', 'Space: play / pause     Enter: full screen')}</Text><Text size="sm">{t('← / →：跳跃　　↑ / ↓：音量 ±10', '← / →: seek     ↑ / ↓: volume ±10')}</Text><Text size="sm">{t('其他控制通过播放器菜单使用。', 'Use the player menu for additional controls.')}</Text></Stack></Expand></Paper>
-          <div className="location"><Text size="xs" c="dimmed">portable_config\mpv.conf</Text>{button('打开配置文件夹', 'Open config folder', mock)}</div>
           <div className="page-actions"><Group gap={8}>{button(configured ? '保存更改' : '安装配置', configured ? 'Save changes' : 'Install configuration', () => setDialog('config'), true)}{button('返回播放器', 'Back to player', () => go('management'))}</Group></div>
         </>}
         {page === 'settings' && <>

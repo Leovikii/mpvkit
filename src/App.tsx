@@ -35,13 +35,14 @@ export function App() {
   const [notice, setNotice] = useState<Key | null>(null);
   const [maintenanceAction, setMaintenanceAction] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
+  const previewOrigin = useRef<HTMLElement | null>(null);
+  const previewWasOpen = useRef(false);
   const [license, setLicense] = useState<string | null>(null);
   const [replace, setReplace] = useState(false);
   const [assets, setAssets] = useState<Asset[]>([]);
   const [progress, setProgress] = useState<Progress | null>(null);
   const [extrasOpen, setExtrasOpen] = useState(false);
   const [draft, setDraft] = useState<Settings>(defaultSettings);
-  const [media, setMedia] = useState("");
   const [exportPath, setExportPath] = useState("");
   const locale = resolveLocale(appSettings.language, environment.languages);
   const t = translator(locale);
@@ -52,6 +53,16 @@ export function App() {
   const [integrationEnabled, setIntegrationEnabled] = useState(true);
   const [updatesChecked, setUpdatesChecked] = useState(false);
   const managementTab = useRef<HTMLButtonElement>(null);
+  // Async preview preparation disables its trigger before Mantine can remember it.
+  useEffect(() => {
+    if (preview) previewWasOpen.current = true;
+    else if (!busy && previewWasOpen.current) {
+      previewWasOpen.current = false;
+      const origin = previewOrigin.current;
+      if (origin?.isConnected && !origin.matches(":disabled")) origin.focus({preventScroll:true});
+      else managementTab.current?.focus({preventScroll:true});
+    }
+  }, [preview, busy]);
   async function appearance() {
     if (!desktop) return;
     setEnvironment(await invoke<Environment>("desktop_environment"));
@@ -100,13 +111,14 @@ export function App() {
   }, [report, page]);
   async function run(action: () => Promise<void>) {
     if (busyRef.current) return;
+    if (!preview) previewOrigin.current = document.activeElement as HTMLElement;
     busyRef.current = true; setBusy(true); setError(null); setNotice(null);
     try { await action(); } catch (cause) { setError(cause); await refresh().catch(()=>{}); }
     finally { busyRef.current = false; setBusy(false); }
   }
   function go(next: "management"|"configuration"|"settings") { setPage(next); if (next === "management" && desktop && !busyRef.current) void refresh().catch(setError); }
-  async function chooseFile(folder: boolean, setter: (path: string) => void) {
-    await run(async () => { const chosen = await invoke<string | null>("choose_path",{folder}); if (chosen) setter(chosen); });
+  async function chooseFolder(setter: (path: string) => void) {
+    await run(async () => { const chosen = await invoke<string | null>("choose_path",{folder:true}); if (chosen) setter(chosen); });
   }
   function changePlayback<K extends keyof Settings["playback"]>(key: K, value: Settings["playback"][K]) {
     setDraft(d => ({...d, playback:{...d.playback,[key]:value}}));
@@ -154,7 +166,7 @@ export function App() {
     catch(cause) { setError(cause); } finally { setAppSaving(false); }
   }
   const action = (label: Key, onClick: () => void, primary = false, disabled = blocked) =>
-    <Button type="button" variant={primary ? "filled" : "default"} disabled={disabled} onClick={onClick}>{t(label)}</Button>;
+    <Button type="button" variant={primary ? "filled" : "default"} disabled={disabled} onClick={e=>{previewOrigin.current=e.currentTarget;onClick();}}>{t(label)}</Button>;
   const row = (label: string, control: ReactNode, description?: string) =>
     <div className="setting-row"><div><Text fw={500}>{label}</Text>{description && <Text size="sm" c="dimmed">{description}</Text>}</div><div className="row-control">{control}</div></div>;
   function componentRow(id: string) {
@@ -183,9 +195,8 @@ export function App() {
         {row(t("configState"),<Group gap={8}><Text size="sm">{t(configKey)}</Text>{report?.playerReady&&action(report.configurationInstalled?"editConfig":"generateConfig",()=>go("configuration"),!report.settingsReady,false)}</Group>,report?.configurationInstalled?t("modifiedAt")+" · "+(report.configModifiedAt===null?t("unreadableTime"):new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"short"}).format(new Date(report.configModifiedAt))):undefined)}
         {row(t("integration"),<Group gap={8}><Text size="sm">{t(integrationKey)}</Text>{integrationEnabled&&report?.settingsReady&&!registration?.valid&&action("retry",()=>void changeIntegration(true),false,blocked||!!registration?.recoveryRequired)}</Group>)}
       </Paper>
-      <div className="location"><Text size="xs" c="dimmed" className="path">{report?.root}</Text>{action("openFolder",()=>void run(async()=>{await invoke("open_player_directory");}),false,blocked||!report?.rootExists)}</div>
-      {report?.settingsReady&&report.playerReady&&<Paper withBorder className="section" p="md"><TextInput label={t("media")} value={media} disabled={blocked} onChange={e=>setMedia(e.currentTarget.value)}/><Group mt="sm" gap={8}>{action("browse",()=>void chooseFile(false,setMedia))}{action("play",()=>void run(async()=>{const p=await invoke<{id:string}>("preview_launch",{media});await invoke("launch_mpv",{previewId:p.id});}),true,blocked||!media)}</Group></Paper>}
       <Paper withBorder><Fold title={t("advanced")}>
+      <div className="location"><Text size="xs" c="dimmed" className="path">{report?.root}</Text>{action("openFolder",()=>void run(async()=>{await invoke("open_player_directory");}),false,blocked||!report?.rootExists)}</div>
         <Checkbox mt="sm" label={t("integrate")} checked={integrationEnabled} disabled={blocked || !!report?.recoveryRequired} onChange={e=>void changeIntegration(e.currentTarget.checked)}/>
         <div className="actions">{action("defaultApps",()=>void run(async()=>{await invoke("open_default_apps");}))}{report?.playerReady&&action("repairPlayer",()=>setPreview({kind:"download",data:null}),false,blocked||!!report?.recoveryRequired)}{action("restore",()=>void maintenance("restore"),false,blocked||!report?.generation||!!registration?.registered)}{action("cleanup",()=>void run(async()=>setPreview({kind:"assets",data:await invoke("preview_asset_cleanup")})))}</div>
         <Checkbox label={t("replace")} checked={replace} disabled={blocked} onChange={e=>setReplace(e.currentTarget.checked)}/>{replace&&<Text size="xs" mt="xs">{t("replaceHint")}</Text>}
@@ -198,19 +209,19 @@ export function App() {
   function playback() {
     const hint = t(qualityHint[draft.profile]??"balancedHint");
     return <>{report?.configurationModified&&<Alert color="yellow" mb="md">{t("manualConfig")}</Alert>}
-      <Paper withBorder className="section">{row(t("quality"),<Text size="sm">{t(profileKey[draft.profile]??"balanced")}</Text>,hint)}</Paper>
-      <Paper withBorder className="section"><Fold title={t("advanced")}>
+      <Paper withBorder className="section">
         {row(t("quality"),<NativeSelect aria-label={t("quality")} value={draft.profile} disabled={blocked} data={Object.entries(profileKey).map(([value,k])=>({value,label:t(k)}))} onChange={e=>{const profile=e.currentTarget.value;setDraft(d=>({...d,profile}));}}/>,hint)}
         {row(t("hdr"),<NativeSelect aria-label={t("hdr")} value={draft.playback.hdr} disabled={blocked} data={[{value:"auto",label:t("auto")},{value:"on",label:t("hdrOn")},{value:"off",label:t("hdrOff")}]} onChange={e=>changePlayback("hdr",e.currentTarget.value)}/>,draft.playback.hdr==="on"?t("hdrHint"):undefined)}
+      </Paper>
+      <Paper withBorder className="section"><Fold title={t("advanced")}>
         {row(t("endBehavior"),<NativeSelect aria-label={t("endBehavior")} value={draft.playback.keepOpen?"keep":"close"} disabled={blocked} data={[{value:"close",label:t("closePlayer")},{value:"keep",label:t("keepWindow")}]} onChange={e=>changePlayback("keepOpen",e.currentTarget.value==="keep")}/>)}
-        {row(t("screenshotDirectory"),<Group gap={8}><TextInput aria-label={t("screenshotDirectory")} placeholder={t("picturesDefault")} value={draft.playback.screenshotDirectory??""} disabled={blocked} onChange={e=>changePlayback("screenshotDirectory",e.currentTarget.value||null)}/>{action("browse",()=>void chooseFile(true,p=>changePlayback("screenshotDirectory",p)))}</Group>)}
+        {row(t("screenshotDirectory"),<Group gap={8}><TextInput aria-label={t("screenshotDirectory")} placeholder={t("picturesDefault")} value={draft.playback.screenshotDirectory??""} disabled={blocked} onChange={e=>changePlayback("screenshotDirectory",e.currentTarget.value||null)}/>{action("browse",()=>void chooseFolder(p=>changePlayback("screenshotDirectory",p)))}</Group>)}
         {row(t("screenshotFormat"),<NativeSelect aria-label={t("screenshotFormat")} value={draft.playback.screenshotFormat} disabled={blocked} data={[{value:"png",label:"PNG"},{value:"jpeg",label:"JPEG"}]} onChange={e=>changePlayback("screenshotFormat",e.currentTarget.value as "png"|"jpeg")}/>)}
         <Checkbox mt="md" label={t("screenshotSubtitles")} checked={draft.playback.screenshotSubtitles} disabled={blocked} onChange={e=>changePlayback("screenshotSubtitles",e.currentTarget.checked)}/>
         {report?.configurationModified&&<Checkbox mt="md" label={t("replaceManual")} description={t("replaceManualHint")} checked={replaceManual} disabled={blocked} onChange={e=>setReplaceManual(e.currentTarget.checked)}/>}
+        <div className="location"><Text size="xs" c="dimmed" className="path">{report?.configDirectory}</Text>{action("openConfig",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists)}</div>
         <div className="actions">{action("resetConfig",()=>void maintenance("reset-config"),false,blocked||!report?.configurationInstalled)}</div>
       </Fold></Paper>
-      <Paper withBorder className="section"><Fold title={t("playerControls")}><Text size="sm">{t("basicKeys")}</Text><Text size="sm" mt="xs">{t("speedHelp")}</Text><Text size="sm" mt="xs">{t("menuHelp")}</Text></Fold></Paper>
-      <div className="location"><Text size="xs" c="dimmed" className="path">{report?.configDirectory}</Text>{action("openConfig",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists)}</div>
       <div className="page-actions">{action(report?.configurationInstalled?"saveChanges":"installConfig",()=>void prepareSettings(),true,blocked||!report?.playerReady||!!report?.recoveryRequired)}{action("returnManagement",()=>go("management"),false,false)}</div>
     </>;
   }

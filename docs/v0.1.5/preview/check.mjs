@@ -17,6 +17,11 @@ try {
   const nav = name => page.getByRole('button', { name, exact: true });
   const noOverflow = async () => assert.equal(await page.evaluate(() => [...document.querySelectorAll('.page-surface, .page-content, .preview-tools')].every(x => x.scrollWidth <= x.clientWidth + 1)), true);
   await page.getByRole('heading', { name: '播放器', exact: true }).waitFor();
+  assert.equal(await nav('打开媒体文件').count(), 0);
+  assert.equal(await nav('打开文件夹').isVisible(), false);
+  await page.getByRole('button', { name: /^高级选项/ }).click();
+  await nav('打开文件夹').waitFor({ state: 'visible' });
+  await page.getByRole('button', { name: /^高级选项/ }).click();
   await screenshot('management-light');
   await nav('深色').click();
   await screenshot('management-dark');
@@ -32,12 +37,17 @@ try {
   await nav('安装播放器').click();
   await page.getByRole('dialog').getByRole('button', { name: '安装', exact: true }).click();
   await nav('生成配置').click();
+  await page.getByLabel('画质', { exact: true }).waitFor({ state: 'visible' });
+  await page.getByLabel('HDR 输出', { exact: true }).waitFor({ state: 'visible' });
+  assert.equal(await nav('打开配置文件夹').isVisible(), false);
+  assert.equal(await nav('播放快捷键').count(), 0);
   await page.getByRole('button', { name: /^高级选项/ }).click();
+  await nav('打开配置文件夹').waitFor({ state: 'visible' });
   assert.equal(await nav('重新检测').count(), 0);
   assert.equal(await page.getByLabel('画质', { exact: true }).inputValue(), 'balanced');
   for (const [value, hint] of [['efficient', '降低渲染负担，适合低性能设备。'], ['balanced', '推荐日常使用，兼顾画质与性能。'], ['quality', '推荐独立显卡使用，卡顿时请降低档位。']]) {
     await page.getByLabel('画质', { exact: true }).selectOption(value);
-    assert.equal(await page.getByText(hint, { exact: true }).count(), 2);
+    assert.equal(await page.getByText(hint, { exact: true }).count(), 1);
   }
   assert.equal(await page.getByLabel('HDR 输出', { exact: true }).inputValue(), 'auto');
   for (const mode of ['on', 'off', 'auto']) {

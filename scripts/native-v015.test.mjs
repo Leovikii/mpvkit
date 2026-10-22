@@ -206,12 +206,27 @@ test("native sidebar, language, theme and fixed paths",{timeout:90000},async()=>
   await p.getByRole('combobox',{name:'Display language',exact:true}).selectOption('zh-Hans');await heading(p,'应用设置');
   await p.getByRole('combobox',{name:'明暗模式',exact:true}).selectOption('light');await p.screenshot({animations:"disabled",path:path.join(artifacts,'settings-light-zh.png')});
   await p.getByRole('button',{name:'播放器',exact:true}).click();await heading(p,'播放器');
+  assert.equal(await p.getByRole('button',{name:'打开文件夹',exact:true}).isVisible(),false);
+  await p.getByRole('button',{name:'高级选项',exact:true}).click();
   assert.equal(await p.getByRole('button',{name:'打开文件夹',exact:true}).isEnabled(),false);
   await p.emulateMedia({reducedMotion:'no-preference'});
   await p.getByRole('button',{name:'应用设置',exact:true}).click();
   assert.equal(await p.locator('.page-content').evaluate(e=>getComputedStyle(e).transitionDuration),'0.2s');
   await p.waitForFunction(()=>getComputedStyle(document.querySelector('.page-content')).opacity==='1');
+  await p.getByRole('button',{name:'高级选项',exact:true}).click();
+  assert.match(await p.locator('main .mantine-Accordion-panel').evaluate(e=>getComputedStyle(e).transitionDuration),/0\.18s/);
+  await p.getByRole('button',{name:'播放器',exact:true}).click();
+  await p.getByRole('button',{name:'安装播放器',exact:true}).click();
+  const modal=p.getByRole('dialog');await modal.waitFor();
+  assert.equal(await modal.evaluate(e=>getComputedStyle(e).transitionDuration),'0.16s');
+  assert(await modal.evaluate(e=>e.scrollWidth<=e.clientWidth+1));
+  await p.keyboard.press('Escape');await modal.waitFor({state:'hidden'});
+  await p.waitForFunction(()=>document.activeElement?.textContent==='安装播放器');
   await p.emulateMedia({reducedMotion:'reduce'});
+  await p.getByRole('button',{name:'安装播放器',exact:true}).click();await modal.waitFor();
+  assert.equal(await modal.evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
+  await p.keyboard.press('Escape');await modal.waitFor({state:'hidden'});
+  await p.getByRole('button',{name:'应用设置',exact:true}).click();
   await p.getByRole('button',{name:'播放器',exact:true}).click();
   assert.equal(await p.locator('.page-content').evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
   const current=await p.locator('.page-content').elementHandle();await p.getByRole('button',{name:'播放器',exact:true}).click();
@@ -286,25 +301,61 @@ test("native lifecycle preserves configuration through update, uninstall and rei
   async function install(){await advanced(p);await p.getByRole('button',{name:/^(Install player|Repair components|Update components)$/}).click();await confirm(p);await p.getByRole('dialog').locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);}
   await advanced(p);await p.getByLabel('Add to system Open with',{exact:true}).uncheck();assert.equal(await p.getByRole('dialog').count(),0);
   await install();assert(!(await ipc(p,'setup_status')).integrationEnabled);assert(!await exists(path.join(root,'portable_config/mpv.conf')));
-  await p.getByRole('button',{name:'Generate configuration',exact:true}).click();await settled(p);await advanced(p);
+  await p.getByRole('button',{name:'Generate configuration',exact:true}).click();await settled(p);
+  await p.getByLabel('Quality',{exact:true}).waitFor({state:'visible'});
+  assert(await p.getByLabel('HDR output',{exact:true}).isVisible());
+  assert.equal(await p.getByRole('button',{name:'Controls',exact:true}).count(),0);
+  assert.equal(await p.getByRole('button',{name:'Open configuration folder',exact:true}).isVisible(),false);
+  await advanced(p);
+  await p.getByRole('button',{name:'Open configuration folder',exact:true}).waitFor({state:'visible'});
   await p.getByRole('combobox',{name:'Quality',exact:true}).selectOption('high-quality');
   await p.getByRole('button',{name:'App settings',exact:true}).click();await heading(p,'App settings');
   await p.getByRole('button',{name:'Playback',exact:true}).click();await advanced(p);assert.equal(await p.getByRole('combobox',{name:'Quality',exact:true}).inputValue(),'high-quality');
   await p.getByRole('button',{name:'Install configuration',exact:true}).click();await confirm(p);await settled(p);
   let state=await ipc(p,'setup_status');assert(state.settingsReady);assert(!state.integration.registered);
+  await p.getByRole('button',{name:'Player',exact:true}).click();await settled(p);
+  assert.equal(await p.getByLabel('Media file',{exact:true}).count(),0);
+  assert.equal(await p.getByRole('button',{name:'Play',exact:true}).count(),0);
+  assert.equal(await p.getByRole('button',{name:'Open folder',exact:true}).isVisible(),false);
+  await advanced(p);assert(await p.getByRole('button',{name:'Open folder',exact:true}).isEnabled());
+  await p.getByRole('button',{name:'Playback',exact:true}).click();
   assert.equal(await p.getByLabel('HDR output',{exact:true}).inputValue(),'auto');
   for(const hdr of ['on','off','auto']){const config=await ipc(p,'read_settings');config.playback.hdr=hdr;const plan=await ipc(p,'preview_settings',{settings:config});assert(plan.configurationDiffs.every(d=>!d.after.includes('displayId')));}
   for(const size of [{width:1200,height:800},{width:900,height:700},{width:640,height:600}]){
     await p.setViewportSize(size);
     for(const title of ['Player','Playback','App settings']){
       await p.getByRole('button',{name:title,exact:true}).click();await heading(p,title);
-      if(title==='Playback')await advanced(p);
+      await advanced(p);
       assert(await p.evaluate(()=>[...document.querySelectorAll('.page-content,.page-surface')].every(e=>e.scrollWidth<=e.clientWidth+1)),title+' overflow');
       await p.screenshot({animations:"disabled",path:path.join(artifacts,title+'-'+size.width+'.png')});
     }
   }
   await p.setViewportSize({width:1200,height:800});await p.evaluate(()=>document.documentElement.style.fontSize='32px');
-  assert(await p.evaluate(()=>document.querySelector('.page-content').scrollWidth<=document.querySelector('.page-content').clientWidth+1));
+  for(const title of ['Player','Playback','App settings']){
+    await p.getByRole('button',{name:title,exact:true}).click();await advanced(p);
+    assert(await p.evaluate(()=>document.querySelector('.page-content').scrollWidth<=document.querySelector('.page-content').clientWidth+1),title+' 200% text');
+    assert(await p.locator('main select:visible').evaluateAll(selects=>selects.every(e=>{
+      const style=getComputedStyle(e),canvas=document.createElement('canvas'),context=canvas.getContext('2d');context.font=style.font;
+      return context.measureText(e.selectedOptions[0].text).width<=e.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)+1;
+    })),title+' selected option text clipped');
+    await p.screenshot({animations:'disabled',path:path.join(artifacts,title+'-text-200.png')});
+  }
+  await p.getByRole('button',{name:'Playback',exact:true}).click();
+  await p.getByRole('button',{name:'Save changes',exact:true}).click();
+  const dialog=p.getByRole('dialog');
+  for(const button of await dialog.locator('.mantine-Accordion-control').all())await button.click();
+  assert(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth+1),'expanded dialog overflow');
+  await dialog.getByRole('button',{name:'Cancel',exact:true}).scrollIntoViewIfNeeded();
+  assert(await dialog.locator('.dialog-actions').evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight;}),'dialog actions reachable');
+  for(let n=0;n<10;n++){await p.keyboard.press('Tab');assert(await dialog.evaluate(e=>e.contains(document.activeElement)));}
+  await p.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
+  await p.waitForFunction(()=>document.activeElement?.textContent==='Save changes',null,{timeout:5000});
+  for(const motion of ['reduce','no-preference']){
+    await p.emulateMedia({reducedMotion:motion});
+    await p.getByRole('button',{name:'Save changes',exact:true}).click();await dialog.waitFor();
+    await dialog.getByRole('button',{name:'Cancel',exact:true}).click();await dialog.waitFor({state:'hidden'});
+    await p.waitForFunction(()=>document.activeElement?.textContent==='Save changes',null,{timeout:5000});
+  }
   await p.evaluate(()=>document.documentElement.style.fontSize='');await p.getByRole('button',{name:'Player',exact:true}).click();await settled(p);
 
   const conf=path.join(root,'portable_config/mpv.conf');await fs.appendFile(conf,'\n# private\nvolume=37\n');const bytes=await fs.readFile(conf);const originalTime=(await fs.stat(conf)).mtimeMs;

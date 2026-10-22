@@ -13,11 +13,11 @@ body { margin: 0; overflow: hidden; }
 .page-surface { position: relative; height: calc(100dvh - var(--app-shell-header-height) - 8px); overflow: hidden; margin-right: 8px; border: 1px solid #0000000c; border-radius: 8px; background: #fafafa; }
 .page-content { position: absolute; inset: 0; overflow-y: auto; max-width: 1040px; padding: 24px; }
 .mantine-Paper-root { background: #fff; border-color: #00000012; }
-.setting-row { padding: 16px; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.setting-row { padding: 16px; min-height: 64px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
 .setting-row + .setting-row,.mantine-Paper-root > .mantine-Accordion-root { border-top: 1px solid #0000000d; }
-.row-copy { min-width: 0; }
+.row-copy { flex: 1; min-width: min(100%, 16rem); }
 .row-action { flex-shrink: 0; max-width: 100%; }
-.row-action .mantine-NativeSelect-root { width: 208px; }
+.row-action .mantine-NativeSelect-root { width: 13rem; max-width: 100%; }
 .mantine-Accordion-item { border-bottom: 0; }
 .mantine-Accordion-control { min-height: 56px; padding: 0 16px; }
 .mantine-Accordion-label { padding: 14px 0; }

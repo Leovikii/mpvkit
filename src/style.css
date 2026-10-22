@@ -11,7 +11,7 @@ body { margin: 0; overflow: hidden; }
 .page-surface { position: relative; height: calc(100dvh - var(--app-shell-header-height) - 8px); overflow: hidden; margin-right: 8px; border: 1px solid #0000000c; border-radius: 8px; background: #fafafa; }
 .page-content { position: absolute; inset: 0; overflow-y: auto; max-width: 1040px; padding: 24px; }
 .mantine-Paper-root { background: #fff; border-color: #00000012; }
-.setting-row { padding: 16px; min-height: 64px; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.setting-row { padding: 16px; min-height: 64px; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; }
 .setting-row + .setting-row,.mantine-Paper-root > .mantine-Accordion-root { border-top: 1px solid #0000000d; }
 .row-control { flex-shrink: 0; max-width: 100%; }
 .row-control .mantine-NativeSelect-root { width: 208px; }
@@ -42,9 +42,9 @@ body { background: transparent; }
 .page-heading h1 { font-size:28px; font-weight:600; }
 .section { margin-bottom:16px; }
 .section-title { font-size:14px; font-weight:600; margin:24px 0 12px; }
-.row-control { min-width:0; flex-shrink:1; }
-.row-control .mantine-NativeSelect-root { width:208px; max-width:100%; }
-.setting-row > :first-child { min-width:0; }
+.row-control { min-width:0; }
+.row-control .mantine-NativeSelect-root { width:13rem; max-width:100%; }
+.setting-row > :first-child { flex:1; min-width:min(100%,16rem); }
 .component-row { display:flex; align-items:center; justify-content:space-between; gap:24px; padding:8px 0; }
 .component-row > div { min-width:0; }
 .component-row .mantine-Text-root { overflow-wrap:anywhere; }
