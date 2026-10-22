@@ -4,15 +4,17 @@ MpvKit 是面向桌面用户的 MPV 安装与配置管理器，帮助用户安�
 
 - 软件名称：**MpvKit**。
 - 仓库：[Leovikii/mpvkit](https://github.com/Leovikii/mpvkit)。
-- 当前实现：**v0.1.1，Windows x64**；四步安装引导、独立管理页面、双语与原生窗口外观。
-- 后续平台方向：Linux；v0.1.1 继续聚焦 Windows，Linux 版本号与日期另定。
+- 当前实现：**v0.1.3，Windows x64**；原生便携目录、配置精简、三步引导与双语管理界面。
+- 后续平台方向：Linux；v0.1.3 继续聚焦 Windows，Linux 版本号与日期另定。
 - 技术栈：Tauri 2、React、TypeScript、Mantine 9.7.3、Rust，必要的播放期逻辑使用 Lua。
+
+## 开发测试约束
+
+在用户明确宣布发布正式版前：不设计或启用 GitHub Actions / CI/CD；不实现历史开发版迁移或兼容；不构建安装包，只构建单 EXE 测试程序。提交、推送、版本号变化或测试通过不解除限制。后续 AI agent 必须先遵守 [AGENTS.md 的硬性约束](AGENTS.md)，历史打包记录不构成执行授权。
 
 ## 当前状态
 
-2026-10-21：v0.1.1 已实现“安装位置 → 安装组件 → 播放设置 → 系统集成”的首次引导，完成后进入状态页。播放器与播放增强分组；设置统一管理简中/英文、主题、强调色及关于信息；窗口自动使用 Mica 或纯色回退。图标采用用户提供的 MPV SVG，无边框。前端继续使用 Mantine，后端复用可恢复部署与文件保护。
-
-新功能、验证与已知边界见 [实施计划](docs/v0.1.1/plan.md)、[界面说明](docs/v0.1.1/ui-flow.md)、[架构与迁移](docs/v0.1.1/architecture.md)及[验证要求](docs/v0.1.1/verification.md)。当前为开发测试版，完整公开发布条件仍未满足。下文 v0.1.0 验证记录保留历史范围，不代表新版本全部验收。
+2026-10-22：v0.1.3 已按“MPV 播放配置 / MpvKit 软件配置”整理目录。新安装采用 mpv.exe + portable_config；直接编辑 mpv.conf，GUI 保存只更新标记范围。仅维护当前布局与格式，不提供旧开发版迁移或兼容。继承三步引导、最小键位（音量 ±10）、位置续播、文楷字幕字体、双语设置与自动 Mica/纯色回退。见[实施与交接](docs/v0.1.3/plan.md)、[实际目录](docs/v0.1.3/storage-layout.md)及[本轮验证](docs/v0.1.3/evidence/2026-10-22-no-compat.md)。当前为开发测试版，完整公开发布条件尚未满足；下文历史记录不代表本轮全部验收。
 
 截至 2026-10-20，已实现固定组件获取/校验/安全解包、可恢复部署和维护、结构化设置与三档、Windows设备只读检测、受管理启动、uosc/快捷键切换、GUI关闭后的全局保存、打开方式登记与恢复、脱敏诊断和日志清理。首版仍未完成全部验收，用户确认暂时只有当前电脑，保留隔离系统与实体设备验收缺口；上游完整许可/源码材料仍待补齐。
 
@@ -29,7 +31,7 @@ pnpm tauri dev
 
 仅看网页布局可运行 `pnpm dev`；网页模式不能检查文件或启动本机程序。桌面引导在“高级选项”中可使用已有 MPV 并点击“查找本地 MPV”，也可填写完整路径（不加引号）。查找不执行程序、不替换当前输入；点击候选的“使用此路径”后，再检查版本。版本检查会运行所选的 `mpv.exe`，请只选择可信的本地程序。
 
-查找仅检查 Known Folder 对应的 `MpvKit/runtime`、用户 `Programs/mpv`、`Program Files/mpv`、用户 Scoop 默认位置、MpvKit 程序同级位置，以及 PATH 前 64 项中的 `mpv.exe`；不递归、忽略空 PATH 项，拒绝网络路径和 reparse point，错误位置跳过后继续。ASCII 大小写重复路径合并位置标签。位置标签不证明发布来源或归属，所有候选仍按外部播放器处理；版本与能力在用户选择后检查。Scoop 的 `current` 若为 junction，当前会跳过，可手动指定实际版本目录；自定义安装位置仍可手动填写。
+查找仅检查 Known Folder 对应的 `MpvKit/player`、用户 `Programs/mpv`、`Program Files/mpv`、用户 Scoop 默认位置、MpvKit 程序同级位置，以及 PATH 前 64 项中的 `mpv.exe`；不递归、忽略空 PATH 项，拒绝网络路径和 reparse point，错误位置跳过后继续。ASCII 大小写重复路径合并位置标签。位置标签不证明发布来源或归属，所有候选仍按外部播放器处理；版本与能力在用户选择后检查。Scoop 的 `current` 若为 junction，当前会跳过，可手动指定实际版本目录；自定义安装位置仍可手动填写。
 
 检查和构建：
 
@@ -43,22 +45,22 @@ pnpm tauri build --debug --no-bundle
 pnpm test:e2e:smoke
 ~~~
 
-调试构建产物为 `src-tauri/target/debug/mpvkit.exe`，含内置页面，可独立启动；NSIS 用户级安装包使用 `pnpm tauri build --bundles nsis`；本地调试与Release安装包构建通过，真实安装/卸载尚未在干净系统验收。缺少 WebView2 时安装器从 Microsoft 下载引导程序，需联网。Rust 测试编译专用模拟播放器并只操作临时目录，不需要已安装 MPV，也不改真实配置、默认应用或注册表。Windows CI 使用相同入口，远程 CI 运行结果尚待推送后确认。
+调试构建产物为 `src-tauri/target/debug/mpvkit.exe`，含内置页面，可独立启动（需系统提供 WebView2 Runtime）。确需优化构建时使用 `pnpm tauri build --no-bundle`，输出 `src-tauri/target/release/mpvkit.exe`。Tauri 默认关闭 bundle，不得构建 NSIS/MSI 安装包或运行安装器测试。本地 Rust 测试使用临时目录，不改真实配置、默认应用或注册表；必要的前后端验证使用隔离环境。
 
-手动外部启动使用 `--no-config`、显式 `--config-dir` 和 `--load-scripts=no`，采用原生默认值；勾选受管理环境后加载已校验的配置、uosc、thumbfast 与 MpvKit Lua。所选配置目录的可选 user.conf 最后加载，保留用户覆盖。预览不写文件；确认后在 Windows Known Folder API 返回的 LocalAppData 下创建 `MpvKit/cache/sessions/<会话 ID>`，保存有 schemaVersion 的归属记录和最多三行事件日志。日志最多1024份，在维护页预览清理旧日志并保留最近20份；会话归属、缓存、用户文件和备份保留。外部 MPV 始终归用户所有。
+手动外部启动使用 `--no-config`、显式 `--config-dir` 和 `--load-scripts=no`，采用原生默认值；勾选受管理环境后加载已校验的配置、uosc、thumbfast 与 MpvKit Lua。直接读取 portable_config/mpv.conf，GUI 保存只更新标记范围。尚无正式版，只支持当前布局和设置格式，不提供开发版迁移、旧配置导入或旧格式兼容。预览不写文件；确认后在当前环境下创建 `.mpvkit/cache/sessions/<会话 ID>`，保存有 schemaVersion 的归属记录和最多三行事件日志。日志最多1024份，在维护页预览清理旧日志并保留最近20份；已结束会话的已知归属记录和空目录一并清理；活动会话、未知内容与有恢复引用的备份保留。外部 MPV 始终归用户所有。
 
 真实 MPV 的隔离验收入口已在固定候选上通过；启用条件、命令及证据边界见 [M1 实机验收](docs/v0.1.0/verification.md#m1-显式实机验收入口)。它需要显式设置隔离路径；用户要求自动测试时可默认使用仓库隔离目录。普通 Rust 测试仍默认忽略该入口，原生冒烟测试不需要 MPV；完整旅程使用真实固定组件与可信外部播放器。
 
 
-完整原生旅程需先准备 resources/catalog.json 中的三份固定资产（后端仍核对版本/哈希），再设置隔离测试输入：
+完整原生旅程需先准备 resources/catalog.json 中的四份固定资产（后端仍核对版本/哈希），再设置隔离测试输入：
 
 ~~~powershell
 $env:MPVKIT_TEST_ASSETS = 'D:\fixtures\mpvkit-assets'
-$env:MPVKIT_E2E_MPV = 'D:\fixtures\mpv\mpv.exe'
+$env:MPVKIT_FFMPEG = 'D:\fixtures\ffmpeg.exe' # 固定媒体生成器，测试中核对摘要
 pnpm test:e2e
 ~~~
 
-资产文件名为 mpv-x86_64-20261020-git-6a262d11f6.7z、uosc-5.13.0.zip、thumbfast-thumbfast.lua。只使用 Debug 构建；测试在任何界面写入前核对隔离根，Release 不支持此隔离入口。CI 运行无资产依赖的外观、键盘、目录选择及进程清理冒烟检查，不代表完整播放/安装验收。旧 v0.1.0 界面测试已由当前旅程取代，历史证据保留。
+资产文件名为 mpv-x86_64-20261020-git-6a262d11f6.7z、uosc-5.13.0.zip、thumbfast-thumbfast.lua、LXGWWenKaiScreen.ttf。只使用 Debug 构建；测试在任何界面写入前核对隔离根，Release 不支持此隔离入口。本轮原生入口为 scripts/native-v013.test.mjs，覆盖新安装、直接/受管理启动、GUI 关闭保存、手改保护、自定义目录、外部播放器与真实视频；测试使用隔离的新环境。
 
 构建产物、下载缓存、截图和本机证据保存在忽略目录；Git 仅提交源码、锁文件、文档和构建必需资源，不提交 EXE/安装包。维护工具和第三方许可材料仍用于来源复核，不能当作临时文件删除。
 
@@ -83,6 +85,19 @@ pnpm test:e2e
 可选的第三方来源维护工具使用Python标准库及隔离的Go1.23.1 SDK（仅检查uosc的ziggy），见[重建与运行时元数据证据](docs/v0.1.0/evidence/2026-10-20-uosc-link-metadata.md)。这些工具不参与MpvKit常规构建或运行，不要求用户安装Go；产品后端仍为Rust。
 
 前端开发必须遵守[前端规范](docs/v0.1.0/frontend.md)及已下载的[Mantine官方LLM文档索引](docs/vendor/mantine/llms.txt)，按实际使用组件阅读对应页面。前端与 Rust 解析结果分别固定在 pnpm-lock.yaml 和 src-tauri/Cargo.lock。应用依赖许可收集入口为 node scripts/collect-app-notices.mjs --check，范围与未完成项见[许可证据](docs/v0.1.0/evidence/2026-10-20-app-notices.md)。应用不内嵌上游组件二进制；固定来源、版本/哈希与未完成发布门槛记录在 resources/catalog.json；来源研究下载保存在忽略目录 `.local/source-research`，调试测试可显式读取并重新校验这些候选；生产获取仅允许代码固定的来源；项目授权已由用户确认为 GPL-3.0-or-later，声明与构建元数据已同步。
+
+### 播放默认值
+
+空格暂停、回车全屏、左右跳转 5 秒、上下音量 ±10。其他动作通过播放器菜单完成。倍速控件上拖动或滚动调速，右键恢复 1 倍。
+
+默认退出时记住位置，下次打开同一文件时续播；不记住音量、倍速或画质。若需关闭，直接在“打开配置目录”中的 mpv.conf 修改为：
+
+~~~ini
+save-position-on-quit=no
+resume-playback=no
+~~~
+
+续播记录位于 portable_config/watch_later。媒体自然播放结束或切换到播放列表下一项，与中途退出保存不同。
 
 ## v0.1.0 的目标体验
 
@@ -118,6 +133,6 @@ MpvKit 采用 **GPL-3.0-or-later**（GNU GPL 第3版或任何以后版本）授�
 
 ## 播放快捷键与维护边界
 
-受管理启动中，Alt+1/2/3 切换省电/均衡/高画质，F6 打开 uosc 档位菜单，Alt+s 保存当前档位为全局默认；保存使用短时 Rust 进程，GUI 可关闭。只更改经实测的缩放/HDR映射参数，解码/输出和字幕/界面调整下次启动生效；无外部 shader。
+受管理启动中，右键菜单的“画质 / Quality”可切换省电/均衡/高画质，并保存当前档位为全局默认；保存使用短时 Rust 进程，GUI 可关闭。只更改经实测的缩放/HDR映射参数，解码/输出和字幕/界面调整下次启动生效；无外部 shader。
 
-全局偏好按安装代际保存，新 GUI 设置使旧代际偏好失效；用户附加配置最后加载。受管理文件手工改变会阻止覆盖/启动，应通过备份恢复或将自定义放到 user.conf。系统打开方式通过 `mpvkit.exe --open` 使用同一受管理启动逻辑，不修改 UserChoice。移除环境或自身卸载前先移除打开方式登记；本机测试使用隔离文件后端与原生私有蜂巢，不表示系统默认应用或资源管理器已验证。
+菜单与 GUI 共用设置事务，安装代际和修订防止旧播放器覆盖新设置。新布局允许直接修改 mpv.conf、input.conf 和脚本选项；手改配置不会仅因摘要不同而阻止启动。修改 GUI 管理范围需明确确认后才能替换；程序与脚本仍校验完整性。系统打开方式通过 `mpvkit.exe --open` 使用同一受管理启动逻辑，不修改 UserChoice。移除环境或自身卸载前先移除打开方式登记；本机测试使用隔离文件后端与原生私有蜂巢，不表示系统默认应用或资源管理器已验证。

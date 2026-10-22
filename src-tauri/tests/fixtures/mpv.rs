@@ -33,7 +33,7 @@ fn main() {
             println!(" --config-dir String\n --load-scripts Flag\n --terminal Flag");
         } else {
             println!(" --config-dir String\n --load-scripts Flag\n --terminal Flag");
-            for key in ["scale","dscale","scale-antiring","correct-downscaling","linear-downscaling","sigmoid-upscaling","hdr-peak-percentile","hdr-contrast-recovery","vo","gpu-api","hwdec","sub-font-size","osd-font-size","volume","osc"] { println!(" --{key} String"); }
+            for key in ["scale","dscale","scale-antiring","correct-downscaling","linear-downscaling","sigmoid-upscaling","hdr-peak-percentile","hdr-contrast-recovery","vo","gpu-api","hwdec","sub-font-size","osd-font-size","volume","osc","input-builtin-bindings","video-sync","interpolation","sub-font","save-position-on-quit","watch-later-options","watch-later-directory","resume-playback","keep-open","screenshot-directory","screenshot-format"] { println!(" --{key} String"); }
         }
     } else if mode == "contract"
         && args

@@ -62,13 +62,18 @@ pub fn validate_relative(value: &str) -> Result<()> {
     Ok(())
 }
 
+fn managed_control_file(relative: &str) -> bool {
+    relative == ".mpvkit/settings.json" || relative.starts_with(".mpvkit/launcher/")
+}
+
 fn target(root: &Path, relative: &str) -> Result<PathBuf> {
     validate_relative(relative)?;
-    if relative
-        .split('/')
-        .next()
-        .unwrap()
-        .eq_ignore_ascii_case(CONTROL)
+    if !managed_control_file(relative)
+        && relative
+            .split('/')
+            .next()
+            .unwrap()
+            .eq_ignore_ascii_case(CONTROL)
     {
         return Err(error("reserved_path", "组件不能写入内部操作记录目录。"));
     }
@@ -131,9 +136,6 @@ pub struct InstallManifest {
     pub schema_version: u32,
     pub owner: String,
     pub installation_id: String,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub environment_id: Option<String>,
-    #[serde(default = "default_config_directory")]
     pub config_directory: String,
     pub files: Vec<OwnedFile>,
     pub external_mpv: Option<PathBuf>,
@@ -168,11 +170,19 @@ pub struct Payload {
 
 #[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
+pub struct ConfigurationDiff {
+    pub path: String,
+    pub before: String,
+    pub after: String,
+}
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
 pub struct DeploymentPreview {
     pub id: String,
     pub root: PathBuf,
     pub changes: Vec<Change>,
     pub conflicts: Vec<String>,
+    pub configuration_diffs: Vec<ConfigurationDiff>,
     pub no_changes: bool,
 }
 
@@ -183,6 +193,7 @@ pub struct DeploymentPlan {
     payloads: Vec<Option<Vec<u8>>>,
     manifest_before: Option<String>,
     previous_bytes: Option<String>,
+    guards: Vec<(PathBuf, Option<String>)>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -259,11 +270,11 @@ fn manifest_text(root: &Path) -> Result<Option<String>> {
 }
 
 pub fn default_config_directory() -> String {
-    "config".into()
+    "portable_config".into()
 }
 
 fn validate_manifest(manifest: &InstallManifest) -> Result<()> {
-    if !matches!(manifest.config_directory.as_str(), "config" | ".") {
+    if manifest.config_directory != "portable_config" {
         return Err(error("invalid_state", "配置目录布局不受支持。"));
     }
     if manifest.files.len() > MAX_FILES {
@@ -272,12 +283,13 @@ fn validate_manifest(manifest: &InstallManifest) -> Result<()> {
     let mut paths = BTreeSet::new();
     for entry in &manifest.files {
         validate_relative(&entry.path)?;
-        if entry
-            .path
-            .split('/')
-            .next()
-            .unwrap()
-            .eq_ignore_ascii_case(CONTROL)
+        if (!managed_control_file(&entry.path)
+            && entry
+                .path
+                .split('/')
+                .next()
+                .unwrap()
+                .eq_ignore_ascii_case(CONTROL))
             || !paths.insert(entry.path.to_ascii_lowercase())
             || !valid_hash(&entry.sha256)
         {
@@ -327,31 +339,6 @@ pub fn prepare_install(
     external_mpv: Option<PathBuf>,
     components: BTreeMap<String, String>,
 ) -> Result<DeploymentPlan> {
-    let layout = status(root)?
-        .manifest
-        .map(|m| m.config_directory)
-        .unwrap_or_else(default_config_directory);
-    prepare_install_at(
-        root,
-        payloads,
-        replace_existing,
-        external_mpv,
-        components,
-        &layout,
-    )
-}
-
-pub fn prepare_install_at(
-    root: &Path,
-    payloads: Vec<Payload>,
-    replace_existing: bool,
-    external_mpv: Option<PathBuf>,
-    components: BTreeMap<String, String>,
-    config_directory: &str,
-) -> Result<DeploymentPlan> {
-    if !matches!(config_directory, "config" | ".") {
-        return Err(error("invalid_layout", "配置目录布局不受支持。"));
-    }
     let old_text = manifest_text(root)?;
     if read_optional(&control(root, "association-pending.json")?)?.is_some() {
         return Err(error("recovery_required", "请先恢复未完成的系统集成操作。"));
@@ -366,15 +353,6 @@ pub fn prepare_install_at(
         platform::validate_local_path(path)?;
     }
     let old: Option<InstallManifest> = old_text.as_deref().map(decode).transpose()?;
-    if old
-        .as_ref()
-        .is_some_and(|m| m.config_directory != config_directory)
-    {
-        return Err(error(
-            "layout_changed",
-            "请先移除当前环境，再改变目录布局。",
-        ));
-    }
     let owned: BTreeMap<_, _> = old
         .as_ref()
         .map(|m| {
@@ -420,9 +398,12 @@ pub fn prepare_install_at(
         let before = file_hash(&path)?;
         let after = hash_bytes(&payload.bytes);
         let previous = owned.get(&key).copied();
-        if previous
-            .is_some_and(|entry| before.is_some() && before.as_deref() != Some(&entry.sha256))
-            || (previous.is_none() && before.is_some() && !replace_existing)
+        if previous.is_some_and(|entry| {
+            before.is_some()
+                && before.as_deref() != Some(&entry.sha256)
+                && !(crate::config::editable(&payload.path)
+                    && (before.as_deref() == Some(&after) || replace_existing))
+        }) || (previous.is_none() && before.is_some() && !replace_existing)
         {
             conflicts.push(payload.path.clone());
         }
@@ -485,13 +466,8 @@ pub fn prepare_install_at(
         schema_version: 1,
         owner: OWNER.into(),
         installation_id: id.clone(),
-        environment_id: Some(
-            old.as_ref()
-                .map(|m| crate::setup::environment(m).to_string())
-                .unwrap_or_else(|| id.clone()),
-        ),
         files,
-        config_directory: config_directory.into(),
+        config_directory: default_config_directory(),
         external_mpv,
         components,
     };
@@ -566,6 +542,27 @@ fn make_plan(
         validate_journal(&decode(text)?)?;
     }
     journal.previous_before = previous_bytes.as_ref().map(|s| hash_bytes(s.as_bytes()));
+    let mut configuration_diffs = Vec::new();
+    for (change, bytes) in journal.changes.iter().zip(&payloads) {
+        if crate::config::editable(&change.path) {
+            let before = if change.before.is_some() {
+                String::from_utf8_lossy(&read_bytes(&root.join(&change.path))?).into_owned()
+            } else {
+                String::new()
+            };
+            let after = bytes
+                .as_ref()
+                .map(|b| String::from_utf8_lossy(b).into_owned())
+                .unwrap_or_default();
+            if before.len() <= 1024 * 1024 && after.len() <= 1024 * 1024 {
+                configuration_diffs.push(ConfigurationDiff {
+                    path: change.path.clone(),
+                    before,
+                    after,
+                });
+            }
+        }
+    }
     Ok(DeploymentPlan {
         manifest_before: journal
             .old_manifest
@@ -576,12 +573,14 @@ fn make_plan(
             root: root.into(),
             changes: journal.changes.clone(),
             conflicts,
+            configuration_diffs,
             no_changes,
         },
         created: Instant::now(),
         journal,
         payloads,
         previous_bytes,
+        guards: Vec::new(),
     })
 }
 
@@ -680,6 +679,11 @@ pub(crate) fn acquire(root: &Path) -> Result<File> {
 }
 
 fn validate_plan(plan: &DeploymentPlan) -> Result<()> {
+    for (path, hash) in &plan.guards {
+        if file_hash(path)? != *hash {
+            return Err(error("stale_preview", "配置在预览后改变，请重新预览。"));
+        }
+    }
     if let Some(text) = &plan.journal.new_manifest {
         let manifest: InstallManifest = decode(text)?;
         if !script_conflicts(&plan.preview.root, &manifest)?.is_empty() {
@@ -782,13 +786,8 @@ fn apply_change(root: &Path, journal: &Journal, index: usize) -> Result<()> {
 }
 
 impl DeploymentPlan {
-    pub(crate) fn config_directory(&self) -> Result<String> {
-        self.journal
-            .new_manifest
-            .as_ref()
-            .or(self.journal.old_manifest.as_ref())
-            .map(|text| decode::<InstallManifest>(text).map(|m| m.config_directory))
-            .unwrap_or_else(|| Ok(default_config_directory()))
+    pub(crate) fn guard(&mut self, path: PathBuf, hash: Option<String>) {
+        self.guards.push((path, hash));
     }
 }
 
@@ -805,11 +804,12 @@ pub fn execute(plan: DeploymentPlan) -> Result<DeploymentStatus> {
     }
     // Output availability may change after preview. Check before any transaction write.
     for (change, payload) in plan.journal.changes.iter().zip(&plan.payloads) {
-        if change.path == "state/settings.json"
+        if change.path == ".mpvkit/settings.json"
             && let Some(bytes) = payload
-            && let Ok(settings) = serde_json::from_slice::<crate::config::Settings>(bytes)
         {
-            crate::config::validate_output(&settings)?;
+            let state: crate::config::portable::State = serde_json::from_slice(bytes)
+                .map_err(|_| error("settings_invalid", "设置记录无效。"))?;
+            crate::config::validate_output(&state.settings)?;
         }
     }
     let applied = (|| {
@@ -979,6 +979,7 @@ pub fn prepare_recovery(root: &Path) -> Result<RecoveryPlan> {
         .collect::<Result<_>>()?;
     Ok(RecoveryPlan {
         preview: DeploymentPreview {
+            configuration_diffs: Vec::new(),
             id: operation_id(),
             root: root.into(),
             changes: journal
@@ -1084,11 +1085,7 @@ pub(crate) fn script_conflicts(root: &Path, manifest: &InstallManifest) -> Resul
     if !manifest.components.contains_key("uosc") {
         return Ok(vec![]);
     }
-    let prefix = if manifest.config_directory == "." {
-        "scripts/"
-    } else {
-        "config/scripts/"
-    };
+    let prefix = "portable_config/scripts/";
     let directory = root.join(&manifest.config_directory).join("scripts");
     platform::validate_local_path(&directory)?;
     let entries = match fs::read_dir(&directory) {

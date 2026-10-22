@@ -17,8 +17,8 @@ use windows_sys::Win32::{
     Storage::FileSystem::GetDriveTypeW,
     System::{Com::CoTaskMemFree, Pipes::PeekNamedPipe},
     UI::Shell::{
-        FOLDERID_LocalAppData, FOLDERID_Profile, FOLDERID_ProgramFiles, KF_FLAG_DONT_VERIFY,
-        SHGetKnownFolderPath,
+        FOLDERID_LocalAppData, FOLDERID_Pictures, FOLDERID_Profile, FOLDERID_ProgramFiles,
+        KF_FLAG_DONT_VERIFY, SHGetKnownFolderPath,
     },
 };
 
@@ -69,6 +69,14 @@ pub fn default_root() -> Result<PathBuf> {
     let root = known_folder(&FOLDERID_LocalAppData)?.join("MpvKit");
     validate_local_path(&root)?;
     Ok(root)
+}
+
+pub fn pictures_directory() -> Result<PathBuf> {
+    #[cfg(debug_assertions)]
+    if std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
+        return Ok(default_root()?.join("pictures"));
+    }
+    Ok(known_folder(&FOLDERID_Pictures)?.join("MpvKit"))
 }
 
 pub fn app_root() -> Result<PathBuf> {
@@ -206,8 +214,8 @@ pub fn mpv_search_locations() -> MpvSearchLocations {
     for (id, relative, source) in [
         (
             &FOLDERID_LocalAppData,
-            "MpvKit/runtime/mpv.exe",
-            "MpvKit runtime 位置",
+            "MpvKit/player/mpv.exe",
+            "MpvKit 播放器位置",
         ),
         (
             &FOLDERID_LocalAppData,
@@ -415,6 +423,24 @@ pub fn open_default_apps() -> Result<()> {
         ));
     }
     Ok(())
+}
+
+pub fn process_active(pid: u32) -> bool {
+    use windows_sys::Win32::{
+        Foundation::{CloseHandle, STILL_ACTIVE},
+        System::Threading::{GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
+    };
+    // A denied query is treated as active; cleanup must not guess that a process ended.
+    unsafe {
+        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
+        if handle.is_null() {
+            return windows_sys::Win32::Foundation::GetLastError() != 87;
+        }
+        let mut code = 0;
+        let ok = GetExitCodeProcess(handle, &mut code);
+        CloseHandle(handle);
+        ok == 0 || code == STILL_ACTIVE as u32
+    }
 }
 
 #[cfg(test)]

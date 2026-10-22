@@ -164,7 +164,7 @@ fn complete_windows_components_are_selected_without_installers() {
     let bytes = archive(entries);
     let files = unpack(&zip_asset(&bytes), &bytes, &AtomicBool::new(false)).unwrap();
     assert_eq!(files.len(), 6);
-    assert!(files.iter().all(|p| p.path.starts_with("config/")));
+    assert!(files.iter().all(|p| p.path.starts_with("portable_config/")));
     assert!(
         !files
             .iter()
@@ -189,6 +189,7 @@ fn fixed_archives_extract_and_deploy() {
         "mpv-x86_64-20261020-git-6a262d11f6.7z",
         "uosc-5.13.0.zip",
         "thumbfast-thumbfast.lua",
+        "LXGWWenKaiScreen.ttf",
     ];
     let mut files = Vec::new();
     for (asset, name) in ASSETS.iter().zip(names) {
@@ -199,7 +200,7 @@ fn fixed_archives_extract_and_deploy() {
         serde_json::from_str(include_str!("../../../resources/source-materials.json")).unwrap();
     let helper = files
         .iter()
-        .find(|file| file.path == "config/scripts/uosc/bin/ziggy-windows.exe")
+        .find(|file| file.path == "portable_config/scripts/uosc/bin/ziggy-windows.exe")
         .unwrap();
     assert_eq!(
         deploy::hash_bytes(&helper.bytes),
@@ -208,7 +209,9 @@ fn fixed_archives_extract_and_deploy() {
     for font in source["uoscFonts"].as_array().unwrap() {
         let file = files
             .iter()
-            .find(|file| file.path == format!("config/fonts/{}", font["file"].as_str().unwrap()))
+            .find(|file| {
+                file.path == format!("portable_config/fonts/{}", font["file"].as_str().unwrap())
+            })
             .unwrap();
         assert_eq!(
             deploy::hash_bytes(&file.bytes),
@@ -300,6 +303,7 @@ fn exercise_graphics(
         "mpv-x86_64-20261020-git-6a262d11f6.7z",
         "uosc-5.13.0.zip",
         "thumbfast-thumbfast.lua",
+        "LXGWWenKaiScreen.ttf",
     ]) {
         files.extend(
             unpack(
@@ -310,7 +314,7 @@ fn exercise_graphics(
             .unwrap(),
         );
     }
-    let player = root.join("runtime/mpv.exe");
+    let player = root.join("mpv.exe");
     files.extend(
         crate::config::generate(&root, &player, &crate::config::Settings::default()).unwrap(),
     );

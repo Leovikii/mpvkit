@@ -1,0 +1,44 @@
+{
+  "date": "2026-10-22",
+  "mpv": "v0.41.0-1224-g6a262d11f",
+  "libassApi": "0x1705000",
+  "font": "LXGW WenKai Screen v1.530",
+  "sha256": "abd13364163e3cd84372b333f2fdcee9efb848634668f1c0ce5788dcd059ee61",
+  "passed": true,
+  "boundary": "Font selection in isolated real rendering; not visual, embedded-font or deployment acceptance.",
+  "cases": [
+    {
+      "id": "missing",
+      "selections": [
+        "[   0.015][v][osd/libass] libass API version: 0x1705000",
+        "[   0.019][v][osd/libass] Using font provider directwrite (with GDI)",
+        "[   0.153][v][sub/ass] libass API version: 0x1705000",
+        "[   0.169][v][sub/ass] Using font provider directwrite (with GDI)",
+        "[   0.172][v][osd/libass] libass API version: 0x1705000",
+        "[   0.173][v][osd/libass] Using font provider directwrite (with GDI)",
+        "[   0.182][i][sub/ass] fontselect: Using default font family: (MpvKitMissingFont_7e301, 400, 0) -> LXGWWenKaiScreen, 0, LXGWWenKaiScreen",
+        "[   0.182][v][sub/ass] fontselect: (MpvKitMissingFont_7e301, 400, 0) -> LXGWWenKaiScreen, 0, LXGWWenKaiScreen"
+      ]
+    },
+    {
+      "id": "present",
+      "selections": [
+        "[   0.008][v][osd/libass] libass API version: 0x1705000",
+        "[   0.009][v][osd/libass] Using font provider directwrite (with GDI)",
+        "[   0.105][v][sub/ass] libass API version: 0x1705000",
+        "[   0.115][v][sub/ass] Using font provider directwrite (with GDI)",
+        "[   0.116][v][osd/libass] libass API version: 0x1705000",
+        "[   0.117][v][osd/libass] Using font provider directwrite (with GDI)",
+        "[   0.135][v][sub/ass] fontselect: (Arial, 400, 0) -> ArialMT, 0, ArialMT",
+        "[   0.135][i][sub/ass] fontselect: Using default font family: (Arial, 400, 0) -> LXGWWenKaiScreen, 0, LXGWWenKaiScreen",
+        "[   0.135][v][sub/ass] fontselect: (Arial, 400, 0) -> LXGWWenKaiScreen, 0, LXGWWenKaiScreen"
+      ]
+    },
+    {
+      "id": "srt",
+      "selections": [
+        "[   0.119][v][sub/ass] fontselect: (LXGW WenKai Screen, 400, 0) -> LXGWWenKaiScreen, 0, LXGWWenKaiScreen"
+      ]
+    }
+  ]
+}

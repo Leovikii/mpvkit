@@ -257,7 +257,7 @@ mod tests {
     #[test]
     fn cleanup_preserves_original_previous_modified_unknown_and_pending_assets() {
         let root = std::env::temp_dir().join(format!("mpvkit-cleanup-{}", operation_id()));
-        write_new(&root.join("config/mpv.conf"), b"original").unwrap();
+        write_new(&root.join("portable_config/mpv.conf"), b"original").unwrap();
         for value in ["first", "second", "third"] {
             execute_deploy(&root, value);
         }
@@ -292,12 +292,12 @@ mod tests {
         assert_eq!(read_backup(&root, &original).unwrap(), b"original");
         super::super::execute(prepare_restore(&root).unwrap()).unwrap();
         assert_eq!(
-            read_bytes(&root.join("config/mpv.conf")).unwrap(),
+            read_bytes(&root.join("portable_config/mpv.conf")).unwrap(),
             b"second"
         );
         super::super::execute(prepare_uninstall(&root).unwrap()).unwrap();
         assert_eq!(
-            read_bytes(&root.join("config/mpv.conf")).unwrap(),
+            read_bytes(&root.join("portable_config/mpv.conf")).unwrap(),
             b"original"
         );
         write_new(&control(&root, "pending.json").unwrap(), b"pending").unwrap();
@@ -309,7 +309,7 @@ mod tests {
             prepare_install(
                 root,
                 vec![Payload {
-                    path: "config/mpv.conf".into(),
+                    path: "portable_config/mpv.conf".into(),
                     bytes: value.as_bytes().into(),
                 }],
                 true,

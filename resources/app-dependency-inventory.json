@@ -10,9 +10,9 @@
     "已配置随安装包third-party目录分发原文；完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "8f3a33543ac893ffdff3b4be5663673e12e0fc7851328e2e57d259eb772ed28e",
-    "src-tauri/Cargo.lock": "c1eb1b6dbda5a8a861d7bcbdadcd7ffea899ae5d852de421ad87d2478888f8ee",
-    "package.json": "56e6b616c1933d4bbe0cba7f3c3a19fc53b8d072d5d60a0889eb24b66e4b129c",
+    "src-tauri/Cargo.toml": "39759bbcc751b4ec6d5d6012b2532bada706252c58c4bb7ad0f7b0b8ccb8770a",
+    "src-tauri/Cargo.lock": "50f338581da7b39a85ff6be647fb054bac41d8ee590702b38aba411b4c8ebd27",
+    "package.json": "6bcd6fd51c1cad3ae72db29445769c1676eaf74e9f4380f7df02e8c8cc01fa7d",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
     "resources/app-license-supplements.json": "c88914fb7864354c5c93000f14010fd2c8bf966c2ff3ac0b78a73dcf418db98a"
   },

@@ -1,0 +1,66 @@
+{
+  "version": "0.1.2",
+  "date": "2026-10-22",
+  "artifacts": [
+    {
+      "file": "src-tauri/target/debug/mpvkit.exe",
+      "size": 31723520,
+      "sha256": "9d09bd76ee4372683983bebd6622165ce57b223d86d3a2e418dc6884ad3328da"
+    },
+    {
+      "file": "src-tauri/target/release/mpvkit.exe",
+      "size": 22568960,
+      "sha256": "3988e751acb24173f6b87990dc8825e59848edaeff8323109d95a9cfba5b6f9f"
+    },
+    {
+      "file": "src-tauri/target/release/bundle/nsis/MpvKit_0.1.2_x64-setup.exe",
+      "size": 4031854,
+      "sha256": "9ee6ad42e915d47108f184a69e13c6f1694061265030f9fdcb5c8b514a6bc5d7"
+    }
+  ],
+  "checks": {
+    "rust": {
+      "passed": 64,
+      "ignored": 6
+    },
+    "realArchiveDeployment": {
+      "passed": 1,
+      "files": 65,
+      "bytes": 158892848
+    },
+    "frontend": {
+      "passed": 2
+    },
+    "native": {
+      "passedAcrossRuns": 7,
+      "singleFullFinalRun": false
+    },
+    "screenshotFailure": {
+      "passed": true
+    },
+    "licenses": {
+      "packages": 321,
+      "materials": 567
+    },
+    "format": true,
+    "clippy": true,
+    "frontendBuild": true,
+    "debugBuild": true,
+    "releaseBuild": true,
+    "nsisBuild": true
+  },
+  "nativeEvidenceDirectories": [
+    ".local/e2e-artifacts/mpvkit-v012-HSicrf",
+    ".local/e2e-artifacts/mpvkit-v012-legacy-CwKkYH",
+    ".local/e2e-artifacts/mpvkit-v012-appearance-Oths3F",
+    ".local/e2e-artifacts/mpvkit-v012-keyboard-vT92zR",
+    ".local/e2e-artifacts/mpvkit-v012-defaults-IFnpdH",
+    ".local/e2e-artifacts/mpvkit-v012-player-5W2vWU"
+  ],
+  "unverified": [
+    "Physical high-refresh/multi-monitor/HDR/power matrix",
+    "Clean-system installation and uninstallation",
+    "Full upstream distribution materials and applicability",
+    "Complex ASS/embedded-font typography and physical mouse speed-control acceptance"
+  ]
+}

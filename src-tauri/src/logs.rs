@@ -27,8 +27,17 @@ pub struct Plan {
 fn error(code: &'static str, message: &'static str) -> AppError {
     AppError::new(code, message, "logs")
 }
+pub fn directory(root: &Path) -> Result<PathBuf> {
+    Ok(root.join(".mpvkit/cache/sessions"))
+}
+fn active(log: &str) -> bool {
+    log.lines()
+        .filter_map(|l| l.strip_prefix("phase=launch status=started pid="))
+        .filter_map(|p| p.parse::<u32>().ok())
+        .any(platform::process_active)
+}
 fn sessions(root: &Path) -> Result<Vec<PathBuf>> {
-    let directory = root.join("cache/sessions");
+    let directory = directory(root)?;
     platform::validate_local_path(&directory)?;
     let entries = match fs::read_dir(directory) {
         Ok(entries) => entries,
@@ -117,7 +126,7 @@ pub fn prepare(root: &Path) -> Result<Plan> {
                     || l.strip_prefix("phase=launch status=started pid=")
                         .is_some_and(|s| !s.is_empty() && s.chars().all(|c| c.is_ascii_digit()))
             });
-        if !valid || bytes.len() > 4096 {
+        if !valid || bytes.len() > 4096 || active(text) {
             skipped += 1;
             continue;
         }
@@ -167,15 +176,31 @@ pub fn execute(plan: Plan) -> Result<usize> {
         }
     }
     let mut removed = 0;
-    for (path, hash, _) in plan.hashes {
+    for (path, hash, owner_hash) in plan.hashes {
         if deploy::file_hash(&path)?.as_deref() != Some(&hash) {
             return Err(error(
                 "logs_changed",
                 "清理时日志已改变，已停止；此前日志可能已移除。",
             ));
         }
-        fs::remove_file(path)
+        if active(&String::from_utf8_lossy(&deploy::read_bytes(&path)?)) {
+            continue;
+        }
+        fs::remove_file(&path)
             .map_err(|_| error("logs_remove", "日志被占用或不可移除；此前日志可能已清理。"))?;
+        let directory = path.parent().expect("session log parent");
+        let entries = fs::read_dir(directory)
+            .map_err(|_| error("logs_unavailable", "会话目录不可读。"))?
+            .collect::<std::io::Result<Vec<_>>>()
+            .map_err(|_| error("logs_unavailable", "会话目录不可读。"))?;
+        if entries.len() == 1 && entries[0].file_name() == "session.json" {
+            let owner = directory.join("session.json");
+            if deploy::file_hash(&owner)?.as_deref() == Some(&owner_hash) {
+                fs::remove_file(owner).map_err(|_| error("logs_remove", "无法清理旧会话记录。"))?;
+                // Non-recursive: a newly added unknown file is always preserved.
+                let _ = fs::remove_dir(directory);
+            }
+        }
         removed += 1;
     }
     Ok(removed)
@@ -186,8 +211,9 @@ mod tests {
     #[test]
     fn only_verified_old_logs_are_removed_after_fresh_preview() {
         let root = std::env::temp_dir().join(format!("mpvkit-logs-{}", deploy::operation_id()));
+        drop(deploy::acquire(&root).unwrap());
         for n in 0..25 {
-            let dir = root.join(format!("cache/sessions/session-{n}"));
+            let dir = root.join(format!(".mpvkit/cache/sessions/session-{n}"));
             fs::create_dir_all(&dir).unwrap();
             fs::write(
                 dir.join("session.json"),
@@ -205,8 +231,46 @@ mod tests {
         assert_eq!(execute(prepare(&root).unwrap()).unwrap(), 4);
         assert_eq!(fs::read_to_string(target).unwrap(), "user changed");
         assert_eq!(
-            fs::read_to_string(root.join("cache/sessions/session-0/user.txt")).unwrap(),
+            fs::read_to_string(root.join(".mpvkit/cache/sessions/session-0/user.txt")).unwrap(),
             "keep"
+        );
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn cleanup_removes_owned_inactive_session_directories_and_preserves_running_processes() {
+        let root = std::env::temp_dir().join(format!("mpvkit-logs-{}", deploy::operation_id()));
+        drop(deploy::acquire(&root).unwrap());
+        for n in 0..25 {
+            let dir = root.join(format!(".mpvkit/cache/sessions/session-{n}"));
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(
+                dir.join("session.json"),
+                format!(r#"{{"schemaVersion":1,"owner":"MpvKit","sessionId":"session-{n}"}}"#),
+            )
+            .unwrap();
+            fs::write(
+                dir.join("session.log"),
+                if n == 0 {
+                    format!("phase=launch status=started pid={}\n", std::process::id())
+                } else {
+                    "phase=launch status=prepared\n".into()
+                },
+            )
+            .unwrap();
+        }
+        let plan = prepare(&root).unwrap();
+        assert_eq!(plan.preview.files.len(), 4);
+        let removed = plan
+            .preview
+            .files
+            .iter()
+            .map(|p| p.parent().unwrap().to_owned())
+            .collect::<Vec<_>>();
+        execute(plan).unwrap();
+        assert!(removed.iter().all(|p| !p.exists()));
+        assert!(
+            root.join(".mpvkit/cache/sessions/session-0/session.json")
+                .exists()
         );
         fs::remove_dir_all(root).unwrap();
     }

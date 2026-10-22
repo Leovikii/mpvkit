@@ -12,8 +12,6 @@ pub struct AppSettings {
     pub language: String,
     pub theme: String,
     pub accent: String,
-    // Legacy field retained for existing v1 records; material selection is automatic.
-    pub background: String,
 }
 impl Default for AppSettings {
     fn default() -> Self {
@@ -22,7 +20,6 @@ impl Default for AppSettings {
             language: "system".into(),
             theme: "system".into(),
             accent: "system".into(),
-            background: "auto".into(),
         }
     }
 }
@@ -32,7 +29,6 @@ impl AppSettings {
             || !["system", "zh-Hans", "en"].contains(&self.language.as_str())
             || !["system", "light", "dark"].contains(&self.theme.as_str())
             || !["system", "blue", "teal", "violet", "orange"].contains(&self.accent.as_str())
-            || !["auto", "solid"].contains(&self.background.as_str())
         {
             return Err(AppError::new(
                 "app_settings_invalid",
@@ -43,36 +39,73 @@ impl AppSettings {
         Ok(())
     }
 }
-pub fn read(root: &Path) -> Result<AppSettings> {
-    deploy::status(root)?;
-    let path = root.join(".mpvkit/app-settings.json");
-    if deploy::file_hash(&path)?.is_none() {
-        return Ok(AppSettings::default());
-    }
-    let bytes = deploy::read_bytes(&path)?;
-    if bytes.len() > 65536 {
-        return Err(AppError::new(
-            "app_settings_invalid",
-            "应用设置文件过大。",
-            "settings",
-        ));
-    }
-    let mut settings: AppSettings = serde_json::from_slice(&bytes)
-        .map_err(|_| AppError::new("app_settings_invalid", "应用设置损坏，已保留。", "settings"))?;
-    settings.validate()?;
-    settings.background = "auto".into();
-    Ok(settings)
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub(crate) struct Record {
+    schema_version: u32,
+    owner: String,
+    pub settings: AppSettings,
+    pub target: Option<crate::targets::Target>,
 }
-pub fn save(root: &Path, mut settings: AppSettings) -> Result<AppSettings> {
-    settings.validate()?;
-    settings.background = "auto".into();
-    let _lock = deploy::acquire(root)?;
-    read(root)?;
+pub(crate) fn record_path(root: &Path) -> std::path::PathBuf {
+    root.join("mpvkit.json")
+}
+pub(crate) fn load(root: &Path) -> Result<Record> {
+    deploy::status(root)?;
+    let path = record_path(root);
+    if deploy::file_hash(&path)?.is_some() {
+        let bytes = deploy::read_bytes(&path)?;
+        if bytes.len() > 65536 {
+            return Err(AppError::new(
+                "app_settings_invalid",
+                "软件设置过大。",
+                "settings",
+            ));
+        }
+        let r: Record = serde_json::from_slice(&bytes).map_err(|_| {
+            AppError::new(
+                "app_settings_invalid",
+                "软件设置损坏或含未知字段。",
+                "settings",
+            )
+        })?;
+        if r.schema_version != 1 || r.owner != "MpvKit" {
+            return Err(AppError::new(
+                "app_settings_invalid",
+                "软件设置版本或归属未知。",
+                "settings",
+            ));
+        }
+        r.settings.validate()?;
+        if let Some(t) = &r.target {
+            crate::targets::validate(t)?;
+        }
+        return Ok(r);
+    }
+    Ok(Record {
+        schema_version: 1,
+        owner: "MpvKit".into(),
+        settings: AppSettings::default(),
+        target: None,
+    })
+}
+pub(crate) fn write(root: &Path, record: &Record) -> Result<()> {
     deploy::atomic_write(
-        &root.join(".mpvkit/app-settings.json"),
-        &serde_json::to_vec_pretty(&settings)
-            .map_err(|_| AppError::new("settings_encode", "无法保存应用设置。", "settings"))?,
-    )?;
+        &record_path(root),
+        &serde_json::to_vec_pretty(record)
+            .map_err(|_| AppError::new("settings_encode", "无法保存软件设置。", "settings"))?,
+    )
+}
+pub fn read(root: &Path) -> Result<AppSettings> {
+    Ok(load(root)?.settings)
+}
+pub fn save(root: &Path, settings: AppSettings) -> Result<AppSettings> {
+    settings.validate()?;
+    let _selection = crate::targets::selection_lock(root)?;
+    let mut record = load(root)?;
+    record.settings = settings.clone();
+    write(root, &record)?;
     Ok(settings)
 }
 #[cfg(test)]
@@ -91,22 +124,34 @@ mod tests {
         save(&root, settings.clone()).unwrap();
         assert_eq!(read(&root).unwrap(), settings);
         assert!(deploy::status(&root).unwrap().manifest.is_none());
-        let mut legacy = settings.clone();
-        legacy.background = "solid".into();
-        std::fs::write(
-            root.join(".mpvkit/app-settings.json"),
-            serde_json::to_vec(&legacy).unwrap(),
-        )
-        .unwrap();
-        assert_eq!(read(&root).unwrap().background, "auto");
-        assert_eq!(save(&root, legacy).unwrap().background, "auto");
-        let bytes = br#"{"schemaVersion":999,"language":"en","theme":"dark","accent":"blue","background":"auto"}"#;
-        std::fs::write(root.join(".mpvkit/app-settings.json"), bytes).unwrap();
+        let mut unknown = serde_json::to_value(load(&root).unwrap()).unwrap();
+        unknown["schemaVersion"] = 999.into();
+        let bytes = serde_json::to_vec(&unknown).unwrap();
+        std::fs::write(record_path(&root), &bytes).unwrap();
         assert!(save(&root, AppSettings::default()).is_err());
-        assert_eq!(
-            std::fs::read(root.join(".mpvkit/app-settings.json")).unwrap(),
-            bytes
-        );
+        assert_eq!(std::fs::read(record_path(&root)).unwrap(), bytes);
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn shared_record_and_lock_preserve_target_and_preferences() {
+        let root = std::env::temp_dir().join(format!("mpvkit-global-{}", deploy::operation_id()));
+        let preferences = AppSettings {
+            language: "en".into(),
+            theme: "dark".into(),
+            ..Default::default()
+        };
+        save(&root, preferences.clone()).unwrap();
+        let target = root.join("custom");
+        crate::targets::execute(crate::targets::prepare(&root, target.clone()).unwrap()).unwrap();
+        assert_eq!(read(&root).unwrap(), preferences);
+        let stale = crate::targets::prepare(&root, root.join("another")).unwrap();
+        save(&root, AppSettings::default()).unwrap();
+        assert!(crate::targets::execute(stale).is_err());
+        assert_eq!(crate::targets::read(&root).unwrap().root, target);
+        let lock = crate::targets::selection_lock(&root).unwrap();
+        assert!(save(&root, preferences).is_err());
+        drop(lock);
+        assert_eq!(read(&root).unwrap(), AppSettings::default());
         std::fs::remove_dir_all(root).unwrap();
     }
 }

@@ -1,0 +1,30 @@
+{
+  "date": "2026-10-22",
+  "scope": "Current layout only; no development-version migration or backward compatibility",
+  "tests": {
+    "backendPassed": 63,
+    "backendIgnored": 6,
+    "frontendPassed": 2,
+    "nativePassed": 4,
+    "nativeSeconds": 612.908,
+    "nsisPassed": 1
+  },
+  "artifacts": [
+    {
+      "path": "src-tauri/target/debug/mpvkit.exe",
+      "bytes": 31779328,
+      "sha256": "4f2c8e97a2e521d422ed0b2e8f70c40caf0538ecfde7c3b3b8ea0cc11f8083a2"
+    },
+    {
+      "path": "src-tauri/target/release/mpvkit.exe",
+      "bytes": 22514688,
+      "sha256": "01b017153af1444379b92a2c87efa4397a8c2cdb9c0e0b560228940f30224884"
+    },
+    {
+      "path": "src-tauri/target/release/bundle/nsis/MpvKit_0.1.3_x64-setup.exe",
+      "bytes": 4014291,
+      "sha256": "ace8951d46ef30f215fed0c5d2d09b1830c326d75efb673d660d5f2fefa42a5c"
+    }
+  ],
+  "published": false
+}

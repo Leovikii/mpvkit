@@ -1,0 +1,131 @@
+{
+  "version": "0.1.3",
+  "date": "2026-10-22",
+  "platform": "Windows x64",
+  "published": false,
+  "releaseReady": false,
+  "checks": {
+    "backend": {
+      "passed": 69,
+      "failed": 0,
+      "ignored": 6,
+      "seconds": 27.52
+    },
+    "frontend": {
+      "passed": 2,
+      "failed": 0
+    },
+    "nsisDirectory": {
+      "passed": 1,
+      "scenarios": 5
+    },
+    "fmt": true,
+    "clippy": true,
+    "typecheck": true,
+    "vite": true,
+    "notices": {
+      "packages": 321,
+      "materials": 567,
+      "missing": 0
+    },
+    "native": {
+      "uniqueCasesPassed": 4,
+      "failedAfterRetest": 0,
+      "mainJourneySeconds": 283.857,
+      "finalBinarySupplement": {
+        "passed": 3,
+        "failed": 0,
+        "seconds": 351.002,
+        "defaultFolderSeconds": 2.415,
+        "legacyAndFlatExternalMigrationSeconds": 181.357,
+        "videoPlaybackSeconds": 166.958
+      }
+    },
+    "interruptedSaveRecovery": true
+  },
+  "artifacts": [
+    {
+      "path": "src-tauri/target/debug/mpvkit.exe",
+      "bytes": 31969792,
+      "sha256": "da66624468d918c709477c55abe10dbf711a39557cdf75e1e1ae78390e958bfa"
+    },
+    {
+      "path": "src-tauri/target/release/mpvkit.exe",
+      "bytes": 22773248,
+      "sha256": "ac5436fb8d70dd29452aaf1859b99065bf9ad12b73ae3bb154be48a0b9cfe7ca"
+    },
+    {
+      "path": "src-tauri/target/release/bundle/nsis/MpvKit_0.1.3_x64-setup.exe",
+      "bytes": 4085583,
+      "sha256": "d8b7210398d7d87d52da8d5762831abede30d9a5538539cba446826c2eb42172"
+    }
+  ],
+  "mainJourneyTestedBinary": {
+    "path": "src-tauri/target/debug/mpvkit.exe",
+    "bytes": 31969792,
+    "sha256": "0ebc03b990cbe2649267836302dd7d83d621d1754b442b1cb39194bf33981767"
+  },
+  "notes": [
+    "主流程验证后仅刷新本地测试命令的依赖清单输入摘要并重新构建；功能代码相同，最终构建补测默认目录、迁移和播放。",
+    "未改真实默认应用/配置；未安装、签名、提交、推送或发布；未修改或执行 GitHub Actions。",
+    "首轮日志保留了视频异步全屏断言失败；补测日志中的视频用例已通过。"
+  ],
+  "limitations": [
+    "实体60Hz/高刷切屏、HDR、功耗",
+    "干净系统安装/升级/卸载及旧Windows",
+    "全部ASS/字体缺失组合",
+    "聚合构建和uosc完整来源/许可适用审查"
+  ],
+  "evidenceFiles": [
+    {
+      "path": ".local/v013-native-final.log",
+      "bytes": 1481,
+      "sha256": "25d651010510094bf14e838be8e72b5f690de948baac08c8b15639c0bf4f91b7"
+    },
+    {
+      "path": ".local/v013-native-supplement.log",
+      "bytes": 516,
+      "sha256": "4fd290da064c872415321652235c3cfd91dc5fc6d1d6cff9dcfc2d304ad5b45a"
+    },
+    {
+      "path": ".local/v013-interrupted-save-recovery.json",
+      "bytes": 2442,
+      "sha256": "2f046ad2fca386a728f365d974ca72b68ab0601c89ee2d131071fa31b71973fa"
+    },
+    {
+      "path": ".local/e2e-artifacts/mpvkit-v013-wzrx9Z/result.json",
+      "bytes": 375,
+      "sha256": "f41aedda846844f0ba97eb4739b82b11f2d81c1731d86be8a048f363e98b742c"
+    },
+    {
+      "path": ".local/e2e-artifacts/mpvkit-v013-wzrx9Z/configuration-diff.png",
+      "bytes": 164258,
+      "sha256": "8faca911f9e5f476b421cf194ce832c667853234e9c2e1bdf306f011648e3f9f"
+    },
+    {
+      "path": ".local/e2e-artifacts/mpvkit-v013-wzrx9Z/status.png",
+      "bytes": 126057,
+      "sha256": "0540a7105c824831ae82b0f781dfbeafede1b8c7d2e2a18bd1acc92d1f81d603"
+    },
+    {
+      "path": ".local/e2e-artifacts/mpvkit-v013-player-2z4g1e/result.json",
+      "bytes": 275,
+      "sha256": "ea10774825fb9fc807c40b89270f0b9964e6a72c7d4b5ebd49bc2c0aaf5ffa4f"
+    },
+    {
+      "path": ".local/e2e-artifacts/mpvkit-v013-player-2z4g1e/with-subtitles.png",
+      "bytes": 5985,
+      "sha256": "fbe2d0b0a8c9c3dcf17a8d626d63768594e896b43144d0e22784eeeb5cb22251"
+    },
+    {
+      "path": ".local/e2e-artifacts/mpvkit-v013-player-2z4g1e/without-subtitles.jpg",
+      "bytes": 6927,
+      "sha256": "34f15d0c7be64d48ca50c58c857f81f225fc828972ff7f8cbde3bcb40eb2d90c"
+    },
+    {
+      "path": ".local/e2e-artifacts/mpvkit-v013-player-2z4g1e/mpv.log",
+      "bytes": 84680,
+      "sha256": "e1e5e22643d8ceece28f21d8fba886ea69e2606086cc199fb8e4d5dd5a5c07d8"
+    }
+  ]
+}

@@ -8,18 +8,19 @@ import { LanguageList } from "./LanguageList";
 import logo from "./assets/mpv.svg";
 import "@mantine/core/styles.css";
 import "./style.css";
-const steps: Key[] = ["location", "components", "playback", "integration"];
+const steps: Key[] = ["components", "playback", "integration"];
 const pages: Key[] = ["status", "playback", "updates", "integration", "maintenance", "settings"];
 const profileKey: Record<string, Key> = { "power-saving": "powerSaving", balanced: "balanced", "high-quality": "highQuality" };
 const desktop = isTauri();
 export function App() {
+  const [replaceManual,setReplaceManual]=useState(false);
   const [appSettings, setAppSettings] = useState(defaultAppSettings);
   const [environment, setEnvironment] = useState<Environment>({languages: [...navigator.languages], dark: matchMedia("(prefers-color-scheme: dark)").matches, accent:"blue", highContrast:false, materialAllowed:false});
   const [material, setMaterial] = useState(false);
   const [appSaving, setAppSaving] = useState(false);
   const [info, setInfo] = useState({version:"", license:"GPL-3.0-or-later", repository:null as string | null});
   const [report, setReport] = useState<Report | null>(null);
-  const [page, setPage] = useState<Key>("location");
+  const [page, setPage] = useState<Key>("components");
   const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
@@ -55,6 +56,9 @@ export function App() {
   const blocked = !desktop || busy || booting;
   const currentStep = steps.indexOf(page);
   const selectedRoot = customDirectory ? root : defaultRoot;
+  const targetDirty = selectedRoot !== report?.root;
+  const playerDirty = external !== !!report?.externalMpv || (external && player !== report?.externalMpv);
+  const ready = !!report?.componentsReady && !targetDirty && !playerDirty;
   async function appearance() {
     if (!desktop) return;
     setEnvironment(await invoke<Environment>("desktop_environment"));
@@ -71,9 +75,9 @@ export function App() {
   }
   async function loadDraft() {
     const settings = await invoke<Settings>("read_settings");
-    setDraft({...settings, playback: settings.playback ?? defaultSettings.playback});
-    setAudio(settings.playback?.audioLanguages.join(",") ?? "");
-    setSubtitles(settings.playback?.subtitleLanguages.join(",") ?? "");
+    setDraft(settings);
+    setAudio(settings.playback.audioLanguages.join(","));
+    setSubtitles(settings.playback.subtitleLanguages.join(","));
   }
   async function boot() {
     setBooting(true); setError(null);
@@ -114,7 +118,7 @@ export function App() {
         const p = {...current.playback};
         const suggested = next.displays.find(d => d.id === next.preferredDisplay) ?? next.displays.find(d => d.primary) ?? next.displays[0];
         if (!p.displayId && p.width === null && suggested) p.displayId = suggested.id;
-        return {...current, profile: current.playback.manualProfile || current.schemaVersion === 1 ? current.profile : next.recommendedProfile, playback:p};
+        return {...current, profile: current.playback.manualProfile ? current.profile : next.recommendedProfile, playback:p};
       });
     });
   }
@@ -124,8 +128,8 @@ export function App() {
   async function prepareSettings() {
     await run(async () => {
       const languages = (value: string) => [...new Set(value.split(",").map(x=>x.trim().toLowerCase()).filter(Boolean))];
-      const settings = {...draft, schemaVersion:2, playback:{...draft.playback,audioLanguages:languages(audio),subtitleLanguages:languages(subtitles)}};
-      setPreview({kind:"playback",data: await invoke<Deployment>("preview_settings",{settings})});
+      const settings = {...draft, schemaVersion:3, playback:{...draft.playback,audioLanguages:languages(audio),subtitleLanguages:languages(subtitles)}};
+      setPreview({kind:"playback",data: await invoke<Deployment>("preview_settings",{settings,replaceManual})});
     });
   }
   async function integration(action: string) {
@@ -156,7 +160,7 @@ export function App() {
       else if (pending.kind === "assets") await invoke("clean_assets",{previewId:pending.data.id});
       else if (pending.kind === "diagnostics") await invoke("export_diagnostics",{previewId:pending.data.id});
       else await invoke("apply_deployment",{previewId:pending.data.id});
-      setPreview(null);
+      setPreview(null);setReplaceManual(false);
       let state = await refresh();
       if (pending.kind === "playback") {
         await loadDraft();
@@ -164,7 +168,7 @@ export function App() {
         setReport(state); if (setup) setPage("integration");
       }
       if (pending.kind === "install") { await loadDraft(); if (setup && state.componentsReady) setPage("playback"); }
-      if (pending.kind === "maintenance" && !state.generation) setPage("location");
+      if (pending.kind === "maintenance" && !state.generation) setPage("components");
       setNotice("done");
     });
   }
@@ -180,28 +184,38 @@ export function App() {
     <div className="setting-row"><div><Text fw={500}>{label}</Text>{description && <Text size="sm" c="dimmed">{description}</Text>}</div><div className="row-control">{control}</div></div>;
   function componentRow(id: string) {
     const component = report?.components.find(c=>c.id===id), asset = assets.find(a=>a.id===id);
-    return <div className="component-row" key={id}><div><Text fw={500}>{id === "mpv" ? "MPV" : id}</Text><Text size="sm" c="dimmed">{id==="mpv"&&report?.externalMpv ? t("external") : component?.version ?? asset?.version}</Text></div><Text size="sm">{progress?.component===id?t("downloadBusy"):component?.ready?t("ready"):report?.generation?t("missing"):t("waiting")}</Text></div>;
+    return <div className="component-row" key={id}><div><Text fw={500}>{id === "mpv" ? "MPV" : id === "subtitle-font" ? t("subtitleFont") : id}</Text><Text size="sm" c="dimmed">{id==="mpv"&&report?.externalMpv ? t("external") : component?.version ?? asset?.version}</Text></div><Text size="sm">{progress?.component===id?t("downloadBusy"):!targetDirty&&!playerDirty&&component?.ready?t("ready"):!targetDirty&&report?.generation?t("missing"):t("waiting")}</Text></div>;
   }
   function components() {
     return <><h2>{t("player")}</h2><Paper withBorder p="md">{componentRow("mpv")}</Paper>
       <details className="extras" open={extrasOpen || !!report?.components.some(c=>c.id!=="mpv" && c.issues.length)} onToggle={e=>setExtrasOpen(e.currentTarget.open)}>
-        <summary><span>{t("extras")}</span><span className="muted">{t("extrasHint")}</span></summary><Paper p="md">{componentRow("uosc")}{componentRow("thumbfast")}</Paper>
+        <summary><span>{t("extras")}</span><span className="muted">{t("extrasHint")}</span></summary><Paper p="md">{componentRow("uosc")}{componentRow("thumbfast")}{componentRow("subtitle-font")}</Paper>
       </details>
-      <p className="path">{report?.root ?? root}</p>
-      <details key="components-advanced"><summary>{t("advanced")}</summary>
+      <Text size="sm" mt="md" c="dimmed">{t("locationHint")}</Text><p className="path">{selectedRoot}</p>
+      <details key="components-advanced" open={advanced} onToggle={e=>setAdvanced(e.currentTarget.open)}><summary>{t("advanced")}</summary>
+        <Checkbox mt="md" label={t("customDirectory")} checked={customDirectory} disabled={blocked} onChange={e=>setCustomDirectory(e.currentTarget.checked)}/>
+        {customDirectory&&<><TextInput mt="md" label={t("directory")} value={root} disabled={blocked} onChange={e=>setRoot(e.currentTarget.value)}/><div className="actions">{action("browse",()=>void chooseFile(true,setRoot))}</div></>}
+        <Checkbox mt="md" label={t("external")} checked={external} disabled={blocked} onChange={e=>setExternal(e.currentTarget.checked)}/>
+        {external&&<><TextInput mt="md" label={t("externalPath")} value={player} disabled={blocked} onChange={e=>setPlayer(e.currentTarget.value)}/><Text size="sm" mt="xs">{t("trustPlayer")}</Text><div className="actions">{action("browse",()=>void chooseFile(false,setPlayer))}{action("discover",()=>void run(async()=>{const d=await invoke<{candidates:{executable:string}[]}>("discover_mpv");setCandidates(d.candidates.map(c=>c.executable));}))}</div>{candidates?.length===0&&<Text>{t("noCandidates")}</Text>}{candidates?.map(p=><div className="candidate" key={p}><code>{p}</code>{action("choose",()=>setPlayer(p))}</div>)}</>}
+
+      {targetDirty&&<div className="actions">{action("useLocation",()=>void run(async()=>setPreview({kind:"target",data:await invoke<TargetPreview>("preview_target",{root:selectedRoot})})),true,blocked||!selectedRoot)}</div>}
       <details><summary>{t("details")}</summary>{assets.map(a=><div className="source-item" key={a.id}><Text>{a.id} · {a.version}</Text><code>{a.url}</code><code>SHA-256 {a.sha256}</code></div>)}</details>
       <Checkbox label={t("replace")} checked={replace} disabled={blocked} onChange={e=>setReplace(e.currentTarget.checked)} />
       {replace && <Text size="sm" mt="xs">{t("replaceHint")}</Text>}</details>
       {progress && <div role="status" aria-live="polite" className="download-progress"><Text>{t("downloadBusy")} · {progress.component}</Text><progress max={Math.max(progress.total,1)} value={progress.received} aria-label={t("downloadBusy")} />{action("cancel",()=>void invoke("cancel_component_download").catch(setError),false,false)}</div>}
-      <div className="actions">{action("download",()=>setPreview({kind:"download",data:null}),true)}{setup && action("next",()=>go("playback"),false,blocked||!report?.componentsReady)}</div>
+      {targetDirty&&<Text size="sm" role="status">{t("applyFolderHint")}</Text>}
+      <div className="actions">{action("download",()=>setPreview({kind:"download",data:null}),true,blocked||targetDirty)}{setup && action("next",()=>go("playback"),false,blocked||!ready)}</div>
     </>;
   }
   function playback() {
     const selected = device?.displays.find(d=>d.id===draft.playback.displayId);
-    return <><div className="detected"><Text fw={500}>{selected ? selected.name+" · "+selected.width+" × "+selected.height : t("unknown")}</Text><Text size="sm" c="dimmed">{selected?.adapter ?? device?.adapters.join(" · ")}</Text><Text size="sm">{t("recommendation",{profile:t(profileKey[device?.recommendedProfile??"balanced"])})}</Text><Text size="sm" c="dimmed">{t(device?.onBattery||device?.batterySaver?"batteryReason":"conservative")}</Text></div>
+    return <>{report?.configurationModified&&<Alert color="yellow" mb="md">{t("manualConfig")}</Alert>}<div className="detected"><Text fw={500}>{selected ? selected.name+" · "+selected.width+" × "+selected.height : t("unknown")}</Text><Text size="sm" c="dimmed">{selected?.adapter ?? device?.adapters.join(" · ")}</Text><Text size="sm">{t("recommendation",{profile:t(profileKey[device?.recommendedProfile??"balanced"])})}</Text><Text size="sm" c="dimmed">{t(device?.onBattery||device?.batterySaver?"batteryReason":"conservative")}</Text></div>
       <Text mt="md">{t(profileKey[draft.profile]??"balanced")} · HDR {t(draft.playback.hdr==="off"?"hdrOff":draft.playback.hdr==="on"?"hdrOn":"auto")}</Text>
       <Text size="sm" c="dimmed">{t("recommendedDefaults")}</Text>
+      <details><summary>{t("playerControls")}</summary><Text size="sm">{t("basicKeys")}</Text><Text size="sm" mt="xs">{t("speedHelp")}</Text><Text size="sm" mt="xs">{t("menuHelp")}</Text></details>
       <details key="playback-advanced"><summary>{t("advanced")}</summary>
+        {<><Text size="sm">{t("resetConfigHint")}</Text>{action("resetConfig",()=>void maintenance("reset-config"))}</>}
+        {<Checkbox mt="md" label={t("replaceManual")} description={t("replaceManualHint")} checked={replaceManual} disabled={blocked} onChange={e=>setReplaceManual(e.currentTarget.checked)}/>}
       {row(t("screen"),<NativeSelect aria-label={t("screen")} value={draft.playback.width!==null?"manual":draft.playback.displayId??""} disabled={blocked}
         data={[{value:"",label:t("auto")},...(draft.playback.displayId && !selected ? [{value:draft.playback.displayId,label:t("displayUnavailable")}] : []),...(device?.displays.map(d=>({value:d.id,label:d.name+" · "+d.width+" × "+d.height}))??[]),{value:"manual",label:t("manual")}]}
         onChange={e=>{const v=e.currentTarget.value;setDraft(d=>({...d,playback:{...d.playback,displayId:v==="manual"?null:v||null,width:v==="manual"?1920:null,height:v==="manual"?1080:null}}));}} />,t("resolutionHint"))}
@@ -209,6 +223,12 @@ export function App() {
       {row(t("quality"),<NativeSelect aria-label={t("quality")} value={draft.profile} disabled={blocked} data={Object.entries(profileKey).map(([value,k])=>({value,label:t(k)}))} onChange={e=>{const value=e.currentTarget.value;setDraft(d=>({...d,profile:value,playback:{...d.playback,manualProfile:true}}));}}/>)}
       {row(t("hdr"),<NativeSelect aria-label={t("hdr")} value={draft.playback.hdr} disabled={blocked} data={[{value:"auto",label:t("auto")},{value:"on",label:t("hdrOn")},{value:"off",label:t("hdrOff")}]} onChange={e=>changePlayback("hdr",e.currentTarget.value)}/>,t("hdrHint"))}
       <LanguageList label={t("audio")} value={audio} onChange={setAudio} disabled={blocked} t={t} locale={locale}/><LanguageList label={t("subtitles")} value={subtitles} onChange={setSubtitles} disabled={blocked} t={t} locale={locale}/>
+      {row(t("endBehavior"),<NativeSelect aria-label={t("endBehavior")} value={draft.playback.keepOpen?"keep":"close"} disabled={blocked} data={[{value:"close",label:t("closePlayer")},{value:"keep",label:t("keepWindow")}]} onChange={e=>changePlayback("keepOpen",e.currentTarget.value==="keep")}/>)}
+      <h2>{t("screenshots")}</h2>
+      <TextInput label={t("screenshotDirectory")} placeholder={t("picturesDefault")} value={draft.playback.screenshotDirectory??""} disabled={blocked} onChange={e=>changePlayback("screenshotDirectory",e.currentTarget.value||null)}/>
+      <div className="actions">{action("browse",()=>void chooseFile(true,p=>changePlayback("screenshotDirectory",p)))}</div>
+      {row(t("screenshotFormat"),<NativeSelect aria-label={t("screenshotFormat")} value={draft.playback.screenshotFormat} disabled={blocked} data={[{value:"png",label:"PNG"},{value:"jpeg",label:"JPEG"}]} onChange={e=>changePlayback("screenshotFormat",e.currentTarget.value as "png"|"jpeg")}/>)}
+      <Checkbox mt="md" label={t("screenshotSubtitles")} checked={draft.playback.screenshotSubtitles} disabled={blocked} onChange={e=>changePlayback("screenshotSubtitles",e.currentTarget.checked)}/>
       <div className="actions">{action("openConfig",()=>void run(async()=>{await invoke("open_config_directory");}))}</div>
       <Text size="sm" c="dimmed">{t("userConf")}</Text></details>
       <div className="actions">{action("detect",()=>void detect())}</div>
@@ -232,17 +252,6 @@ export function App() {
   }
   function content() {
     if (page === "settings") return appPreferences();
-    if (page === "location") return <><Text c="dimmed">{t("locationHint")}</Text><p className="path">{selectedRoot}</p>
-      <details key="location-advanced" open={advanced} onToggle={e=>setAdvanced(e.currentTarget.open)}><summary>{t("advanced")}</summary>
-        <Checkbox mt="md" label={t("customDirectory")} checked={customDirectory} disabled={blocked} onChange={e=>setCustomDirectory(e.currentTarget.checked)}/>
-        {customDirectory&&<><TextInput mt="md" label={t("directory")} value={root} disabled={blocked} onChange={e=>setRoot(e.currentTarget.value)}/><div className="actions">{action("browse",()=>void chooseFile(true,setRoot))}</div></>}
-        <Checkbox mt="md" label={t("external")} checked={external} disabled={blocked} onChange={e=>setExternal(e.currentTarget.checked)}/>
-        {external&&<><TextInput mt="md" label={t("externalPath")} value={player} disabled={blocked} onChange={e=>setPlayer(e.currentTarget.value)}/><Text size="sm" mt="xs">{t("trustPlayer")}</Text><div className="actions">{action("browse",()=>void chooseFile(false,setPlayer))}{action("discover",()=>void run(async()=>{const d=await invoke<{candidates:{executable:string}[]}>("discover_mpv");setCandidates(d.candidates.map(c=>c.executable));}))}</div>{candidates?.length===0&&<Text>{t("noCandidates")}</Text>}{candidates?.map(p=><div className="candidate" key={p}><code>{p}</code>{action("choose",()=>setPlayer(p))}</div>)}</>}
-      </details><div className="actions">{action("useLocation",()=>void run(async()=>{
-        const current=await invoke<{root:string}>("target_status");
-        if(selectedRoot===current.root){await refresh();await loadDraft();setPage("components");}
-        else setPreview({kind:"target",data:await invoke<TargetPreview>("preview_target",{root:selectedRoot})});
-      }),true,blocked||!selectedRoot)}</div></>;
     if (page==="components" || page==="updates") return components();
     if (page==="playback") return playback();
     if (page==="integration") return <><Text c="dimmed">{t("integrationHint")}</Text><Paper withBorder p="lg" mt="lg"><Text fw={500}>{t(report?.integration.valid?"registered":report?.integration.registered?"changedRegistration":"notRegistered")}</Text></Paper>
@@ -255,11 +264,11 @@ export function App() {
       {action("cleanLogs",()=>void run(async()=>setPreview({kind:"logs",data:await invoke("preview_log_cleanup")})))}</div>
       <h2>{t("diagnostics")}</h2><Text size="sm" c="dimmed">{t("exportHint")}</Text><TextInput mt="md" label={t("exportPath")} value={exportPath} disabled={blocked} onChange={e=>setExportPath(e.currentTarget.value)}/>
       <div className="actions">{action("preview",()=>void run(async()=>setPreview({kind:"diagnostics",data:await invoke("preview_diagnostics",{destination:exportPath})})),false,blocked||!exportPath)}</div>
-      <h2>{t("directory")}</h2><p className="path">{report?.root}</p>{action("change",()=>{const current=report?.root??root;setRoot(current);setCustomDirectory(current!==defaultRoot);setAdvanced(current!==defaultRoot);go("location");})}
+      <h2>{t("directory")}</h2><p className="path">{report?.root}</p>{action("change",()=>{const current=report?.root??root;setRoot(current);setCustomDirectory(current!==defaultRoot);setAdvanced(current!==defaultRoot);go("components");})}
       <h2>{t("remove")}</h2>{action("unregister",()=>void integration("unregister"),false,blocked||!report?.integration.registered)}{action("uninstall",()=>void maintenance("uninstall"),false,blocked||!report?.generation||!!report?.integration.registered)}</>;
     return <><Paper withBorder p="lg" className="status-summary"><Text size="xl" fw={500}>{t(report?.componentsReady?"ready":"damaged")}</Text><Text mt="xs" c="dimmed">{t("dailyHint")}</Text><p className="path">{report?.root}</p></Paper>
       {report&&!report.componentsReady&&<Alert color="orange" mt="md">{t("damaged")} <Button variant="subtle" onClick={()=>go("updates")}>{t("updates")}</Button></Alert>}
-      <div className="status-grid"><Paper withBorder p="md"><Text fw={500}>{t("playback")}</Text><Text mt="xs">{t(profileKey[draft.profile]??"balanced")} · HDR {t(draft.playback.hdr==="off"?"hdrOff":draft.playback.hdr==="on"?"hdrOn":"auto")}</Text></Paper><Paper withBorder p="md"><Text fw={500}>{t("integration")}</Text><Text mt="xs">{t(report?.integration.valid?"registered":"changedRegistration")}</Text></Paper></div>
+      {report?.configurationModified&&<Alert color="yellow" mt="md">{t("manualConfig")}</Alert>}<div className="status-grid"><Paper withBorder p="md"><Text fw={500}>{t("playback")}</Text><Text mt="xs">{t(profileKey[draft.profile]??"balanced")} · HDR {t(draft.playback.hdr==="off"?"hdrOff":draft.playback.hdr==="on"?"hdrOn":"auto")}</Text></Paper><Paper withBorder p="md"><Text fw={500}>{t("integration")}</Text><Text mt="xs">{t(report?.integration.valid?"registered":"changedRegistration")}</Text></Paper></div>
       <TextInput mt="lg" label={t("media")} value={media} disabled={blocked} onChange={e=>setMedia(e.currentTarget.value)}/><div className="actions">{action("browse",()=>void chooseFile(false,setMedia))}{action("play",()=>void run(async()=>{const p=await invoke<{id:string}>("preview_launch",{executable:"",media,managed:true});await invoke("launch_mpv",{previewId:p.id});setNotice("done");}),true,blocked||!report?.playerReady||!media)}{action("openConfig",()=>void run(async()=>{await invoke("open_config_directory");}))}</div>
       {!!report?.issues.length&&<details><summary>{t("details")}</summary><ul>{report.issues.map(p=><li key={p}><code>{p}</code></li>)}</ul></details>}</>;
   }
@@ -268,7 +277,7 @@ export function App() {
     if(preview.kind==="download")return <><Text>{t("downloadHint")}</Text><p className="path">{report?.root??root}</p><ul>{assets.filter(a=>!external||a.id!=="mpv").map(a=><li key={a.id}>{a.id} · {a.version} · {new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(a.size/1048576)} MiB</li>)}</ul></>;
     if(preview.kind==="target")return <><Text>{t("source")}</Text><p className="path">{preview.data.before.root}</p><Text>{t("destination")}</Text><p className="path">{preview.data.after.root}</p><Text size="sm">{t("pathsPreserved")}</Text>{preview.data.beforeUnavailable&&<Alert mt="md">{t("oldUnavailable")}</Alert>}</>;
     if(preview.kind==="install"||preview.kind==="playback"||preview.kind==="maintenance")return <><p className="path">{preview.data.root}</p>{preview.data.conflicts.length>0&&<Alert color="red">{t("conflict")}<ul>{preview.data.conflicts.map(x=><li key={x}>{x}</li>)}</ul></Alert>}{preview.data.noChanges&&<Text>{t("noChanges")}</Text>}<ul className="changes">{preview.data.changes.map(x=><li key={x.path}><span>{t(!x.after?"remove":!x.before?"add":"update")}</span><code>{x.path}</code></li>)}</ul></>;
-    if(preview.kind==="integration")return <><Text>{t(preview.data.action==="register"?"integrationHint":"dangerHint")}</Text><p className="path">{report?.root}/launcher/mpvkit.exe</p>{preview.data.conflicts.length>0&&<Alert color="red">{t("conflict")}<pre>{preview.data.conflicts.join("\n")}</pre></Alert>}<ul className="changes">{preview.data.values.map((x,i)=><li key={i}><span>{x.after?t("update"):t("remove")}</span><code>{x.key} / {x.name}</code></li>)}</ul>{preview.data.skipped.length>0&&<pre>{preview.data.skipped.join("\n")}</pre>}</>;
+    if(preview.kind==="integration")return <><Text>{t(preview.data.action==="register"?"integrationHint":"dangerHint")}</Text><p className="path">{report?.root}/.mpvkit/launcher/mpvkit.exe</p>{preview.data.conflicts.length>0&&<Alert color="red">{t("conflict")}<pre>{preview.data.conflicts.join("\n")}</pre></Alert>}<ul className="changes">{preview.data.values.map((x,i)=><li key={i}><span>{x.after?t("update"):t("remove")}</span><code>{x.key} / {x.name}</code></li>)}</ul>{preview.data.skipped.length>0&&<pre>{preview.data.skipped.join("\n")}</pre>}</>;
     return <><Text>{t(preview.kind==="diagnostics"?"exportHint":"dangerHint")}</Text><pre className="diagnostic">{JSON.stringify(preview.data,null,2)}</pre></>;
   }
   const hasConflicts = preview && preview.kind!=="download" && "conflicts" in preview.data && Array.isArray(preview.data.conflicts) && preview.data.conflicts.length>0;
@@ -276,20 +285,20 @@ export function App() {
     <div className="app-shell" data-material={material} data-high-contrast={environment.highContrast}>
       <header className="app-header"><img src={logo} width={26} height={26} alt=""/><Text fw={500}>MpvKit</Text><Text size="xs" c="dimmed">{info.version}</Text><div className="header-settings">{action("settings",()=>setSettingsPanel(true),false,!desktop)}</div></header>
       <div className="app-layout"><aside><Text size="xs" c="dimmed" className="nav-heading">{t(setup?"setup":"environment")}</Text><nav aria-label={t("environment")}>
-        {(setup?steps:pages).map((key,i)=><Button type="button" key={key} variant={page===key?"light":"subtle"} justify="flex-start" fullWidth styles={{label:{whiteSpace:"normal",textAlign:"left"},root:{height:"auto",minHeight:40,paddingBlock:10}}} aria-current={page===key?"page":undefined} disabled={blocked || (setup && ((i===2&&!report?.componentsReady)||(i===3&&!report?.settingsReady)))} onClick={()=>go(key)}>{setup&&<span className="step-number">{i+1}</span>}{t(key)}</Button>)}
+        {(setup?steps:pages).map((key,i)=><Button type="button" key={key} variant={page===key?"light":"subtle"} justify="flex-start" fullWidth styles={{label:{whiteSpace:"normal",textAlign:"left"},root:{height:"auto",minHeight:40,paddingBlock:10}}} aria-current={page===key?"page":undefined} disabled={blocked || (setup && ((i===1&&!ready)||(i===2&&(!ready||!report?.settingsReady))))} onClick={()=>go(key)}>{setup&&<span className="step-number">{i+1}</span>}{t(key)}</Button>)}
         {setup&&report?.recoveryRequired&&<Button variant="light" onClick={()=>go("maintenance")}>{t("recover")}</Button>}
       </nav></aside>
-      <main id="main-content" aria-busy={busy || booting}><div className="page-heading">{setup&&currentStep>=0&&<Text size="xs" c="dimmed">{t("progress",{current:currentStep+1,total:steps.length})}</Text>}<Title order={1}>{t(page==="location"?"welcome":page==="integration"?"addOpenWith":page)}</Title></div>
+      <main id="main-content" aria-busy={busy || booting}><div className="page-heading">{setup&&currentStep>=0&&<Text size="xs" c="dimmed">{t("progress",{current:currentStep+1,total:steps.length})}</Text>}<Title order={1}>{t(page==="integration"?"addOpenWith":page)}</Title></div>
         {!desktop&&<Alert color="blue" mb="md">{t("webOnly")}</Alert>}
         {busy && !progress && <Text role="status" aria-live="polite" mb="md">{t("working")}</Text>}
         {booting?<Text role="status">{t("loading")}</Text>:content()}
         {error!=null&&<Alert color="red" mt="md" role="alert">{t(errorKey(error))}<details><summary>{t("details")}</summary><pre>{JSON.stringify(error,null,2)}</pre></details></Alert>}
         {notice&&<Text mt="md" role="status" aria-live="polite">{t(notice)}</Text>}
-        {desktop&&<div className="page-footer">{setup&&currentStep>0&&action("back",()=>go(steps[currentStep-1]))}{action("checkAgain",()=>void run(async()=>{if(!report)await boot();else await refresh(true);}))}</div>}
+        {desktop&&<div className="page-footer">{setup&&currentStep>0&&action("back",()=>go(steps[currentStep-1]))}{action("checkAgain",()=>void run(async()=>{if(!report)await boot();else await refresh(!targetDirty&&!playerDirty);}))}</div>}
       </main></div>
     </div>
     <Modal opened={preview!==null} onClose={()=>{if(!busy)setPreview(null);}} title={t("preview")} size="lg" closeButtonProps={{"aria-label":t("close")}} closeOnClickOutside={!busy} closeOnEscape={!busy}>
-      {previewContent()}{error!=null&&<Alert color="red" mt="md">{t(errorKey(error))}<details><summary>{t("details")}</summary><pre>{JSON.stringify(error,null,2)}</pre></details></Alert>}<div className="actions">{action("cancel",()=>setPreview(null),false,busy)}{action("confirm",()=>void confirmPreview(),true,busy||!!hasConflicts)}</div>
+      {previewContent()}{preview&&preview.kind!=="download"&&"configurationDiffs" in preview.data&&(preview.data.configurationDiffs as Deployment["configurationDiffs"]).map(diff=><details key={diff.path}><summary>{diff.path}</summary><Text fw={600}>{t("beforeConfig")}</Text><pre className="diagnostic">{diff.before}</pre><Text fw={600}>{t("afterConfig")}</Text><pre className="diagnostic">{diff.after}</pre></details>)}{error!=null&&<Alert color="red" mt="md">{t(errorKey(error))}<details><summary>{t("details")}</summary><pre>{JSON.stringify(error,null,2)}</pre></details></Alert>}<div className="actions">{action("cancel",()=>setPreview(null),false,busy)}{action("confirm",()=>void confirmPreview(),true,busy||!!hasConflicts)}</div>
     </Modal>
     <Modal opened={settingsPanel} onClose={()=>setSettingsPanel(false)} title={t("settings")} size="lg" closeButtonProps={{"aria-label":t("close")}}>{appPreferences()}{error!=null&&<Alert color="red" mt="md">{t(errorKey(error))}</Alert>}</Modal>
     <Modal opened={license!==null} onClose={()=>setLicense(null)} title={t("copyright")} size="xl" closeButtonProps={{"aria-label":t("close")}}><pre className="license-text">{license}</pre></Modal>

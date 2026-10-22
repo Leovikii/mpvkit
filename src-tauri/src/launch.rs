@@ -55,7 +55,7 @@ pub fn prepare(root: &Path, executable: &str, media: &str) -> Result<LaunchPlan>
         std::process::id(),
         NEXT_ID.fetch_add(1, Ordering::Relaxed)
     );
-    let config_directory = root.join("cache").join("sessions").join(&id);
+    let config_directory = crate::logs::directory(root)?.join(&id);
     let arguments = mpv::launch_args(&config_directory, &media)
         .into_iter()
         .map(|value| value.to_string_lossy().into_owned())
@@ -107,23 +107,13 @@ pub fn prepare_managed(root: &Path, media: &str) -> Result<LaunchPlan> {
         crate::deploy::validate_relative(&file.path)?;
         let path = root.join(&file.path);
         let hash = crate::deploy::file_hash(&path)?;
-        let component_file = file.path.starts_with(if manifest.config_directory == "." {
-            "scripts/"
-        } else {
-            "config/scripts/"
-        }) || file.path.starts_with(if manifest.config_directory == "." {
-            "fonts/"
-        } else {
-            "config/fonts/"
-        }) || file.path.starts_with(if manifest.config_directory == "." {
-            "script-opts/"
-        } else {
-            "config/script-opts/"
-        }) || file.path.ends_with("mpvkit-context.json")
-            || file.path.ends_with("mpvkit-profiles.json");
+        let prefix = "portable_config/";
+        let component_file = file.path.starts_with(&format!("{prefix}scripts/"))
+            || file.path.starts_with(&format!("{prefix}fonts/"));
+        let editable = crate::config::editable(&file.path);
         if hash.is_none() && component_file {
             degraded = true;
-        } else if hash.as_deref() != Some(&file.sha256) {
+        } else if (!editable || hash.is_none()) && hash.as_deref() != Some(&file.sha256) {
             return Err(AppError::new(
                 "file_conflict",
                 "受管理文件已改变，请检查或恢复后启动。",
@@ -140,8 +130,6 @@ pub fn prepare_managed(root: &Path, media: &str) -> Result<LaunchPlan> {
         crate::deploy::file_hash(&manifest_path)?,
     ));
     let config_directory = root.join(&manifest.config_directory);
-    let user = config_directory.join("user.conf");
-    let user_hash = crate::deploy::file_hash(&user)?;
     let mut plan = prepare(
         root,
         player
@@ -166,26 +154,15 @@ pub fn prepare_managed(root: &Path, media: &str) -> Result<LaunchPlan> {
         .into(),
         "--no-terminal".into(),
     ];
-    let preference_path = root.join(".mpvkit/playback.json");
-    let preference_hash = crate::deploy::file_hash(&preference_path)?;
-    if let Some(saved) = crate::preferences::read(root)?
-        && saved.generation == manifest.installation_id
-    {
-        for (key, value) in &crate::config::profiles()[saved.profile.id()] {
-            args.push(format!("--{key}={value}"));
-        }
-    }
-    hashes.push((preference_path, preference_hash));
-    if user_hash.is_some() {
-        args.push(format!("--include={}", user.display()));
-    }
     args.push("--".into());
     args.push(media.into());
-    hashes.push((user, user_hash));
     plan.preview.arguments = args;
     plan.managed_files = hashes;
     plan.generation = Some(manifest.installation_id);
-    plan.preview.changes = vec!["加载已核对归属与摘要的受管理配置、uosc 和 thumbfast。".into(), "所选配置目录存在 user.conf 时最后加载；它不纳入覆盖或卸载。高级配置可覆盖 GUI 设置并加载其它脚本，请仅保留可信内容。".into(), "创建独立会话状态目录；关闭管理界面后播放器继续运行。".into()];
+    plan.preview.changes = vec![
+        "读取 portable_config 中的播放配置；保留手动修改。".into(),
+        "组件程序与脚本继续核对归属，启动不额外覆盖画质。".into(),
+    ];
     if degraded {
         plan.preview.changes.push("组件文件缺失：本次禁用全部自动脚本，使用基础渲染链；uosc、缩略图与播放期全局保存不可用。请在组件区预览修复。".into());
     }
@@ -233,6 +210,7 @@ pub fn execute(plan: LaunchPlan) -> Result<LaunchResult> {
     {
         return Err(stale());
     }
+    let _ownership = crate::deploy::acquire(&plan.root)?;
     let directory = &plan.session_directory;
     platform::validate_local_path(directory)?;
     let write_error = || {

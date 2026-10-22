@@ -111,9 +111,11 @@ fn status_with(root: &Path, registry: &Registry) -> Result<Status> {
     }
     if valid {
         let manifest = deploy::status(root)?.manifest;
-        let launcher = manifest
-            .as_ref()
-            .and_then(|m| m.files.iter().find(|f| f.path == "launcher/mpvkit.exe"));
+        let launcher = manifest.as_ref().and_then(|m| {
+            m.files
+                .iter()
+                .find(|f| matches!(f.path.as_str(), ".mpvkit/launcher/mpvkit.exe"))
+        });
         if let Some(file) = launcher {
             valid &= deploy::file_hash(&root.join(&file.path))?.as_deref() == Some(&file.sha256);
             let saved: Record = decode(record.as_ref().expect("record exists"))?;
@@ -143,7 +145,7 @@ fn status_with(root: &Path, registry: &Registry) -> Result<Status> {
     })
 }
 fn desired(root: &Path) -> Result<Vec<(String, String, RegistryData)>> {
-    let executable = root.join("launcher/mpvkit.exe");
+    let executable = crate::config::helper_path(root);
     crate::platform::validate_local_path(&executable)?;
     let executable = executable
         .to_str()
@@ -200,7 +202,7 @@ pub fn prepare(root: &Path, action: &str) -> Result<Plan> {
         if !manifest
             .files
             .iter()
-            .any(|f| f.path == "launcher/mpvkit.exe")
+            .any(|f| matches!(f.path.as_str(), ".mpvkit/launcher/mpvkit.exe"))
         {
             return Err(error(
                 "helper_missing",
@@ -212,7 +214,7 @@ pub fn prepare(root: &Path, action: &str) -> Result<Plan> {
             plan.guarded_files
                 .push((path.clone(), deploy::file_hash(&path)?));
         }
-        for name in [".mpvkit/install.json", ".mpvkit/setup.json"] {
+        for name in [".mpvkit/install.json", ".mpvkit/settings.json"] {
             let path = root.join(name);
             plan.guarded_files
                 .push((path.clone(), deploy::file_hash(&path)?));

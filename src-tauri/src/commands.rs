@@ -122,6 +122,7 @@ pub async fn preview_maintenance(
 ) -> Result<crate::deploy::DeploymentPreview> {
     let root = platform::app_root()?;
     let operation = tauri::async_runtime::spawn_blocking(move || match action.as_str() {
+        "reset-config" => crate::config::portable::reset(&root).map(PendingOperation::Deployment),
         "uninstall" => crate::deploy::prepare_uninstall(&root).map(PendingOperation::Deployment),
         "restore" => crate::deploy::prepare_restore(&root).map(PendingOperation::Deployment),
         "recover" => crate::deploy::prepare_recovery(&root).map(PendingOperation::Recovery),
@@ -172,18 +173,7 @@ pub async fn apply_deployment(
     tauri::async_runtime::spawn_blocking(move || {
         let _selection = crate::targets::active(&operation.preview().root)?;
         match operation {
-            PendingOperation::Deployment(plan) => {
-                let target = crate::targets::read(&platform::default_root()?)?;
-                if target.config_directory != plan.config_directory()? {
-                    return Err(AppError::new(
-                        "target_changed",
-                        "目标布局已切换，请重新预览。",
-                        "deploy",
-                    ));
-                }
-                crate::setup::remember_completed_legacy(&plan.preview.root)?;
-                crate::deploy::execute(plan)
-            }
+            PendingOperation::Deployment(plan) => crate::deploy::execute(plan),
             PendingOperation::Recovery(plan) => crate::deploy::recover(plan),
         }
     })
@@ -243,7 +233,7 @@ pub async fn preview_install(
         *current = Some(cancel.clone());
     }
     let result = tauri::async_runtime::spawn_blocking(move || {
-        crate::components::prepare_install_at(
+        crate::components::prepare_install(
             &root,
             external_mpv.as_deref(),
             replace_existing,
@@ -251,7 +241,6 @@ pub async fn preview_install(
             &mut |progress| {
                 let _ = on_progress.send(progress);
             },
-            &target.config_directory,
         )
     })
     .await
@@ -285,12 +274,17 @@ pub async fn read_settings() -> Result<crate::config::Settings> {
 #[tauri::command]
 pub async fn preview_settings(
     settings: crate::config::Settings,
+    replace_manual: Option<bool>,
     state: State<'_, PendingDeployment>,
 ) -> Result<crate::deploy::DeploymentPreview> {
     let root = platform::app_root()?;
     let plan = tauri::async_runtime::spawn_blocking(move || {
         crate::setup::require_components(&root)?;
-        crate::config::prepare(&root, settings)
+        if crate::config::directory(&root)?.ends_with("portable_config") {
+            crate::config::prepare_portable(&root, settings, replace_manual.unwrap_or(false))
+        } else {
+            crate::config::prepare(&root, settings)
+        }
     })
     .await
     .map_err(|_| AppError::new("worker_failed", "设置预览异常结束。", "config"))??;
@@ -638,7 +632,11 @@ pub fn license_text(kind: String) -> Result<&'static str> {
     match kind.as_str() {
         "project" => Ok(include_str!("../../COPYING.md")),
         "license" => Ok(include_str!("../../LICENSE")),
-        "dependencies" => Ok(include_str!("../../resources/app-dependency-notices.txt")),
+        "dependencies" => Ok(concat!(
+            include_str!("../../resources/app-dependency-notices.txt"),
+            "\n\nLXGW WenKai Screen v1.530 — unmodified subtitle font\n",
+            include_str!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt")
+        )),
         _ => Err(AppError::new(
             "invalid_action",
             "不支持此声明类型。",

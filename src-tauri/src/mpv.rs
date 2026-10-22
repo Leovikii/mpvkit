@@ -65,7 +65,7 @@ pub fn managed_executable(
         if !manifest
             .files
             .iter()
-            .any(|file| file.path.eq_ignore_ascii_case("runtime/mpv.exe"))
+            .any(|file| file.path.eq_ignore_ascii_case("mpv.exe"))
         {
             return Err(AppError::new(
                 "managed_player_unowned",
@@ -74,12 +74,7 @@ pub fn managed_executable(
             ));
         }
         for file in &manifest.files {
-            if !file
-                .path
-                .split('/')
-                .next()
-                .is_some_and(|part| part.eq_ignore_ascii_case("runtime"))
-            {
+            if !(file.path == "mpv.exe" || file.path == "d3dcompiler_43.dll") {
                 continue;
             }
             crate::deploy::validate_relative(&file.path)?;
@@ -91,7 +86,7 @@ pub fn managed_executable(
                 ));
             }
         }
-        root.join("runtime/mpv.exe")
+        crate::config::player_path(root, manifest)
     };
     executable_path(
         player
@@ -247,6 +242,17 @@ pub fn ensure_managed_options(executable: &Path) -> Result<()> {
         "osd-font-size",
         "volume",
         "osc",
+        "input-builtin-bindings",
+        "video-sync",
+        "interpolation",
+        "sub-font",
+        "save-position-on-quit",
+        "watch-later-options",
+        "watch-later-directory",
+        "resume-playback",
+        "keep-open",
+        "screenshot-directory",
+        "screenshot-format",
     ]);
     for key in keys {
         if !available.contains(format!("--{key}").as_str()) {

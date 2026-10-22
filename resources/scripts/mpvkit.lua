@@ -8,42 +8,45 @@ local function read_json(path)
     if not content or #content > 65536 then return nil end
     return utils.parse_json(content)
 end
-local context = read_json(mp.find_config_file('mpvkit-context.json'))
-local catalog = read_json(mp.find_config_file('mpvkit-profiles.json'))
-if not context or context.schemaVersion ~= 1 or not catalog or catalog.schemaVersion ~= 1 then
-    msg.error('MpvKit context/profiles unavailable; shortcuts disabled')
-    return
-end
-local profiles = catalog.profiles
+local options = {profile='balanced', screenshot_subtitles=false}
+require('mp.options').read_options(options, 'mpvkit')
+local config_file = mp.find_config_file('mpv.conf')
+if not config_file then return end
+local config_dir = utils.split_path(config_file)
+local root = utils.split_path(config_dir:gsub('[/\\]+$', ''))
+local helper = utils.join_path(root, '.mpvkit/launcher/mpvkit.exe')
 local order = {'power-saving', 'balanced', 'high-quality'}
 local labels = {['power-saving']='省电', balanced='均衡', ['high-quality']='高画质'}
-local current = context.profile
+local current = options.profile
 local saving = false
-local function manifest() return read_json(utils.join_path(context.root, '.mpvkit/install.json')) end
-local generation = os.getenv('MPVKIT_GENERATION')
-local function preference() return read_json(utils.join_path(context.root, '.mpvkit/playback.json')) end
+local function manifest() return read_json(utils.join_path(root, '.mpvkit/install.json')) end
+local function preference() return read_json(utils.join_path(root, '.mpvkit/settings.json')) end
+local installed = manifest()
+local generation = installed and installed.installationId
+local saved_at_start = preference()
+local revision = saved_at_start and saved_at_start.revision or 0
+local function profile_options(id)
+    for _, p in ipairs(mp.get_property_native('profile-list', {})) do
+        if p.name == 'mpvkit-' .. id then return p.options end
+    end
+end
 local function publish()
     mp.set_property_native('user-data/mpvkit', {profile=current, saving=saving})
 end
 local function apply(id)
-    if not profiles[id] then mp.osd_message('不支持的 MpvKit 档位'); return false end
-    local old, keys = {}, {}
-    for key in pairs(profiles[id]) do keys[#keys + 1] = key; old[key] = mp.get_property(key) end
-    table.sort(keys)
-    for _, key in ipairs(keys) do
-        local ok, err = mp.set_property(key, profiles[id][key])
-        if not ok then
-            for _, restore in ipairs(keys) do if old[restore] then mp.set_property(restore, old[restore]) end end
-            msg.error('profile switch failed: ' .. tostring(err))
-            mp.osd_message('档位切换失败，已恢复原设置'); return false
-        end
+    local entries = labels[id] and profile_options(id)
+    if not entries then mp.osd_message('画质配置不可用'); return false end
+    local old = {}
+    for _, entry in ipairs(entries) do old[entry.key] = mp.get_property(entry.key) end
+    local _, err = mp.command_native({'apply-profile', 'mpvkit-' .. id})
+    if err then
+        for key, value in pairs(old) do mp.set_property(key, value) end
+        msg.error(tostring(err)); mp.osd_message('档位切换失败，已恢复原设置'); return false
     end
-    current = id; publish()
-    mp.osd_message('MpvKit：' .. labels[id] .. '（仅本次；Alt+s 保存全局）')
-    return true
+    current=id;publish();mp.osd_message('MpvKit：' .. labels[id] .. '（仅本次）');return true
 end
 local function save()
-    if saving or not profiles[current] then mp.osd_message('请先选择一个档位'); return end
+    if saving or not labels[current] then mp.osd_message('请先选择一个档位'); return end
     local installed = manifest()
     local previous = preference()
     if not installed or installed.owner ~= 'MpvKit' or installed.schemaVersion ~= 1 then mp.osd_message('安装记录不可用，未保存'); return end
@@ -52,12 +55,14 @@ local function save()
         msg.warn('preference_stale')
         mp.osd_message('安装或设置已变化，请重新启动播放器后保存。'); return
     end
-    local revision = previous and previous.revision or 0
+    if previous and previous.revision ~= revision then mp.osd_message('设置已变化，请重新启动播放器。'); return end
     saving = true; publish()
-    mp.command_native_async({name='subprocess', args={context.helper, '--save-playback', context.root, current, tostring(revision), generation}, capture_stdout=true, capture_stderr=true, playback_only=false}, function(success, result)
+    mp.command_native_async({name='subprocess', args={helper, '--save-playback', root, current, tostring(revision), generation}, capture_stdout=true, capture_stderr=true, playback_only=false}, function(success, result)
         saving = false; publish()
         if success and result.status == 0 then
-            mp.osd_message('已保存为全局默认；新启动播放器生效')
+            local result_state = utils.parse_json(result.stdout or '')
+            if result_state then generation=result_state.generation; revision=result_state.revision end
+            mp.osd_message('已保存为默认；下次启动生效')
         else
             local failure
             if result and result.stdout then failure = utils.parse_json(result.stdout) end
@@ -69,36 +74,26 @@ end
 local function menu()
     local items = {}
     for _, id in ipairs(order) do items[#items + 1] = {title=labels[id], hint=current == id and '当前' or '仅本次', value={'script-message-to', 'mpvkit', 'profile', id}} end
-    items[#items + 1] = {title='保存当前档位为全局默认', hint='Alt+s', value={'script-message-to', 'mpvkit', 'save'}}
+    items[#items + 1] = {title='保存当前档位为全局默认', hint='', value={'script-message-to', 'mpvkit', 'save'}}
     mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json({type='mpvkit-profiles', title='MpvKit 画质档位', items=items}))
 end
+mp.register_script_message('screenshot', function()
+    mp.command_native_async({name='screenshot', flags=options.screenshot_subtitles and 'subtitles' or 'video'}, function(success, result, err)
+        if not success then mp.osd_message('截图失败 / Screenshot failed'); msg.error(tostring(err)) end
+    end)
+end)
 mp.register_script_message('profile', apply)
 mp.register_script_message('save', save)
 mp.register_script_message('menu', menu)
-mp.add_key_binding('Alt+1', 'power-saving', function() apply('power-saving') end)
-mp.add_key_binding('Alt+2', 'balanced', function() apply('balanced') end)
-mp.add_key_binding('Alt+3', 'high-quality', function() apply('high-quality') end)
-mp.add_key_binding('Alt+s', 'save', save)
-mp.add_key_binding('F6', 'menu', menu)
-mp.add_timeout(0, function()
-    local installed, saved = manifest(), preference()
-    if saved and installed and saved.schemaVersion == 1 and saved.owner == 'MpvKit' and saved.generation == generation and installed.installationId == generation and profiles[saved.profile] then current = saved.profile end
-    -- Initial values are set by the launcher before optional user.conf. Never overwrite it here.
-    publish()
-end)
-
--- A temporary choice belongs to one file. Later files re-read the saved default.
-local first_file = true
+mp.add_timeout(0, publish)
+-- Temporary profile changes belong to this media file; preserve the actual initial configuration.
 local initial = {}
-for key in pairs(profiles[current] or {}) do initial[key] = mp.get_property(key) end
+for _, id in ipairs(order) do
+    for _, entry in ipairs(profile_options(id) or {}) do initial[entry.key] = mp.get_property(entry.key) end
+end
+local first_file = true
 mp.register_event('file-loaded', function()
-    if first_file then first_file = false; return end
-    local installed, saved = manifest(), preference()
-    if saved and installed and saved.schemaVersion == 1 and saved.owner == 'MpvKit'
-        and saved.generation == installed.installationId and profiles[saved.profile] then
-        apply(saved.profile)
-    else
-        for key, value in pairs(initial) do mp.set_property(key, value) end
-        current = context.profile; publish()
-    end
+    if first_file then first_file=false; return end
+    for key,value in pairs(initial) do mp.set_property(key,value) end
+    current=options.profile;publish()
 end)

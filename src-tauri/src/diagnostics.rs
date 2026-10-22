@@ -19,7 +19,7 @@ pub struct Report {
     pub actual_player_version: Option<String>,
     pub player_issue: Option<&'static str>,
     pub config_source: &'static str,
-    pub user_config_present: bool,
+    pub configuration_modified: bool,
     pub managed_files: usize,
     pub changed_or_unavailable_files: usize,
     pub recovery_required: bool,
@@ -119,8 +119,6 @@ pub fn prepare(root: &Path, destination: &Path) -> Result<ExportPlan> {
             Err(e) => player_issue = Some(e.code),
         }
     }
-    let user = crate::config::directory(root)?.join("user.conf");
-    platform::validate_local_path(&user)?;
     let report = Report {
         schema_version: 1,
         application: "MpvKit",
@@ -134,7 +132,7 @@ pub fn prepare(root: &Path, destination: &Path) -> Result<ExportPlan> {
         } else {
             "none"
         },
-        user_config_present: user.is_file(),
+        configuration_modified: crate::config::modified(root)?,
         managed_files,
         changed_or_unavailable_files: changed,
         recovery_required: status.recovery_required,

@@ -75,6 +75,15 @@ pub const ASSETS: &[Asset] = &[
         sha256: "a3d08e71eae8b892f6cd39f9593ea219768e709312d176bca883841b156448bf",
         format: Format::Raw,
     },
+    Asset {
+        id: "subtitle-font",
+        version: "1.530",
+        project: "https://github.com/lxgw/LxgwWenKai-Screen",
+        url: "https://github.com/lxgw/LxgwWenKai-Screen/releases/download/v1.530/LXGWWenKaiScreen.ttf",
+        size: 26_095_590,
+        sha256: "abd13364163e3cd84372b333f2fdcee9efb848634668f1c0ce5788dcd059ee61",
+        format: Format::Raw,
+    },
 ];
 
 #[derive(Clone, Serialize)]
@@ -152,7 +161,7 @@ fn client_builder(total: Duration, stall: Duration) -> reqwest::blocking::Client
                     attempt.follow()
                 }
             }))
-            .user_agent("MpvKit/0.1.0"),
+            .user_agent(concat!("MpvKit/", env!("CARGO_PKG_VERSION"))),
     )
     .timeout(stall)
 }
@@ -258,20 +267,20 @@ impl Boundary {
 
 fn destination(id: &str, name: &str) -> Option<String> {
     match id {
-        "mpv" if matches!(name, "mpv.exe" | "d3dcompiler_43.dll" | "mpv/fonts.conf") => {
-            Some(format!("runtime/{name}"))
-        }
+        "mpv" if matches!(name, "mpv.exe" | "d3dcompiler_43.dll") => Some(name.into()),
+        "mpv" if name == "mpv/fonts.conf" => Some("portable_config/fonts.conf".into()),
         "uosc"
             if name.starts_with("scripts/uosc/")
                 && (!name.starts_with("scripts/uosc/bin/")
                     || name == "scripts/uosc/bin/ziggy-windows.exe") =>
         {
-            Some(format!("config/{name}"))
+            Some(format!("portable_config/{name}"))
         }
         "uosc" if matches!(name, "fonts/uosc_icons.otf" | "fonts/uosc_textures.ttf") => {
-            Some(format!("config/{name}"))
+            Some(format!("portable_config/{name}"))
         }
-        "thumbfast" => Some("config/scripts/thumbfast.lua".into()),
+        "subtitle-font" => Some("portable_config/fonts/LXGWWenKaiScreen.ttf".into()),
+        "thumbfast" => Some("portable_config/scripts/thumbfast.lua".into()),
         _ => None,
     }
 }
@@ -399,17 +408,18 @@ pub fn unpack(asset: &Asset, bytes: &[u8], cancel: &AtomicBool) -> Result<Vec<Pa
     check_cancel(cancel)?;
     let required: &[&str] = match asset.id {
         "mpv" => &[
-            "runtime/mpv.exe",
-            "runtime/d3dcompiler_43.dll",
-            "runtime/mpv/fonts.conf",
+            "mpv.exe",
+            "d3dcompiler_43.dll",
+            "portable_config/fonts.conf",
         ],
         "uosc" => &[
-            "config/scripts/uosc/main.lua",
-            "config/scripts/uosc/bin/ziggy-windows.exe",
-            "config/fonts/uosc_icons.otf",
-            "config/fonts/uosc_textures.ttf",
+            "portable_config/scripts/uosc/main.lua",
+            "portable_config/scripts/uosc/bin/ziggy-windows.exe",
+            "portable_config/fonts/uosc_icons.otf",
+            "portable_config/fonts/uosc_textures.ttf",
         ],
-        "thumbfast" => &["config/scripts/thumbfast.lua"],
+        "thumbfast" => &["portable_config/scripts/thumbfast.lua"],
+        "subtitle-font" => &["portable_config/fonts/LXGWWenKaiScreen.ttf"],
         _ => return Err(error("component_unknown", "未知组件。")),
     };
     if required
@@ -430,28 +440,6 @@ pub fn prepare_install(
     replace_existing: bool,
     cancel: &AtomicBool,
     progress: &mut impl FnMut(Progress),
-) -> Result<deploy::DeploymentPlan> {
-    let layout = deploy::status(root)?
-        .manifest
-        .map(|m| m.config_directory)
-        .unwrap_or_else(deploy::default_config_directory);
-    prepare_install_at(
-        root,
-        external_mpv,
-        replace_existing,
-        cancel,
-        progress,
-        &layout,
-    )
-}
-
-pub fn prepare_install_at(
-    root: &std::path::Path,
-    external_mpv: Option<&str>,
-    replace_existing: bool,
-    cancel: &AtomicBool,
-    progress: &mut impl FnMut(Progress),
-    layout: &str,
 ) -> Result<deploy::DeploymentPlan> {
     let external = external_mpv.map(crate::mpv::executable_path).transpose()?;
     if let Some(player) = &external {
@@ -486,12 +474,9 @@ pub fn prepare_install_at(
     let player = external
         .as_ref()
         .cloned()
-        .unwrap_or_else(|| root.join("runtime/mpv.exe"));
+        .unwrap_or_else(|| root.join("mpv.exe"));
     let settings = crate::config::read(root)?;
-    crate::config::map_layout(&mut payloads, layout)?;
-    payloads.extend(crate::config::generate_at(
-        root, &player, &settings, layout,
-    )?);
+    payloads.extend(crate::config::generate(root, &player, &settings)?);
     if cancel.load(std::sync::atomic::Ordering::Relaxed) {
         return Err(AppError::new(
             "cancelled",
@@ -499,7 +484,7 @@ pub fn prepare_install_at(
             "components",
         ));
     }
-    crate::deploy::prepare_install_at(root, payloads, replace_existing, external, versions, layout)
+    crate::deploy::prepare_install(root, payloads, replace_existing, external, versions)
 }
 
 fn acquire(
@@ -515,6 +500,7 @@ fn acquire(
             "mpv" => "mpv-x86_64-20261020-git-6a262d11f6.7z",
             "uosc" => "uosc-5.13.0.zip",
             "thumbfast" => "thumbfast-thumbfast.lua",
+            "subtitle-font" => "LXGWWenKaiScreen.ttf",
             _ => return Err(error("component_unknown", "未知组件。")),
         };
         let path = std::path::PathBuf::from(directory).join(name);
@@ -537,6 +523,7 @@ fn acquire(
 
 fn license_materials(include_player: bool) -> Vec<Payload> {
     let mut files = vec![
+        ("LXGWWenKaiScreen-OFL.txt",include_bytes!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt").as_slice()),
         ("uosc-LGPL-2.1.txt",include_bytes!("../../resources/licenses/uosc-LGPL-2.1.txt").as_slice()),
         ("thumbfast-MPL-2.txt",include_bytes!("../../resources/licenses/thumbfast-MPL-2.txt").as_slice()),
         ("material-icons-Apache-2.txt",include_bytes!("../../resources/licenses/material-icons-Apache-2.txt").as_slice()),

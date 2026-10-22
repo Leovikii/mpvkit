@@ -28,7 +28,7 @@ pub struct Status {
 pub fn status(default: &Path) -> Result<Status> {
     Ok(Status {
         target: read_saved(default)?,
-        default_root: default.into(),
+        default_root: default_player_root(default)?,
     })
 }
 
@@ -50,12 +50,12 @@ fn error(code: &'static str, message: &'static str) -> AppError {
     AppError::new(code, message, "target")
 }
 fn record(default: &Path) -> PathBuf {
-    default.join(".mpvkit/target.json")
+    crate::app_settings::record_path(default)
 }
-fn validate(value: &Target) -> Result<()> {
+pub(crate) fn validate(value: &Target) -> Result<()> {
     if value.schema_version != 1
         || value.owner != "MpvKit"
-        || !matches!(value.config_directory.as_str(), "config" | ".")
+        || value.config_directory != "portable_config"
     {
         return Err(error(
             "target_state",
@@ -71,24 +71,18 @@ fn validate(value: &Target) -> Result<()> {
     }
     Ok(())
 }
+fn default_player_root(default: &Path) -> Result<PathBuf> {
+    Ok(default.join("player"))
+}
 pub fn read_saved(default: &Path) -> Result<Target> {
-    deploy::status(default)?;
-    let path = record(default);
-    let value = if deploy::file_hash(&path)?.is_some() {
-        let bytes = deploy::read_bytes(&path)?;
-        if bytes.len() > 65536 {
-            return Err(error("target_state", "目标记录过大，已保留。"));
-        }
-        serde_json::from_slice(&bytes)
-            .map_err(|_| error("target_state", "目标记录损坏或含未知字段，已保留。"))?
-    } else {
-        Target {
+    let value = crate::app_settings::load(default)?
+        .target
+        .unwrap_or_else(|| Target {
             schema_version: 1,
             owner: "MpvKit".into(),
-            root: default.into(),
-            config_directory: "config".into(),
-        }
-    };
+            root: default.join("player"),
+            config_directory: "portable_config".into(),
+        });
     validate(&value)?;
     Ok(value)
 }
@@ -115,16 +109,11 @@ pub fn prepare(default: &Path, root: PathBuf) -> Result<Plan> {
         movable(&before.root)?;
     }
     platform::validate_local_path(&root)?;
-    let config_directory = match deploy::status(&root)?.manifest {
-        Some(manifest) => manifest.config_directory,
-        None if root == before.root => before.config_directory.clone(),
-        None => "config".into(),
-    };
     let after = Target {
         schema_version: 1,
         owner: "MpvKit".into(),
         root,
-        config_directory,
+        config_directory: "portable_config".into(),
     };
     validate(&after)?;
     platform::validate_local_path(&after.root)?;
@@ -148,7 +137,7 @@ pub fn prepare(default: &Path, root: PathBuf) -> Result<Plan> {
         created: Instant::now(),
     })
 }
-fn selection_lock(default: &Path) -> Result<File> {
+pub(crate) fn selection_lock(default: &Path) -> Result<File> {
     // Reuse ownership validation before opening a separate selection lock.
     let _ownership = deploy::acquire(default)?;
     let path = default.join(".mpvkit/selection.lock");
@@ -201,9 +190,9 @@ pub fn execute(plan: Plan) -> Result<Target> {
     {
         return Err(error("layout_changed", "目标布局已改变，请重新预览。"));
     }
-    let bytes = serde_json::to_vec_pretty(&plan.preview.after)
-        .map_err(|_| error("target_state", "目标记录无法编码。"))?;
-    deploy::atomic_write(&record(&plan.default), &bytes)?;
+    let mut record = crate::app_settings::load(&plan.default)?;
+    record.target = Some(plan.preview.after.clone());
+    crate::app_settings::write(&plan.default, &record)?;
     Ok(plan.preview.after)
 }
 
@@ -219,22 +208,14 @@ mod tests {
         std::fs::write(custom.join("mpv.conf"), "volume=22\n").unwrap();
         let plan = prepare(&default, custom.clone()).unwrap();
         assert!(!default.exists());
-        assert_eq!(status(&default).unwrap().default_root, default);
-        assert_eq!(plan.preview.after.config_directory, "config");
+        assert_eq!(
+            status(&default).unwrap().default_root,
+            default.join("player")
+        );
+        assert_eq!(plan.preview.after.config_directory, "portable_config");
         let stale = prepare(&default, base.join("other")).unwrap();
         execute(plan).unwrap();
         assert_eq!(read(&default).unwrap().root, custom);
-        let mut legacy = read_saved(&default).unwrap();
-        legacy.config_directory = ".".into();
-        deploy::atomic_write(&record(&default), &serde_json::to_vec(&legacy).unwrap()).unwrap();
-        assert_eq!(
-            prepare(&default, custom.clone())
-                .unwrap()
-                .preview
-                .after
-                .config_directory,
-            "."
-        );
         assert!(execute(stale).is_err());
         assert_eq!(
             std::fs::read_to_string(custom.join("mpv.conf")).unwrap(),
@@ -268,9 +249,11 @@ mod tests {
             schema_version: 1,
             owner: "MpvKit".into(),
             root: PathBuf::from("//unavailable.example/share/mpv"),
-            config_directory: "config".into(),
+            config_directory: "portable_config".into(),
         };
-        deploy::atomic_write(&record(&default), &serde_json::to_vec(&old).unwrap()).unwrap();
+        let mut record = crate::app_settings::load(&default).unwrap();
+        record.target = Some(old.clone());
+        crate::app_settings::write(&default, &record).unwrap();
         drop(_lock);
         assert!(read(&default).is_err());
         assert_eq!(read_saved(&default).unwrap(), old);

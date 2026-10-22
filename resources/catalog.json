@@ -76,7 +76,7 @@
         "ASS overlays"
       ],
       "validation": [
-        "uosc startup 5.13.0; actual thumbnail overlay; F6 menu and profile shortcut integration"
+        "uosc startup 5.13.0; actual thumbnail overlay; quality profile menu; minimal keys with menu input priority"
       ],
       "excludedAssets": [
         "ziggy-linux",
@@ -116,6 +116,39 @@
       ],
       "validation": [
         "three profiles; actual 400x225 360000-byte BGRA thumbnail; explicit selected MPV path"
+      ]
+    },
+    {
+      "id": "subtitle-font",
+      "version": "1.530",
+      "project": "https://github.com/lxgw/LxgwWenKai-Screen",
+      "distributor": "https://github.com/lxgw/LxgwWenKai-Screen",
+      "commit": "34f2c5602eb51d7455a0032c56ea9b0029edab53",
+      "platform": "windows-x64",
+      "url": "https://github.com/lxgw/LxgwWenKai-Screen/releases/download/v1.530/LXGWWenKaiScreen.ttf",
+      "size": 26095590,
+      "sha256": "abd13364163e3cd84372b333f2fdcee9efb848634668f1c0ce5788dcd059ee61",
+      "checksumSource": "GitHub release asset digest; downloaded bytes verified",
+      "license": {
+        "identifier": "OFL-1.1",
+        "status": "text-verified",
+        "materials": [
+          "https://github.com/lxgw/LxgwWenKai-Screen/blob/34f2c5602eb51d7455a0032c56ea9b0029edab53/OFL.txt"
+        ],
+        "note": "原始未修改完整字体；保留上游 OFL 文本。"
+      },
+      "dependencies": [
+        "mpv"
+      ],
+      "modified": false,
+      "conflicts": [
+        "existing same-name font file"
+      ],
+      "minimumCapabilities": [
+        "libass font loading"
+      ],
+      "validation": [
+        "Fixed MPV: missing ASS family and plain SRT select LXGW WenKai Screen; present Arial remains Arial."
       ]
     }
   ]

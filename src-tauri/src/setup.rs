@@ -3,7 +3,7 @@ use crate::{
     error::{AppError, Result},
     integration, mpv,
 };
-use serde::{Deserialize, Serialize};
+use serde::Serialize;
 use std::path::{Path, PathBuf};
 
 #[derive(Serialize)]
@@ -25,93 +25,71 @@ pub struct Report {
     pub player_ready: bool,
     pub components_ready: bool,
     pub settings_ready: bool,
+    pub configuration_modified: bool,
     pub completed: bool,
     pub next_step: &'static str,
     pub recovery_required: bool,
     pub integration: integration::Status,
     pub issues: Vec<String>,
 }
-#[derive(Default, Deserialize, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Progress {
-    schema_version: u32,
-    owner: String,
-    environment_id: String,
-    settings_hash: Option<String>,
-    completed: bool,
-}
 fn error(code: &'static str) -> AppError {
     AppError::new(code, "安装状态已变化，请重新检查。", "setup")
-}
-fn read(root: &Path) -> Result<Option<Progress>> {
-    let path = root.join(".mpvkit/setup.json");
-    if deploy::file_hash(&path)?.is_none() {
-        return Ok(None);
-    }
-    let data = deploy::read_bytes(&path)?;
-    if data.len() > 65536 {
-        return Err(error("setup_state"));
-    }
-    let p: Progress = serde_json::from_slice(&data).map_err(|_| error("setup_state"))?;
-    if p.schema_version != 1 || p.owner != "MpvKit" {
-        return Err(error("setup_state"));
-    }
-    Ok(Some(p))
-}
-pub fn environment(manifest: &deploy::InstallManifest) -> &str {
-    manifest
-        .environment_id
-        .as_deref()
-        .unwrap_or(&manifest.installation_id)
 }
 pub fn status(root: &Path) -> Result<Report> {
     let deployment = deploy::status(root)?;
     let integration = integration::status(root)?;
-    let progress = read(root)?;
     let mut report = Report {
         root: root.into(),
-        config_directory: root.join("config"),
+        config_directory: root.join("portable_config"),
         external_mpv: None,
         generation: None,
         components: vec![],
         player_ready: false,
         components_ready: false,
         settings_ready: false,
+        configuration_modified: false,
         completed: false,
-        next_step: "location",
+        next_step: "components",
         recovery_required: deployment.recovery_required || integration.recovery_required,
         integration,
         issues: vec![],
     };
     if let Some(m) = deployment.manifest {
+        report.configuration_modified = config::modified(root)?;
         report.generation = Some(m.installation_id.clone());
         report.external_mpv = m.external_mpv.clone();
         report.config_directory = root.join(&m.config_directory);
         let mut invalid = Vec::new();
         for file in &m.files {
             deploy::validate_relative(&file.path)?;
-            if deploy::file_hash(&root.join(&file.path))?.as_deref() != Some(&file.sha256) {
+            if (!config::editable(&file.path)
+                || deploy::file_hash(&root.join(&file.path))?.is_none())
+                && deploy::file_hash(&root.join(&file.path))?.as_deref() != Some(&file.sha256)
+            {
                 invalid.push(file.path.clone());
             }
         }
         report.player_ready = mpv::managed_executable(root, &m).is_ok();
         for (id, suffix) in [
-            ("mpv", "runtime/mpv.exe"),
+            ("mpv", "mpv.exe"),
             ("uosc", "scripts/uosc/main.lua"),
             ("thumbfast", "scripts/thumbfast.lua"),
+            ("subtitle-font", "fonts/LXGWWenKaiScreen.ttf"),
         ] {
-            let required = if id == "mpv" || m.config_directory == "." {
+            let required = if id == "mpv" {
                 suffix.into()
             } else {
-                format!("config/{suffix}")
+                format!("portable_config/{suffix}")
             };
             let issues: Vec<_> = invalid
                 .iter()
                 .filter(|p| {
                     if id == "mpv" {
-                        p.starts_with("runtime/")
+                        p.as_str() == "mpv.exe" || p.as_str() == "d3dcompiler_43.dll"
                     } else if id == "uosc" {
-                        p.contains("uosc") || p.contains("fonts/")
+                        p.contains("uosc")
+                    } else if id == "subtitle-font" {
+                        p.ends_with("fonts/LXGWWenKaiScreen.ttf")
                     } else {
                         p.contains("thumbfast")
                     }
@@ -131,32 +109,15 @@ pub fn status(root: &Path) -> Result<Report> {
                 issues,
             });
         }
-        let config_owned = [
-            "mpv.conf",
-            "scripts/mpvkit.lua",
-            "mpvkit-context.json",
-            "mpvkit-profiles.json",
-        ]
-        .iter()
-        .all(|p| {
-            let relative = if m.config_directory == "." {
-                p.to_string()
-            } else {
-                format!("config/{p}")
-            };
+        let config_owned = ["mpv.conf", "scripts/mpvkit.lua"].iter().all(|p| {
+            let relative = format!("portable_config/{p}");
             m.files.iter().any(|f| f.path == relative)
         });
         report.components_ready =
             report.components.iter().all(|c| c.ready) && config_owned && invalid.is_empty();
-        let p = progress.filter(|p| p.environment_id == environment(&m));
-        let settings_hash = deploy::file_hash(&root.join("state/settings.json"))?;
-        let settings_valid = settings_hash.is_some() && config::read(root).is_ok();
-        // Old complete installations enter management without any startup writes.
-        let legacy = p.is_none() && config::read(root).is_ok_and(|s| s.schema_version == 1);
-        report.settings_ready = settings_valid
-            && (legacy || p.as_ref().is_some_and(|p| p.settings_hash == settings_hash));
-        report.completed = p.as_ref().is_some_and(|p| p.completed)
-            || (legacy && report.components_ready && report.integration.valid);
+        let state = config::portable::read_state(root)?;
+        report.settings_ready = state.confirmed;
+        report.completed = state.completed;
         report.issues = invalid;
         report.next_step = if report.completed {
             "status"
@@ -173,24 +134,6 @@ pub fn status(root: &Path) -> Result<Report> {
     }
     Ok(report)
 }
-// Called only after the user confirms a file change, never during startup.
-// Persist the already verified legacy completion before settings v1 is replaced.
-pub fn remember_completed_legacy(root: &Path) -> Result<()> {
-    if read(root)?.is_none() && config::read(root)?.schema_version == 1 {
-        let state = status(root)?;
-        if state.completed {
-            confirm(
-                root,
-                state
-                    .generation
-                    .as_deref()
-                    .ok_or_else(|| error("not_installed"))?,
-                true,
-            )?;
-        }
-    }
-    Ok(())
-}
 pub fn require_components(root: &Path) -> Result<()> {
     let state = status(root)?;
     if state.recovery_required || !state.components_ready {
@@ -199,33 +142,20 @@ pub fn require_components(root: &Path) -> Result<()> {
     Ok(())
 }
 pub fn confirm(root: &Path, generation: &str, finish: bool) -> Result<Report> {
-    let _lock = deploy::acquire(root)?;
-    let state = status(root)?;
-    if state.generation.as_deref() != Some(generation)
-        || !state.components_ready
-        || state.recovery_required
+    let report = status(root)?;
+    if report.generation.as_deref() != Some(generation)
+        || !report.components_ready
+        || report.recovery_required
     {
         return Err(error("setup_changed"));
     }
-    if finish && (!state.settings_ready || !state.integration.valid) {
+    if finish && (!report.settings_ready || !report.integration.valid) {
         return Err(error("integration_required"));
     }
-    let m = deploy::status(root)?
-        .manifest
-        .ok_or_else(|| error("not_installed"))?;
-    let existing = read(root)?;
-    let progress = Progress {
-        schema_version: 1,
-        owner: "MpvKit".into(),
-        environment_id: environment(&m).into(),
-        settings_hash: deploy::file_hash(&root.join("state/settings.json"))?,
-        completed: finish
-            || existing.is_some_and(|p| p.environment_id == environment(&m) && p.completed),
-    };
-    deploy::atomic_write(
-        &root.join(".mpvkit/setup.json"),
-        &serde_json::to_vec_pretty(&progress).map_err(|_| error("setup_state"))?,
-    )?;
+    let mut state = config::portable::read_state(root)?;
+    state.confirmed = true;
+    state.completed |= finish;
+    config::portable::save_state(root, state, generation)?;
     status(root)
 }
 
@@ -234,25 +164,20 @@ mod tests {
     use super::*;
     use std::fs;
     fn fixture(root: &Path) {
-        let mut files: Vec<deploy::Payload> = [
-            "runtime/mpv.exe",
-            "config/mpv.conf",
-            "config/scripts/mpvkit.lua",
-            "config/mpvkit-context.json",
-            "config/mpvkit-profiles.json",
-            "config/scripts/uosc/main.lua",
-            "config/scripts/thumbfast.lua",
-        ]
-        .into_iter()
-        .map(|p| deploy::Payload {
-            path: p.into(),
-            bytes: b"fixture".to_vec(),
-        })
-        .collect();
-        files.push(deploy::Payload {
-            path: "state/settings.json".into(),
-            bytes: serde_json::to_vec(&config::Settings::default()).unwrap(),
-        });
+        let mut files = config::generate(root, &root.join("mpv.exe"), &Default::default()).unwrap();
+        files.extend(
+            [
+                "mpv.exe",
+                "portable_config/scripts/uosc/main.lua",
+                "portable_config/scripts/thumbfast.lua",
+                "portable_config/fonts/LXGWWenKaiScreen.ttf",
+            ]
+            .into_iter()
+            .map(|p| deploy::Payload {
+                path: p.into(),
+                bytes: b"fixture".to_vec(),
+            }),
+        );
         deploy::execute(
             deploy::prepare_install(root, files, false, None, Default::default()).unwrap(),
         )
@@ -262,7 +187,7 @@ mod tests {
     fn health_and_progress_never_unlock_missing_components_or_stale_generations() {
         let root = std::env::temp_dir().join(format!("mpvkit-setup-{}", deploy::operation_id()));
         let empty = status(&root).unwrap();
-        assert_eq!(empty.next_step, "location");
+        assert_eq!(empty.next_step, "components");
         assert!(!empty.player_ready);
         assert!(!root.exists());
         assert!(require_components(&root).is_err());
@@ -275,33 +200,67 @@ mod tests {
         let confirmed = confirm(&root, state.generation.as_ref().unwrap(), false).unwrap();
         assert!(confirmed.settings_ready);
         assert_eq!(confirmed.next_step, "integration");
-        fs::remove_file(root.join("config/scripts/thumbfast.lua")).unwrap();
+        fs::remove_file(root.join("portable_config/scripts/thumbfast.lua")).unwrap();
         let broken = status(&root).unwrap();
         assert!(broken.player_ready);
         assert!(!broken.components_ready);
         assert_eq!(broken.next_step, "components");
         assert!(confirm(&root, state.generation.as_ref().unwrap(), false).is_err());
-        fs::write(root.join(".mpvkit/setup.json"),br#"{"schemaVersion":99,"owner":"MpvKit","environmentId":"x","settingsHash":null,"completed":true}"#).unwrap();
+        let unknown = config::portable::State {
+            schema_version: 99,
+            ..Default::default()
+        };
+        fs::write(
+            root.join(".mpvkit/settings.json"),
+            serde_json::to_vec(&unknown).unwrap(),
+        )
+        .unwrap();
         assert!(status(&root).is_err());
         fs::remove_dir_all(root).unwrap();
     }
     #[test]
-    fn environment_identity_survives_updates_but_not_uninstall_reinstall() {
-        let root = std::env::temp_dir().join(format!("mpvkit-setup-{}", deploy::operation_id()));
+    fn subtitle_font_is_required_and_its_integrity_is_checked() {
+        let root = std::env::temp_dir().join(format!("mpvkit-font-{}", deploy::operation_id()));
         fixture(&root);
-        let before = deploy::status(&root).unwrap().manifest.unwrap();
-        let settings = config::Settings {
-            profile: config::Profile::HighQuality,
-            ..Default::default()
-        };
-        deploy::execute(config::prepare(&root, settings).unwrap()).unwrap();
-        let after = deploy::status(&root).unwrap().manifest.unwrap();
-        assert_ne!(before.installation_id, after.installation_id);
-        assert_eq!(environment(&before), environment(&after));
-        deploy::execute(deploy::prepare_uninstall(&root).unwrap()).unwrap();
-        fixture(&root);
-        let fresh = deploy::status(&root).unwrap().manifest.unwrap();
-        assert_ne!(environment(&before), environment(&fresh));
+        assert!(status(&root).unwrap().components_ready);
+        let manifest = deploy::status(&root).unwrap().manifest.unwrap();
+        let mut files: Vec<_> = manifest
+            .files
+            .iter()
+            .map(|f| deploy::Payload {
+                path: f.path.clone(),
+                bytes: fs::read(root.join(&f.path)).unwrap(),
+            })
+            .collect();
+        let font = "portable_config/fonts/LXGWWenKaiScreen.ttf";
+        files.iter_mut().find(|f| f.path == font).unwrap().bytes = b"font".to_vec();
+        let versions = [("subtitle-font".into(), "1.530".into())].into();
+        deploy::execute(deploy::prepare_install(&root, files, false, None, versions).unwrap())
+            .unwrap();
+        assert!(status(&root).unwrap().components_ready);
+        fs::remove_file(root.join(font)).unwrap();
+        let broken = status(&root).unwrap();
+        assert!(!broken.components_ready);
+        assert!(
+            !broken
+                .components
+                .iter()
+                .find(|c| c.id == "subtitle-font")
+                .unwrap()
+                .ready
+        );
+        assert!(
+            broken
+                .components
+                .iter()
+                .find(|c| c.id == "uosc")
+                .unwrap()
+                .ready
+        );
+        fs::write(root.join(font), b"font").unwrap();
+        assert!(status(&root).unwrap().components_ready);
+        fs::write(root.join(font), b"changed").unwrap();
+        assert!(!status(&root).unwrap().components_ready);
         fs::remove_dir_all(root).unwrap();
     }
 }
