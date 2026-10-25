@@ -6,6 +6,24 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
+#[cfg(target_os = "windows")]
+macro_rules! relative {
+    ($name:literal) => {
+        concat!("portable_config/", $name)
+    };
+}
+#[cfg(target_os = "linux")]
+macro_rules! relative {
+    ($name:literal) => {
+        $name
+    };
+}
+pub(crate) use relative;
+
+pub fn component_path(name: &str) -> String {
+    format!("{}{name}", relative!(""))
+}
+
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum Profile {
@@ -178,31 +196,21 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
     conf.push_str(crate::platform::playback_config(
         overrides.hardware_decoding.unwrap_or(true),
     ));
-    match settings.playback.hdr {
-        Hdr::Auto => {
-            conf.push_str("target-colorspace-hint=auto\ntarget-trc=auto\ntarget-prim=auto\n")
-        }
-        Hdr::On => {
-            conf.push_str("target-colorspace-hint=yes\ntarget-trc=pq\ntarget-prim=bt.2020\n")
-        }
-        Hdr::Off => {
-            conf.push_str("target-colorspace-hint=no\ntarget-trc=bt.1886\ntarget-prim=bt.709\n")
-        }
-    }
+    conf.push_str(crate::platform::hdr_config(settings.playback.hdr));
     conf.push_str(&format!(
         "alang={DEFAULT_LANGUAGES}\nslang={DEFAULT_LANGUAGES}\n"
     ));
     let mut files = vec![
         Payload {
-            path: "portable_config/input.conf".into(),
+            path: crate::config::relative!("input.conf").into(),
             bytes: include_bytes!("../../resources/input.conf").to_vec(),
         },
         Payload {
-            path: "portable_config/mpv.conf".into(),
+            path: crate::config::relative!("mpv.conf").into(),
             bytes: conf.into_bytes(),
         },
         Payload {
-            path: "portable_config/script-opts/thumbfast.conf".into(),
+            path: crate::config::relative!("script-opts/thumbfast.conf").into(),
             bytes: format!(
                 "mpv_path={}\nnetwork=no\naudio=no\nhwdec=no\n",
                 player.replace('\\', "/")
@@ -220,13 +228,27 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
 
 pub fn runtime_files() -> Result<Vec<Payload>> {
     let mut files = vec![Payload {
-        path: "portable_config/scripts/mpvkit.lua".into(),
-        bytes: include_bytes!("../../resources/scripts/mpvkit.lua").to_vec(),
+        path: crate::config::relative!("scripts/mpvkit.lua").into(),
+        bytes: include_str!("../../resources/scripts/mpvkit.lua")
+            .replace(".mpvkit/launcher/mpvkit.exe", crate::platform::HELPER)
+            .replace(
+                "local root = utils.split_path(config_dir:gsub('[/\\\\]+$', ''))",
+                if cfg!(target_os = "linux") {
+                    "local root = config_dir:gsub('[/\\\\]+$', '')"
+                } else {
+                    "local root = utils.split_path(config_dir:gsub('[/\\\\]+$', ''))"
+                },
+            )
+            .into_bytes(),
     }];
     let executable =
         std::env::current_exe().map_err(|_| error("helper_path", "无法取得启动入口。"))?;
+    #[cfg(test)]
+    let executable = std::env::var_os("MPVKIT_TEST_EXECUTABLE")
+        .map(std::path::PathBuf::from)
+        .unwrap_or(executable);
     files.push(Payload {
-        path: ".mpvkit/launcher/mpvkit.exe".into(),
+        path: crate::platform::HELPER.into(),
         bytes: deploy::read_bytes(&executable)?,
     });
     for (name, bytes) in [
@@ -237,24 +259,32 @@ pub fn runtime_files() -> Result<Vec<Payload>> {
         ),
         (
             "third-party/APP-DEPENDENCY-NOTICES.txt",
-            include_bytes!("../../resources/app-dependency-notices.txt").as_slice(),
+            crate::components::APP_NOTICES.as_bytes(),
         ),
         (
             "third-party/app-dependency-inventory.json",
-            include_bytes!("../../resources/app-dependency-inventory.json").as_slice(),
+            crate::components::APP_INVENTORY.as_bytes(),
         ),
-        (
-            "third-party/app-distribution-materials.json",
-            include_bytes!("../../resources/app-distribution-materials.json").as_slice(),
-        ),
+        ("third-party/app-distribution-materials.json", {
+            #[cfg(target_os = "windows")]
+            {
+                include_bytes!("../../resources/app-distribution-materials.json").as_slice()
+            }
+            #[cfg(target_os = "linux")]
+            {
+                include_bytes!("../../resources/app-distribution-materials-linux.json").as_slice()
+            }
+        }),
         (
             "third-party/RUST-COPYRIGHT-library.html",
             include_bytes!("../../resources/licenses/rust-library-COPYRIGHT.txt").as_slice(),
         ),
+        #[cfg(target_os = "windows")]
         (
             "third-party/WEBVIEW2-SDK-LICENSE.txt",
             include_bytes!("../../resources/licenses/webview2-sdk-LICENSE.txt").as_slice(),
         ),
+        #[cfg(target_os = "windows")]
         (
             "third-party/WEBVIEW2-SDK-NOTICE.txt",
             include_bytes!("../../resources/licenses/webview2-sdk-NOTICE.txt").as_slice(),
@@ -269,7 +299,10 @@ pub fn runtime_files() -> Result<Vec<Payload>> {
 }
 
 pub fn directory(root: &Path) -> Result<std::path::PathBuf> {
-    Ok(root.join("portable_config"))
+    #[cfg(target_os = "windows")]
+    return Ok(root.join("portable_config"));
+    #[cfg(target_os = "linux")]
+    Ok(root.into())
 }
 pub fn read(root: &Path) -> Result<Settings> {
     portable::read_state(root).map(|state| state.settings)
@@ -295,7 +328,7 @@ mod tests {
         let conf = String::from_utf8(
             files
                 .iter()
-                .find(|p| p.path == "portable_config/mpv.conf")
+                .find(|p| p.path == crate::config::relative!("mpv.conf"))
                 .unwrap()
                 .bytes
                 .clone(),
@@ -308,7 +341,7 @@ mod tests {
             String::from_utf8(
                 files
                     .iter()
-                    .find(|p| p.path == "portable_config/script-opts/thumbfast.conf")
+                    .find(|p| p.path == crate::config::relative!("script-opts/thumbfast.conf"))
                     .unwrap()
                     .bytes
                     .clone()
@@ -323,7 +356,7 @@ mod tests {
                 generate(&root, &player, &settings)
                     .unwrap()
                     .into_iter()
-                    .find(|p| p.path == "portable_config/mpv.conf")
+                    .find(|p| p.path == crate::config::relative!("mpv.conf"))
                     .unwrap()
                     .bytes
             )
@@ -352,7 +385,7 @@ mod tests {
         let conf = String::from_utf8(
             files
                 .iter()
-                .find(|f| f.path == "portable_config/mpv.conf")
+                .find(|f| f.path == crate::config::relative!("mpv.conf"))
                 .unwrap()
                 .bytes
                 .clone(),
@@ -381,14 +414,21 @@ mod tests {
         for (hdr, expected) in [
             (Hdr::Auto, "target-trc=auto"),
             (Hdr::On, "target-trc=pq"),
-            (Hdr::Off, "target-trc=bt.1886"),
+            (
+                Hdr::Off,
+                if cfg!(target_os = "linux") {
+                    "target-trc=srgb"
+                } else {
+                    "target-trc=bt.1886"
+                },
+            ),
         ] {
             edited.playback.hdr = hdr;
             let files = generate(&root, &root.join("mpv.exe"), &edited).unwrap();
             let conf = String::from_utf8(
                 files
                     .into_iter()
-                    .find(|f| f.path == "portable_config/mpv.conf")
+                    .find(|f| f.path == crate::config::relative!("mpv.conf"))
                     .unwrap()
                     .bytes,
             )

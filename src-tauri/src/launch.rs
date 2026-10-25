@@ -106,7 +106,7 @@ pub fn prepare_managed(root: &Path, media: &str) -> Result<LaunchPlan> {
         crate::deploy::validate_relative(&file.path)?;
         let path = root.join(&file.path);
         let hash = crate::deploy::file_hash(&path)?;
-        let prefix = "portable_config/";
+        let prefix = crate::config::relative!("");
         let component_file = file.path.starts_with(&format!("{prefix}scripts/"))
             || file.path.starts_with(&format!("{prefix}fonts/"));
         let editable = crate::config::editable(&file.path);
@@ -128,7 +128,7 @@ pub fn prepare_managed(root: &Path, media: &str) -> Result<LaunchPlan> {
         manifest_path.clone(),
         crate::deploy::file_hash(&manifest_path)?,
     ));
-    let config_directory = root.join(&manifest.config_directory);
+    let config_directory = crate::config::directory(root)?;
     let mut plan = new_plan(root, mpv::inspect(&player)?, media)?;
     plan.preview.config_directory = config_directory;
     let mut args = vec![
@@ -148,7 +148,7 @@ pub fn prepare_managed(root: &Path, media: &str) -> Result<LaunchPlan> {
     plan.managed_files = hashes;
     plan.generation = Some(manifest.installation_id);
     plan.preview.changes = vec![
-        "读取 portable_config 中的播放配置；保留手动修改。".into(),
+        "读取检测到的配置目录；保留手动修改。".into(),
         "组件程序与脚本继续核对归属，启动不额外覆盖画质。".into(),
     ];
     if degraded {
@@ -231,10 +231,11 @@ pub fn execute(plan: LaunchPlan) -> Result<LaunchResult> {
         .open(directory.join("session.log"))
         .map_err(|_| write_error())?;
     writeln!(log, "phase=launch status=prepared").map_err(|_| write_error())?;
-    let child = platform::command(&plan.preview.mpv.executable)
-        .args(&plan.preview.arguments)
-        .current_dir(directory)
-        .env("MPV_HOME", directory)
+    let mut command = platform::command(&plan.preview.mpv.executable);
+    command.args(&plan.preview.arguments).current_dir(directory);
+    #[cfg(target_os = "windows")]
+    command.env("MPV_HOME", directory);
+    let child = command
         .env(
             "MPVKIT_GENERATION",
             plan.generation.as_deref().unwrap_or_default(),
@@ -293,8 +294,8 @@ pub fn execute(plan: LaunchPlan) -> Result<LaunchResult> {
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "windows"))]
 mod tests;
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "windows"))]
 mod real_tests;

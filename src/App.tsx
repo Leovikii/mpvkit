@@ -25,7 +25,7 @@ export function App() {
   const [environment, setEnvironment] = useState<Environment>({languages: [...navigator.languages], dark: matchMedia("(prefers-color-scheme: dark)").matches, accent:"blue", highContrast:false, materialAllowed:false});
   const [material, setMaterial] = useState(false);
   const [appSaving, setAppSaving] = useState(false);
-  const [info, setInfo] = useState({version:"", license:"GPL-3.0-or-later", repository:null as string | null});
+  const [info, setInfo] = useState({version:"", license:"GPL-3.0-or-later", repository:null as string | null, platform:""});
   const [report, setReport] = useState<Report | null>(null);
   const [page, setPage] = useState<"management"|"settings">("management");
   const [booting, setBooting] = useState(true);
@@ -55,8 +55,10 @@ export function App() {
   const locale = resolveLocale(appSettings.language, environment.languages);
   const t = translator(locale);
   const dark = appSettings.theme === "system" ? environment.dark : appSettings.theme === "dark";
+  const linux = info.platform === "linux";
+  const fontFamily = linux ? 'system-ui, "Noto Sans CJK SC", sans-serif' : '"Segoe UI", "Microsoft YaHei UI", sans-serif';
   const compact = useMediaQuery("(max-width: 899px)");
-  const theme = createTheme({ respectReducedMotion: true, components: { Accordion: Accordion.extend({defaultProps:{transitionDuration:180}}), Modal: Modal.extend({defaultProps:{transitionProps:{transition:"fade",duration:160,exitDuration:120}}}), Tooltip: Tooltip.extend({defaultProps:{transitionProps:{transition:"fade",duration:120,exitDuration:90}}}), Button: Button.extend({defaultProps:{fw:400,size:"sm"}}) }, primaryColor: appSettings.accent === "system" ? environment.accent : appSettings.accent, defaultRadius: 4, fontFamily: '"Segoe UI", "Microsoft YaHei UI", sans-serif', headings:{fontFamily:'"Segoe UI", "Microsoft YaHei UI", sans-serif',sizes:{h1:{fontSize:"1.65rem"},h2:{fontSize:"1.15rem"},h3:{fontSize:"1rem"}}}});
+  const theme = createTheme({ respectReducedMotion: true, components: { Accordion: Accordion.extend({defaultProps:{transitionDuration:180}}), Modal: Modal.extend({defaultProps:{transitionProps:{transition:"fade",duration:160,exitDuration:120}}}), Tooltip: Tooltip.extend({defaultProps:{transitionProps:{transition:"fade",duration:120,exitDuration:90}}}), Button: Button.extend({defaultProps:{fw:400,size:"sm"}}) }, primaryColor: appSettings.accent === "system" ? environment.accent : appSettings.accent, defaultRadius: 4, fontFamily, headings:{fontFamily,sizes:{h1:{fontSize:"1.65rem"},h2:{fontSize:"1.15rem"},h3:{fontSize:"1rem"}}}});
   const blocked = !desktop || busy || booting;
   const [integrationEnabled, setIntegrationEnabled] = useState(true);
   const [updatesChecked, setUpdatesChecked] = useState(false);
@@ -200,7 +202,7 @@ export function App() {
     <div className="setting-row"><div><Text fw={500}>{label}</Text>{description && <Text size="sm" c="dimmed">{description}</Text>}</div><div className="row-control">{control}</div></div>;
   function componentRow(id: string) {
     const component = report?.components.find(c=>c.id===id), asset = assets.find(a=>a.id===id);
-    return <div className="component-row" key={id}><div><Text fw={500}>{id === "mpv" ? "MPV" : id === "subtitle-font" ? t("subtitleFont") : id}</Text><Text size="sm" c="dimmed">{component?.version ?? asset?.version}</Text></div><Text size="sm">{progress?.component===id?t("downloadBusy"):component?.ready?t("ready"):component?.version?t("missing"):t("waiting")}</Text></div>;
+    return <div className="component-row" key={id}><div><Text fw={500}>{id === "mpv" ? "MPV" : id === "subtitle-font" ? t("subtitleFont") : id}</Text><Text size="sm" c="dimmed">{component?.version ?? asset?.version}</Text></div><Text size="sm">{progress?.component===id?t("downloadBusy"):component?.ready?t(linux&&id==="mpv"?"systemInstalled":"ready"):component?.version?t("missing"):t("waiting")}</Text></div>;
   }
   async function changeIntegration(enabled: boolean) {
     if (!report?.generation) { setIntegrationEnabled(enabled); return; }
@@ -213,8 +215,10 @@ export function App() {
     return <>
       {report?.recoveryRequired && <Alert color="orange" mb="md">{t("recovery")}<div className="actions">{action("recover",()=>void (registration?.recoveryRequired?integration("recover"):maintenance("recover")))}</div></Alert>}
       <Paper withBorder className="section">
+        {linux&&row("MPV",<Text size="sm">{t(report?.components.some(c=>c.id==="mpv"&&c.ready)?"systemInstalled":"notInstalled")}</Text>,report?.components.find(c=>c.id==="mpv")?.version??t("systemMpvHint"))}
         {row(t("components"),<Group gap={8}><Text size="sm">{t(report?.componentsReady?"ready":report?.generation?"missing":"notInstalled")}</Text>{!report?.componentsReady&&action(report?.generation?"repairOnly":"installOnly",installOnly,false,blocked||!!report?.recoveryRequired)}</Group>)}
         {row("mpv.conf",<Text size="sm">{t(!report?.configurationInstalled?"notInstalled":!report.settingsReady?"missing":report.configurationModified?"manuallyEdited":"saved")}</Text>,report?.configurationInstalled?t("modifiedAt")+" · "+time(report.configModifiedAt):undefined)}
+        {linux&&row(t("detectedConfigDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists),[report?.configDirectory,report?.configDirectorySource,t("linuxPlaybackHint")].filter(Boolean).join(" · "))}
       </Paper>
       {progress&&<div role="status" aria-live="polite" className="download-progress"><Text>{t("downloadBusy")} · {progress.component}</Text><progress max={Math.max(progress.total,1)} value={progress.received} aria-label={t("downloadBusy")}/>{action("cancel",()=>void invoke("cancel_component_download").catch(setError),false,false)}</div>}
       {integrationEnabled&&report?.settingsReady&&!registration?.valid&&<Alert color="orange" mb="md">{t("notRegistered")}<div className="actions">{action("retry",()=>void changeIntegration(true),false,blocked||!!report?.recoveryRequired||!report?.componentsReady)}</div></Alert>}
@@ -225,8 +229,8 @@ export function App() {
     const registration = report?.integration;
     const updateAvailable = assets.some(a=>report?.components.some(c=>c.id===a.id&&c.version&&c.version!==a.version));
     return <>
-      {row(t("openInstallDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_player_directory");}),false,blocked||!report?.rootExists),report?.root)}
-      {row(t("openConfigDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists),report?.configDirectory)}
+      {!linux&&row(t("openInstallDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_player_directory");}),false,blocked||!report?.rootExists),report?.root)}
+      {!linux&&row(t("openConfigDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists),report?.configDirectory)}
       <Fold title={t("components")} opened={extrasOpen} onChange={setExtrasOpen}>
         {componentRow("mpv")}{componentRow("uosc")}{componentRow("thumbfast")}{componentRow("subtitle-font")}
         <div className="actions">{action("checkUpdates",()=>void run(async()=>{await refresh();setUpdatesChecked(true);}))}{updatesChecked&&updateAvailable&&action("updateComponents",installOnly)}</div>
@@ -278,7 +282,7 @@ export function App() {
     if(preview.kind==="configuration")return !preview.readOnly && !report?.componentsReady ? <><Text size="sm">{t("downloadHint")}</Text><ul>{assets.map(a=><li key={a.id}>{a.id} · {a.version}</li>)}</ul></> : null;
     if(preview.kind==="download")return <><Text size="sm">{t("downloadHint")}</Text><p className="path">{report?.root}</p><ul>{assets.map(a=><li key={a.id}>{a.id} · {a.version} · {new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(a.size/1048576)} MiB</li>)}</ul></>;
     if(preview.kind==="install"||preview.kind==="playback"||preview.kind==="maintenance")return <>
-      <Text size="sm">{t(preview.kind==="maintenance"&&maintenanceAction==="uninstall"?"uninstallHint":preview.kind==="maintenance"&&maintenanceAction==="reset-config"?"resetConfigHint":"writeHint")}</Text><p className="path">{preview.data.root}</p>
+      <Text size="sm">{t(preview.kind==="maintenance"&&maintenanceAction==="uninstall"?(linux?"uninstallLinuxHint":"uninstallHint"):preview.kind==="maintenance"&&maintenanceAction==="reset-config"?"resetConfigHint":"writeHint")}</Text><p className="path">{preview.data.root}</p>
       {preview.data.integration&&<><Text size="sm">{t("integration")} · {t(preview.data.integration.action==="unregister"?"remove":"update")}</Text>{preview.data.integration.conflicts.length>0&&<Alert color="red">{t("conflict")}<pre>{preview.data.integration.conflicts.join("\n")}</pre></Alert>}<Fold title={t("registrationDetails")}><pre>{JSON.stringify(preview.data.integration,null,2)}</pre></Fold></>}
       {preview.data.retained.length>0&&<Fold title={t("retainedFiles")}><ul>{preview.data.retained.map(p=><li key={p}><code>{p}</code></li>)}</ul></Fold>}
       {preview.data.conflicts.length>0&&<Alert color="red">{t("conflict")}<ul>{preview.data.conflicts.map(x=><li key={x}>{x}</li>)}</ul></Alert>}
@@ -288,7 +292,8 @@ export function App() {
   }
   const hasConflicts = preview && preview.kind!=="download" && "conflicts" in preview.data && Array.isArray(preview.data.conflicts) && (preview.data.conflicts.length>0 || ("integration" in preview.data && !!(preview.data.integration as Registration|null)?.conflicts.length));
   const previewAction: Key = !preview ? "preview" : preview.kind==="configuration" ? (preview.readOnly?"previewConfig":saveLabel) : preview.kind==="download" ? "download" : preview.kind==="install" ? "install" : preview.kind==="playback" ? "saveConfig" : preview.kind==="diagnostics" ? "diagnostics" : preview.kind==="logs"||preview.kind==="assets" ? "cleanup" : preview.kind==="maintenance" ? ({uninstall:"uninstall", "reset-config":"resetConfig", restore:"restore",recover:"recover"} as Record<string,Key>)[maintenanceAction]??"applyChanges" : "applyChanges";
-  const nav = (target: typeof page, glyph: string) => <Tooltip key={target} label={t(target)} disabled={!compact} position="right" events={{hover:true,focus:true,touch:false}}><NavLink component="button" type="button" ref={target==="management"?managementTab:undefined} aria-label={t(target)} aria-current={page===target?"page":undefined} active={page===target} label={compact?null:t(target)} leftSection={<span className="nav-icon" aria-hidden="true">{glyph}</span>} onClick={()=>go(target)}/></Tooltip>;
+  const navPaths = {management:"M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6",settings:"M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0"};
+  const nav = (target: typeof page, glyph: string) => <Tooltip key={target} label={t(target)} disabled={!compact} position="right" events={{hover:true,focus:true,touch:false}}><NavLink component="button" type="button" ref={target==="management"?managementTab:undefined} aria-label={t(target)} aria-current={page===target?"page":undefined} active={page===target} label={compact?null:t(target)} leftSection={<span className="nav-icon" aria-hidden="true">{linux?<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={navPaths[target]}/></svg>:glyph}</span>} onClick={()=>go(target)}/></Tooltip>;
   return <MantineProvider theme={theme} forceColorScheme={dark?"dark":"light"}>
     <AppShell header={{height:52}} navbar={{width:compact?64:216,breakpoint:0}} padding={0} className="app-shell" data-material={material} data-high-contrast={environment.highContrast}>
       <AppShell.Header className="app-header" withBorder={false}><img src={logo} width={26} height={26} alt=""/><Text fw={500}>MpvKit</Text>{progress&&page!=="management"&&<Text size="xs" role="status">{t("downloadBusy")} · {progress.component}</Text>}</AppShell.Header>

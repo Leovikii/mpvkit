@@ -1,0 +1,183 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "materials": [
+    {
+      "file": "uosc-LGPL-2.1.txt",
+      "url": "https://raw.githubusercontent.com/tomasklaen/uosc/d124c2c930d69446448022851373e00ae592390d/LICENSE.LGPL",
+      "size": 26530,
+      "sha256": "dc626520dcd53a22f727af3ee42c770e56c97a64fe3adb063799d8ab032fe551"
+    },
+    {
+      "file": "thumbfast-MPL-2.txt",
+      "url": "https://raw.githubusercontent.com/po5/thumbfast/0f711de3138c9bd6718209d819ac54022c23ded2/LICENSE",
+      "size": 16726,
+      "sha256": "3f3d9e0024b1921b067d6f7f88deb4a60cbe7a78e76c64e3f1d7fc3b779b9d04"
+    },
+    {
+      "file": "material-icons-Apache-2.txt",
+      "url": "https://raw.githubusercontent.com/google/material-design-icons/1c575764826fa5752ddc2bdc6b31ef7cc3233371/LICENSE",
+      "size": 11357,
+      "sha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd"
+    },
+    {
+      "file": "uosc-clipboard-BSD-3.txt",
+      "url": "https://raw.githubusercontent.com/atotto/clipboard/e4aee1922c628e6966acd4207c408df132dc6fb5/LICENSE",
+      "size": 1471,
+      "sha256": "2c4bac8e2a97180d6e7758c37de85d1cda1859aaf85b56da15d935d2d9a5564f"
+    },
+    {
+      "file": "uosc-browser-BSD-2.txt",
+      "url": "https://raw.githubusercontent.com/pkg/browser/5ac0b6a4141c771a0d3a081c36b87c977cf9c7db/LICENSE",
+      "size": 1312,
+      "sha256": "4801bb0c5d70b980b3e1f63d1d2df8d84fec22548e3d73f03a68df1fb808791f"
+    },
+    {
+      "file": "uosc-sys-BSD-3.txt",
+      "url": "https://raw.githubusercontent.com/golang/sys/fe16172d1123f5350a8c5585395465de6866de4c/LICENSE",
+      "size": 1453,
+      "sha256": "911f8f5782931320f5b8d1160a76365b83aea6447ee6c04fa6d5591467db9dad"
+    },
+    {
+      "file": "uosc-go-BSD-3.txt",
+      "url": "https://raw.githubusercontent.com/golang/go/go1.23.1/LICENSE",
+      "size": 1479,
+      "sha256": "2d36597f7117c38b006835ae7f537487207d8ec407aa9d9980794b2030cbc067"
+    },
+    {
+      "file": "uosc-go-PATENTS.txt",
+      "url": "https://raw.githubusercontent.com/golang/go/go1.23.1/PATENTS",
+      "size": 1303,
+      "sha256": "96f408bfae65bf137fc2525d3ecb030271c50c1e90799f87abf8846d8dd505cc"
+    },
+    {
+      "file": "uosc-go-NOTICES.txt",
+      "url": "https://dl.google.com/go/go1.23.1.src.tar.gz",
+      "size": 90968,
+      "sha256": "c653af627706aef02a76be7b08cfb26e3d1b7f354da84541c52e170f0789ee74",
+      "sourceFormat": "reviewed-source-excerpts",
+      "excerptManifest": "docs/v0.1.0/evidence/2026-10-20-go-notice-excerpts.json"
+    },
+    {
+      "file": "LXGWWenKaiScreen-OFL.txt",
+      "url": "https://raw.githubusercontent.com/lxgw/LxgwWenKai-Screen/34f2c5602eb51d7455a0032c56ea9b0029edab53/OFL.txt",
+      "size": 6027,
+      "sha256": "ba38832f9d7e0ad601a1ab90d58f251ba957532885ef80dca050a611962fd8b6"
+    }
+  ],
+  "uoscFonts": [
+    {
+      "file": "uosc_icons.otf",
+      "gitBlob": "4c4e0dcfe20684e18da5fd6f4dfbd489ee947c66",
+      "sha256": "a853f50913597e67f76facd269ff230c2f3038f9acadec04dd653080785dee25",
+      "licenseMappingComplete": true,
+      "size": 400360,
+      "upstream": {
+        "project": "https://github.com/google/material-design-icons",
+        "commit": "1c575764826fa5752ddc2bdc6b31ef7cc3233371",
+        "path": "font/MaterialIconsRound-Regular.otf",
+        "url": "https://raw.githubusercontent.com/google/material-design-icons/1c575764826fa5752ddc2bdc6b31ef7cc3233371/font/MaterialIconsRound-Regular.otf",
+        "size": 400360,
+        "sha256": "a853f50913597e67f76facd269ff230c2f3038f9acadec04dd653080785dee25",
+        "modified": false,
+        "license": "Apache-2.0",
+        "licenseFile": "material-icons-Apache-2.txt",
+        "licenseUrl": "https://raw.githubusercontent.com/google/material-design-icons/1c575764826fa5752ddc2bdc6b31ef7cc3233371/LICENSE",
+        "licenseSha256": "58d1e17ffe5109a7ae296caafcadfdbe6a7d176f0bc4ab01e12a689b0499d8bd",
+        "copyright": "Copyright 2019 Google LLC. All Rights Reserved.",
+        "readmeUrl": "https://raw.githubusercontent.com/google/material-design-icons/1c575764826fa5752ddc2bdc6b31ef7cc3233371/README.md",
+        "readmeSha256": "d51beabf61b701c7d5a33f9fb6c9b6e352c4111ba81da0899a2ea94ae22a8142"
+      }
+    },
+    {
+      "file": "uosc_textures.ttf",
+      "gitBlob": "e89f1d8cb87262b02db089894e92a52e71f8bf8c",
+      "sha256": "ccc0660f284dfceb5ab31eb363ccb2355df30fcdf628e781ee374b7d4172ada5",
+      "licenseMappingComplete": false,
+      "size": 38228,
+      "sourceHistoryVerified": true,
+      "sourceHistory": {
+        "introductionCommit": "c909409254321e437dcb392ed235a60cdf4aa160",
+        "alignmentCommit": "cabe84daf9f974b7cd9cb6f4bbb57f1b0c43e93b",
+        "alignmentGitBlob": "e89f1d8cb87262b02db089894e92a52e71f8bf8c",
+        "renameCommits": [
+          "656ddcfb9bd31bf10ff7fe043b8c09b71c860030",
+          "c173641ea54e22168b4013a0395b02519434725d"
+        ],
+        "projectFile": "src/textures/uosc_textures.json",
+        "projectGitBlob": "e8fd2f43c405d2490546c09369c7bbeceeec191f",
+        "projectSha256": "ffd8634a86b682c21835bdfbca094e8e191b15278bd72a8a019513b4cdcb43ab",
+        "sourceSvgs": 19,
+        "projectUnchangedByAlignment": true,
+        "generationReproduced": false,
+        "designDiscussion": "https://github.com/tomasklaen/uosc/issues/206",
+        "alignmentDiscussion": "https://github.com/tomasklaen/uosc/pull/222",
+        "licenseMappingComplete": false
+      }
+    }
+  ],
+  "uoscConfig": {
+    "file": "uosc.conf",
+    "size": 13866,
+    "sha256": "d956aea5d2e90f7690ede41c6a23f855d045f3aa9b05932df27d8045fa3b3396",
+    "deployed": false
+  },
+  "uoscHelper": {
+    "file": "scripts/uosc/bin/ziggy-linux",
+    "size": 5865624,
+    "sha256": "73895907d964efb6a1a2d5e76814833b0e310627ab4b791aaeeaea4b9163109f",
+    "compiler": "go1.23.1",
+    "embeddedBuildInfo": "path\tcommand-line-arguments\ndep\tgithub.com/atotto/clipboard\tv0.1.4\th1:EH0zSVneZPSuFR11BlR9YppQTVDbh5+16AmcJi4g1z4=\ndep\tgithub.com/pkg/browser\tv0.0.0-20240102092130-5ac0b6a4141c\th1:+mdjkGKdHQG3305AYmdv1U2eRNDiU2ErMBj1gwrq8eQ=\ndep\tuosc/bins\t(devel)\t\nbuild\t-buildmode=exe\nbuild\t-compiler=gc\nbuild\t-ldflags=\"-s -w\"\nbuild\tDefaultGODEBUG=asynctimerchan=1,gotypesalias=0,httplaxcontentlength=1,httpmuxgo121=1,httpservecontentkeepheaders=1,tls10server=1,tls3des=1,tlskyber=0,tlsrsakex=1,tlsunsafeekm=1,winreadlinkvolume=0,winsymlink=0,x509keypairleaf=0,x509negativeserial=1\nbuild\tCGO_ENABLED=0\nbuild\tGOARCH=amd64\nbuild\tGOOS=linux\nbuild\tGOAMD64=v1\n",
+    "dependencies": [
+      {
+        "module": "github.com/atotto/clipboard",
+        "version": "v0.1.4",
+        "sum": "h1:EH0zSVneZPSuFR11BlR9YppQTVDbh5+16AmcJi4g1z4="
+      },
+      {
+        "module": "github.com/pkg/browser",
+        "version": "v0.0.0-20240102092130-5ac0b6a4141c",
+        "sum": "h1:+mdjkGKdHQG3305AYmdv1U2eRNDiU2ErMBj1gwrq8eQ="
+      },
+      {
+        "module": "golang.org/x/sys",
+        "version": "v0.28.0",
+        "sum": "h1:Fksou7UEQUWlKvIdsqzJmUmCX3cZuD2+P3XyyzwMhlA="
+      }
+    ],
+    "goSum": {
+      "url": "https://raw.githubusercontent.com/tomasklaen/uosc/d124c2c930d69446448022851373e00ae592390d/go.sum",
+      "gitBlob": "6a0384c4e3535cb190d070f92a995bb3a5c949aa",
+      "sha256": "077be33157c94b3af32eee61d91921dd38f88785b3346bc4f45fc715f72d6bea"
+    },
+    "dependencyLicenseTextsCollected": true,
+    "completeDistributionReview": false,
+    "limitations": [
+      "固定发布 ZIP 内未修改 Linux amd64 ELF；完整链接输入与对应源码适用审阅仍未完成。"
+    ],
+    "noticeSupplement": {
+      "file": "uosc-go-NOTICES.txt",
+      "independentNoticeFiles": 33,
+      "reviewedSourceExcerpts": 14,
+      "linkageScopeVerified": false,
+      "completeDistributionReview": false
+    }
+  },
+  "subtitleFont": {
+    "project": "https://github.com/lxgw/LxgwWenKai-Screen",
+    "version": "1.530",
+    "commit": "34f2c5602eb51d7455a0032c56ea9b0029edab53",
+    "file": "LXGWWenKaiScreen.ttf",
+    "sha256": "abd13364163e3cd84372b333f2fdcee9efb848634668f1c0ce5788dcd059ee61",
+    "license": "OFL-1.1",
+    "licenseFile": "licenses/LXGWWenKaiScreen-OFL.txt",
+    "licenseSha256": "ba38832f9d7e0ad601a1ab90d58f251ba957532885ef80dca050a611962fd8b6",
+    "modified": false
+  },
+  "platform": "arch-linux-x86_64-wayland",
+  "systemPlayer": {
+    "path": "/usr/bin/mpv",
+    "redistributed": false,
+    "note": "系统包管理器维护，不套用 Windows 固定构建的来源证据。"
+  }
+}

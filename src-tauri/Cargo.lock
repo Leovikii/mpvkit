@@ -1940,8 +1940,10 @@ dependencies = [
 
 [[package]]
 name = "mpvkit"
-version = "0.1.6"
+version = "0.1.7"
 dependencies = [
+ "gtk",
+ "libc",
  "reqwest",
  "serde",
  "serde_json",

@@ -46,8 +46,28 @@ pub struct Asset {
     pub format: Format,
 }
 
+#[cfg(target_os = "windows")]
+pub const CATALOG: &str = include_str!("../../resources/catalog.json");
+#[cfg(target_os = "linux")]
+pub const CATALOG: &str = include_str!("../../resources/catalog-linux.json");
+
+#[cfg(target_os = "windows")]
+pub const APP_NOTICES: &str = include_str!("../../resources/app-dependency-notices.txt");
+#[cfg(target_os = "linux")]
+pub const APP_NOTICES: &str = include_str!("../../resources/app-dependency-notices-linux.txt");
+#[cfg(target_os = "windows")]
+pub const APP_INVENTORY: &str = include_str!("../../resources/app-dependency-inventory.json");
+#[cfg(target_os = "linux")]
+pub const APP_INVENTORY: &str = include_str!("../../resources/app-dependency-inventory-linux.json");
+
+#[cfg(target_os = "windows")]
+pub const SOURCE_MATERIALS: &str = include_str!("../../resources/source-materials.json");
+#[cfg(target_os = "linux")]
+pub const SOURCE_MATERIALS: &str = include_str!("../../resources/source-materials-linux.json");
+
 // A fixed research baseline, not a claim of release readiness. No remote catalog is loaded.
 pub const ASSETS: &[Asset] = &[
+    #[cfg(target_os = "windows")]
     Asset {
         id: "mpv",
         version: "20261020-6a262d11f6",
@@ -268,19 +288,19 @@ impl Boundary {
 fn destination(id: &str, name: &str) -> Option<String> {
     match id {
         "mpv" if matches!(name, "mpv.exe" | "d3dcompiler_43.dll") => Some(name.into()),
-        "mpv" if name == "mpv/fonts.conf" => Some("portable_config/fonts.conf".into()),
+        "mpv" if name == "mpv/fonts.conf" => Some(crate::config::relative!("fonts.conf").into()),
         "uosc"
             if name.starts_with("scripts/uosc/")
                 && (!name.starts_with("scripts/uosc/bin/")
-                    || name == "scripts/uosc/bin/ziggy-windows.exe") =>
+                    || name == crate::platform::UOSC_HELPER) =>
         {
-            Some(format!("portable_config/{name}"))
+            Some(crate::config::component_path(name))
         }
         "uosc" if matches!(name, "fonts/uosc_icons.otf" | "fonts/uosc_textures.ttf") => {
-            Some(format!("portable_config/{name}"))
+            Some(crate::config::component_path(name))
         }
-        "subtitle-font" => Some("portable_config/fonts/LXGWWenKaiScreen.ttf".into()),
-        "thumbfast" => Some("portable_config/scripts/thumbfast.lua".into()),
+        "subtitle-font" => Some(crate::config::relative!("fonts/LXGWWenKaiScreen.ttf").into()),
+        "thumbfast" => Some(crate::config::relative!("scripts/thumbfast.lua").into()),
         _ => None,
     }
 }
@@ -421,19 +441,23 @@ pub fn unpack(asset: &Asset, bytes: &[u8], cancel: &AtomicBool) -> Result<Vec<Pa
 
 pub(crate) fn required_paths(id: &str) -> &'static [&'static str] {
     match id {
+        #[cfg(target_os = "windows")]
         "mpv" => &[
             "mpv.exe",
             "d3dcompiler_43.dll",
-            "portable_config/fonts.conf",
+            crate::config::relative!("fonts.conf"),
         ],
         "uosc" => &[
-            "portable_config/scripts/uosc/main.lua",
-            "portable_config/scripts/uosc/bin/ziggy-windows.exe",
-            "portable_config/fonts/uosc_icons.otf",
-            "portable_config/fonts/uosc_textures.ttf",
+            crate::config::relative!("scripts/uosc/main.lua"),
+            #[cfg(target_os = "windows")]
+            crate::config::relative!("scripts/uosc/bin/ziggy-windows.exe"),
+            #[cfg(target_os = "linux")]
+            crate::config::relative!("scripts/uosc/bin/ziggy-linux"),
+            crate::config::relative!("fonts/uosc_icons.otf"),
+            crate::config::relative!("fonts/uosc_textures.ttf"),
         ],
-        "thumbfast" => &["portable_config/scripts/thumbfast.lua"],
-        "subtitle-font" => &["portable_config/fonts/LXGWWenKaiScreen.ttf"],
+        "thumbfast" => &[crate::config::relative!("scripts/thumbfast.lua")],
+        "subtitle-font" => &[crate::config::relative!("fonts/LXGWWenKaiScreen.ttf")],
         _ => &[],
     }
 }
@@ -458,6 +482,18 @@ pub fn prepare_install(
     }
     let mut payloads = Vec::new();
     let mut versions = std::collections::BTreeMap::new();
+    #[cfg(target_os = "linux")]
+    {
+        let player = crate::config::player_path(root);
+        let info = crate::mpv::inspect(&player).map_err(|_| {
+            error(
+                "system_mpv_required",
+                "请先使用系统包管理器安装 mpv（sudo pacman -S mpv），再安装播放增强。",
+            )
+        })?;
+        crate::mpv::ensure_managed_options(&player)?;
+        versions.insert("mpv".into(), info.version);
+    }
     for asset in crate::components::ASSETS {
         let bytes = acquire(asset, cancel, progress)?;
         progress(Progress {
@@ -553,10 +589,14 @@ fn license_materials() -> Vec<Payload> {
         ("uosc-go-BSD-3.txt",include_bytes!("../../resources/licenses/uosc-go-BSD-3.txt").as_slice()),
         ("uosc-go-PATENTS.txt",include_bytes!("../../resources/licenses/uosc-go-PATENTS.txt").as_slice()),
         ("uosc-go-NOTICES.txt",include_bytes!("../../resources/licenses/uosc-go-NOTICES.txt").as_slice()),
-        ("source-materials.json",include_bytes!("../../resources/source-materials.json").as_slice()),
-        ("catalog.json",include_bytes!("../../resources/catalog.json").as_slice()),
+        ("source-materials.json",SOURCE_MATERIALS.as_bytes()),
+        ("catalog.json",CATALOG.as_bytes()),
+        #[cfg(target_os = "windows")]
         ("THIRD-PARTY.txt", "MpvKit 开发基线第三方材料\n\n这些文本保留固定组件已核对的上游许可与来源，不代表聚合分发材料齐备或发布已验收。\nMPV 核心 Copyright 声明 GPLv2 或以后；实际 FFmpeg 构建日志声明 GPLv3 或以后。\nuosc 上游附 LGPL2.1 文本，Go 辅助程序内嵌依赖版本及三份模块许可、Go1.23.1许可/PATENTS已保留；Go源码33份独立声明和14个已审阅版权/许可段落已保守保留；完整对应源码及链接适用仍需审阅。\nuosc_icons.otf 与 Google Material Icons Round 固定提交 1c575764826fa5752ddc2bdc6b31ef7cc3233371 原文件逐字节一致，未修改；Apache-2.0 许可原文已保留。Copyright 2019 Google LLC. All Rights Reserved. 纹理字体的完整许可映射仍未完成。\nthumbfast 固定源码及 MPL2 文本未修改。\n完整固定来源见 catalog.json / source-materials.json；releaseReady=false。\n".as_bytes()),
     ];
+    #[cfg(target_os = "linux")]
+    files.push(("THIRD-PARTY.txt", "MpvKit Linux 开发基线第三方材料\n\n只部署固定 uosc、thumbfast 和文楷；系统 MPV 由包管理器维护，不随本应用分发。\nuosc 使用固定 ZIP 中未修改的 amd64 ziggy-linux，摘要和来源见 catalog.json；现有 Go/模块许可原文保守保留，不代表完整链接和对应源码审阅已完成。\nsource-materials.json 保留共享脚本/字体与 Linux helper 的固定版本来源证据。\n字体、Go、原生依赖及完整分发审阅仍有缺口，releaseReady=false。\n".as_bytes()));
+    #[cfg(target_os = "windows")]
     files.extend([
         (
             "mpv-Copyright.txt",

@@ -1,0 +1,132 @@
+{
+  "schemaVersion": 1,
+  "id": "arch-linux-x64-wayland-20261025",
+  "releaseReady": false,
+  "releaseBlockers": [
+    "Linux 实体 HDR/功耗、干净系统和完整来源许可验收未完成",
+    "uosc 字体与 Go 辅助程序的完整分发材料仍待审阅"
+  ],
+  "components": [
+    {
+      "id": "uosc",
+      "version": "5.13.0",
+      "project": "https://github.com/tomasklaen/uosc",
+      "distributor": "https://github.com/tomasklaen/uosc",
+      "commit": "d124c2c930d69446448022851373e00ae592390d",
+      "platform": "linux-x64",
+      "url": "https://github.com/tomasklaen/uosc/releases/download/5.13.0/uosc.zip",
+      "size": 8163987,
+      "sha256": "4be9da3289285300fa374496c3f1bfd7bb20ac08e890d25bd5a06b28eebe4882",
+      "checksumSource": "GitHub fixed release asset digest",
+      "license": {
+        "identifier": null,
+        "status": "review-required",
+        "materials": [
+          "https://github.com/tomasklaen/uosc/blob/d124c2c930d69446448022851373e00ae592390d/LICENSE.LGPL",
+          "https://github.com/tomasklaen/uosc/blob/d124c2c930d69446448022851373e00ae592390d/go.mod"
+        ],
+        "note": "上游 LGPL 2.1 文本；uosc_icons.otf 已逐字节匹配 Google 固定提交的 Material Icons Round，Apache-2.0 原文已保留；纹理字体映射、Go完整分发材料及精确适用审阅未完成。"
+      },
+      "dependencies": [
+        "mpv"
+      ],
+      "conflicts": [
+        "native OSC",
+        "other OSC scripts"
+      ],
+      "modified": false,
+      "minimumCapabilities": [
+        "Lua",
+        "ASS overlays"
+      ],
+      "validation": [],
+      "excludedAssets": [
+        "ziggy-windows.exe",
+        "ziggy-macos"
+      ]
+    },
+    {
+      "id": "thumbfast",
+      "version": "0f711de3138c9bd6718209d819ac54022c23ded2",
+      "project": "https://github.com/po5/thumbfast",
+      "distributor": "https://github.com/po5/thumbfast",
+      "commit": "0f711de3138c9bd6718209d819ac54022c23ded2",
+      "platform": "any",
+      "url": "https://raw.githubusercontent.com/po5/thumbfast/0f711de3138c9bd6718209d819ac54022c23ded2/thumbfast.lua",
+      "size": 32495,
+      "sha256": "a3d08e71eae8b892f6cd39f9593ea219768e709312d176bca883841b156448bf",
+      "checksumSource": "fixed Git blob 6f71902500a8e9e776f48e17f745af85b4196170, local SHA-256",
+      "license": {
+        "identifier": "MPL-2.0",
+        "status": "text-verified",
+        "materials": [
+          "https://github.com/po5/thumbfast/blob/0f711de3138c9bd6718209d819ac54022c23ded2/LICENSE"
+        ]
+      },
+      "dependencies": [
+        "mpv",
+        "uosc"
+      ],
+      "conflicts": [
+        "other thumbnail overlay providers"
+      ],
+      "modified": false,
+      "minimumCapabilities": [
+        "Lua",
+        "subprocess",
+        "raw BGRA encoding"
+      ],
+      "validation": []
+    },
+    {
+      "id": "subtitle-font",
+      "version": "1.530",
+      "project": "https://github.com/lxgw/LxgwWenKai-Screen",
+      "distributor": "https://github.com/lxgw/LxgwWenKai-Screen",
+      "commit": "34f2c5602eb51d7455a0032c56ea9b0029edab53",
+      "platform": "any",
+      "url": "https://github.com/lxgw/LxgwWenKai-Screen/releases/download/v1.530/LXGWWenKaiScreen.ttf",
+      "size": 26095590,
+      "sha256": "abd13364163e3cd84372b333f2fdcee9efb848634668f1c0ce5788dcd059ee61",
+      "checksumSource": "GitHub release asset digest; downloaded bytes verified",
+      "license": {
+        "identifier": "OFL-1.1",
+        "status": "text-verified",
+        "materials": [
+          "https://github.com/lxgw/LxgwWenKai-Screen/blob/34f2c5602eb51d7455a0032c56ea9b0029edab53/OFL.txt"
+        ],
+        "note": "原始未修改完整字体；保留上游 OFL 文本。"
+      },
+      "dependencies": [
+        "mpv"
+      ],
+      "modified": false,
+      "conflicts": [
+        "existing same-name font file"
+      ],
+      "minimumCapabilities": [
+        "libass font loading"
+      ],
+      "validation": []
+    }
+  ],
+  "systemPlayer": {
+    "path": "/usr/bin/mpv",
+    "source": "Arch / CachyOS system package manager",
+    "redistributed": false,
+    "required": [
+      "gpu-next",
+      "waylandvk",
+      "target-colorspace-hint"
+    ],
+    "testedPackage": "1:0.41.0-6.1",
+    "note": "不固定发行版滚动包哈希；不下载或复制系统核心，执行前检查参数能力和启动预览文件状态。"
+  },
+  "uoscHelper": {
+    "path": "scripts/uosc/bin/ziggy-linux",
+    "sha256": "73895907d964efb6a1a2d5e76814833b0e310627ab4b791aaeeaea4b9163109f",
+    "archive": "uosc 5.13.0 fixed ZIP",
+    "modified": false,
+    "buildInfo": "Go1.23.1, GOOS=linux, GOARCH=amd64; clipboard/browser/x/sys versions match preserved notices; full source applicability review incomplete"
+  }
+}

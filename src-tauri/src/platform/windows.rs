@@ -366,3 +366,17 @@ pub fn process_active(pid: u32) -> bool {
         ok == 0 || code == STILL_ACTIVE as u32
     }
 }
+
+pub fn hdr_config(hdr: crate::config::Hdr) -> &'static str {
+    match hdr {
+        crate::config::Hdr::Auto => {
+            "target-colorspace-hint=auto\ntarget-trc=auto\ntarget-prim=auto\n"
+        }
+        crate::config::Hdr::On => {
+            "target-colorspace-hint=yes\ntarget-trc=pq\ntarget-prim=bt.2020\n"
+        }
+        crate::config::Hdr::Off => {
+            "target-colorspace-hint=no\ntarget-trc=bt.1886\ntarget-prim=bt.709\n"
+        }
+    }
+}

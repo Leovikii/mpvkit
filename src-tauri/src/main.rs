@@ -1,7 +1,10 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-#[cfg(not(all(target_os = "windows", target_arch = "x86_64")))]
-compile_error!("MpvKit v0.1.1 currently supports Windows x64 only.");
+#[cfg(not(all(
+    any(target_os = "windows", target_os = "linux"),
+    target_arch = "x86_64"
+)))]
+compile_error!("MpvKit supports Windows x64 and Arch Linux x64 / Wayland.");
 
 mod app_settings;
 mod commands;
@@ -12,6 +15,8 @@ mod diagnostics;
 mod error;
 mod integration;
 mod launch;
+#[cfg(all(test, target_os = "linux"))]
+mod linux_tests;
 mod logs;
 mod mpv;
 mod platform;

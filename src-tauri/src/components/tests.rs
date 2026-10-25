@@ -1,5 +1,7 @@
 use super::*;
-use std::{fs, io::Write};
+#[cfg(target_os = "windows")]
+use std::fs;
+use std::io::Write;
 
 fn archive(entries: &[(&str, &[u8])]) -> Vec<u8> {
     let mut writer = zip::ZipWriter::new(Cursor::new(Vec::new()));
@@ -15,7 +17,7 @@ fn zip_asset(bytes: &[u8]) -> Asset {
     Asset {
         size: bytes.len() as u64,
         sha256: Box::leak(deploy::hash_bytes(bytes).into_boxed_str()),
-        ..ASSETS[1].clone()
+        ..ASSETS.iter().find(|a| a.id == "uosc").unwrap().clone()
     }
 }
 fn code<T>(result: Result<T>) -> &'static str {
@@ -150,13 +152,13 @@ fn every_entry_is_checked_even_when_not_selected() {
 }
 
 #[test]
-fn complete_windows_components_are_selected_without_installers() {
+fn complete_platform_components_are_selected_without_installers() {
     let entries: &[(&str, &[u8])] = &[
         ("scripts/uosc/main.lua", b"lua"),
-        ("scripts/uosc/bin/ziggy-windows.exe", b"exe"),
+        (crate::platform::UOSC_HELPER, b"exe"),
         ("scripts/uosc/lib/std.lua", b"lib"),
         ("scripts/uosc/intl/zh-Hans.json", b"{}"),
-        ("scripts/uosc/bin/ziggy-linux", b"omit"),
+        ("scripts/uosc/bin/other-platform", b"omit"),
         ("fonts/uosc_icons.otf", b"font"),
         ("fonts/uosc_textures.ttf", b"font"),
         ("installer.ps1", b"omit"),
@@ -164,11 +166,15 @@ fn complete_windows_components_are_selected_without_installers() {
     let bytes = archive(entries);
     let files = unpack(&zip_asset(&bytes), &bytes, &AtomicBool::new(false)).unwrap();
     assert_eq!(files.len(), 6);
-    assert!(files.iter().all(|p| p.path.starts_with("portable_config/")));
+    assert!(
+        files
+            .iter()
+            .all(|p| p.path.starts_with(crate::config::relative!("")))
+    );
     assert!(
         !files
             .iter()
-            .any(|p| p.path.contains("linux") || p.path.contains("installer"))
+            .any(|p| p.path.contains("other-platform") || p.path.contains("installer"))
     );
     let bytes = archive(&entries[..2]);
     assert_eq!(
@@ -180,6 +186,7 @@ fn complete_windows_components_are_selected_without_installers() {
 
 #[test]
 #[ignore = "requires explicitly selected local fixed research assets"]
+#[cfg(target_os = "windows")]
 fn fixed_archives_extract_and_deploy() {
     let directory =
         std::env::var_os("MPVKIT_COMPONENT_ASSETS").expect("set local assets directory");
@@ -196,11 +203,10 @@ fn fixed_archives_extract_and_deploy() {
         let bytes = fs::read(directory.join(name)).unwrap();
         files.extend(unpack(asset, &bytes, &AtomicBool::new(false)).unwrap());
     }
-    let source: serde_json::Value =
-        serde_json::from_str(include_str!("../../../resources/source-materials.json")).unwrap();
+    let source: serde_json::Value = serde_json::from_str(SOURCE_MATERIALS).unwrap();
     let helper = files
         .iter()
-        .find(|file| file.path == "portable_config/scripts/uosc/bin/ziggy-windows.exe")
+        .find(|file| file.path == crate::config::relative!("scripts/uosc/bin/ziggy-windows.exe"))
         .unwrap();
     assert_eq!(
         deploy::hash_bytes(&helper.bytes),
@@ -210,7 +216,12 @@ fn fixed_archives_extract_and_deploy() {
         let file = files
             .iter()
             .find(|file| {
-                file.path == format!("portable_config/fonts/{}", font["file"].as_str().unwrap())
+                file.path
+                    == format!(
+                        "{}{}",
+                        crate::config::relative!("fonts/"),
+                        font["file"].as_str().unwrap()
+                    )
             })
             .unwrap();
         assert_eq!(
@@ -275,12 +286,14 @@ fn fixed_https_downloads() {
 
 #[test]
 #[ignore = "requires local fixed assets and synthetic SDR sample; opens real video output"]
+#[cfg(target_os = "windows")]
 fn real_component_graphics() {
     let media =
         std::path::PathBuf::from(std::env::var_os("MPVKIT_TEST_VIDEO").expect("synthetic video"));
     exercise_graphics(&media, 1280, 720, None);
 }
 
+#[cfg(target_os = "windows")]
 fn exercise_graphics(
     media: &std::path::Path,
     width: u64,
@@ -445,8 +458,7 @@ mp.add_timeout(12, report)
 
 #[test]
 fn embedded_provenance_matches_actual_download_contract_and_has_honest_release_gate() {
-    let catalog: serde_json::Value =
-        serde_json::from_str(include_str!("../../../resources/catalog.json")).unwrap();
+    let catalog: serde_json::Value = serde_json::from_str(CATALOG).unwrap();
     assert_eq!(catalog["schemaVersion"], 1);
     assert_eq!(catalog["releaseReady"], false);
     for asset in ASSETS {
@@ -466,8 +478,7 @@ fn embedded_provenance_matches_actual_download_contract_and_has_honest_release_g
 
 #[test]
 fn deployed_license_materials_preserve_fixed_bytes() {
-    let index: serde_json::Value =
-        serde_json::from_str(include_str!("../../../resources/source-materials.json")).unwrap();
+    let index: serde_json::Value = serde_json::from_str(SOURCE_MATERIALS).unwrap();
     assert_eq!(index["releaseReady"], false);
     let files = license_materials();
     for material in index["materials"].as_array().unwrap() {
@@ -483,6 +494,7 @@ fn deployed_license_materials_preserve_fixed_bytes() {
 
 #[test]
 #[ignore = "requires explicit synthetic media matrix, local fixed assets and graphical output"]
+#[cfg(target_os = "windows")]
 fn real_media_matrix() {
     let manifest = std::path::PathBuf::from(
         std::env::var_os("MPVKIT_MEDIA_MATRIX").expect("explicit matrix manifest"),

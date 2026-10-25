@@ -1,7 +1,10 @@
+#[cfg(target_os = "linux")]
+use crate::platform::desktop_entry::{Data as RegistryData, Store as Registry};
+#[cfg(target_os = "windows")]
+use crate::platform::registry::{Registry, RegistryData};
 use crate::{
     deploy,
     error::{AppError, Result},
-    platform::registry::{Registry, RegistryData},
 };
 use serde::{Deserialize, Serialize};
 use std::{
@@ -112,11 +115,9 @@ fn status_with(root: &Path, registry: &Registry) -> Result<Status> {
     }
     if valid {
         let manifest = deploy::status(root)?.manifest;
-        let launcher = manifest.as_ref().and_then(|m| {
-            m.files
-                .iter()
-                .find(|f| matches!(f.path.as_str(), ".mpvkit/launcher/mpvkit.exe"))
-        });
+        let launcher = manifest
+            .as_ref()
+            .and_then(|m| m.files.iter().find(|f| f.path == crate::platform::HELPER));
         if let Some(file) = launcher {
             valid &= deploy::file_hash(&root.join(&file.path))?.as_deref() == Some(&file.sha256);
             let saved: Record = decode(record.as_ref().expect("record exists"))?;
@@ -137,6 +138,7 @@ fn status_with(root: &Path, registry: &Registry) -> Result<Status> {
         recovery_required: pending.is_some(),
     })
 }
+#[cfg(target_os = "windows")]
 fn desired(root: &Path) -> Result<Vec<(String, String, RegistryData)>> {
     let executable = crate::config::helper_path(root);
     crate::platform::validate_local_path(&executable)?;
@@ -182,6 +184,14 @@ fn desired(root: &Path) -> Result<Vec<(String, String, RegistryData)>> {
     }
     Ok(values)
 }
+#[cfg(target_os = "linux")]
+fn desired(root: &Path) -> Result<Vec<(String, String, RegistryData)>> {
+    Ok(vec![(
+        "io.github.mpvkit.desktop".into(),
+        String::new(),
+        RegistryData::string(&crate::platform::desktop_entry::content(root)?),
+    )])
+}
 pub fn prepare(root: &Path, action: &str) -> Result<Plan> {
     let mut plan = prepare_with(root, action, Registry::current(root))?;
     if action == "register" {
@@ -198,7 +208,7 @@ pub fn prepare(root: &Path, action: &str) -> Result<Plan> {
         if !manifest
             .files
             .iter()
-            .any(|f| matches!(f.path.as_str(), ".mpvkit/launcher/mpvkit.exe"))
+            .any(|f| f.path == crate::platform::HELPER)
         {
             return Err(error(
                 "helper_missing",
@@ -208,7 +218,7 @@ pub fn prepare(root: &Path, action: &str) -> Result<Plan> {
         for file in &manifest.files {
             let path = root.join(&file.path);
             let hash = deploy::file_hash(&path)?;
-            if file.path == ".mpvkit/launcher/mpvkit.exe" && hash.as_deref() != Some(&file.sha256) {
+            if file.path == crate::platform::HELPER && hash.as_deref() != Some(&file.sha256) {
                 return Err(error("helper_changed", "启动入口已改变，请先修复组件。"));
             }
             plan.guarded_files.push((path, hash));
@@ -466,7 +476,7 @@ pub fn execute(plan: Plan) -> Result<Status> {
     }
     status_with(&plan.root, &plan.registry)
 }
-#[cfg(test)]
+#[cfg(all(test, target_os = "windows"))]
 mod tests {
     use super::*;
     #[test]
@@ -542,5 +552,19 @@ mod tests {
         );
         drop(reopened);
         std::fs::remove_dir_all(root).unwrap();
+    }
+}
+
+#[cfg(all(test, target_os = "linux"))]
+pub(super) fn test_interrupt(plan: &Plan) {
+    deploy::atomic_write(
+        &plan.root.join(PENDING),
+        &serde_json::to_vec(&plan.journal).unwrap(),
+    )
+    .unwrap();
+    for change in &plan.journal.changes {
+        plan.registry
+            .write(&change.key, &change.name, change.after.as_ref())
+            .unwrap();
     }
 }

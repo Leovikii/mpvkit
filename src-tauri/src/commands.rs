@@ -414,8 +414,7 @@ pub fn open_default_apps() -> Result<()> {
 
 #[tauri::command]
 pub fn component_catalog() -> serde_json::Value {
-    serde_json::from_str(include_str!("../../resources/catalog.json"))
-        .expect("embedded component catalog")
+    serde_json::from_str(crate::components::CATALOG).expect("embedded component catalog")
 }
 
 #[derive(Default)]
@@ -534,10 +533,14 @@ pub async fn choose_path(
     folder: bool,
     window: tauri::WebviewWindow,
 ) -> Result<Option<std::path::PathBuf>> {
+    #[cfg(target_os = "windows")]
     let owner = window
         .hwnd()
         .map_err(|_| AppError::new("window_unavailable", "窗口不可用。", "paths"))?
         .0 as isize;
+    #[cfg(target_os = "linux")]
+    return platform::desktop::choose_path(folder, window).await;
+    #[cfg(target_os = "windows")]
     tauri::async_runtime::spawn_blocking(move || platform::desktop::choose_path(folder, owner))
         .await
         .map_err(|_| AppError::new("worker_failed", "选择器异常结束。", "paths"))?
@@ -553,18 +556,28 @@ pub async fn open_config_directory() -> Result<()> {
 }
 #[tauri::command]
 pub fn app_information() -> serde_json::Value {
-    serde_json::json!({"version":env!("CARGO_PKG_VERSION"),"license":"GPL-3.0-or-later","repository":"https://github.com/Leovikii/mpvkit","releaseReady":false})
+    serde_json::json!({"version":env!("CARGO_PKG_VERSION"),"license":"GPL-3.0-or-later","repository":"https://github.com/Leovikii/mpvkit","releaseReady":false,"platform":std::env::consts::OS})
 }
 #[tauri::command]
 pub fn license_text(kind: String) -> Result<&'static str> {
     match kind.as_str() {
         "project" => Ok(include_str!("../../COPYING.md")),
         "license" => Ok(include_str!("../../LICENSE")),
-        "dependencies" => Ok(concat!(
-            include_str!("../../resources/app-dependency-notices.txt"),
-            "\n\nLXGW WenKai Screen v1.530 — unmodified subtitle font\n",
-            include_str!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt")
-        )),
+        "dependencies" => {
+            #[cfg(target_os = "windows")]
+            const NOTICES: &str = concat!(
+                include_str!("../../resources/app-dependency-notices.txt"),
+                "\n\nLXGW WenKai Screen v1.530 — unmodified subtitle font\n",
+                include_str!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt")
+            );
+            #[cfg(target_os = "linux")]
+            const NOTICES: &str = concat!(
+                include_str!("../../resources/app-dependency-notices-linux.txt"),
+                "\n\nLXGW WenKai Screen v1.530 — unmodified subtitle font\n",
+                include_str!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt")
+            );
+            Ok(NOTICES)
+        }
         _ => Err(AppError::new(
             "invalid_action",
             "不支持此声明类型。",

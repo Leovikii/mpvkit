@@ -2,19 +2,19 @@
   "schemaVersion": 1,
   "releaseReady": false,
   "target": "x86_64-pc-windows-msvc",
-  "scope": "Cargo已解析Windows依赖（含构建期）及前端生产依赖；不是二进制成分或许可兼容性证明。",
+  "scope": "Cargo已解析 x86_64-pc-windows-msvc 依赖（含构建期）及前端生产依赖；不是二进制成分或许可兼容性证明。",
   "limitations": [
     "仅收集包内名称可识别的许可/NOTICE；源码内声明和附带原生库仍需审阅。",
-    "未覆盖Rust工具链/标准库、MSVC/Windows SDK、WebView2/NSIS及组件MPV/uosc/thumbfast。",
+    "未覆盖Rust工具链/标准库、MSVC/Windows SDK、WebView2及组件MPV/uosc/thumbfast。",
     "缺失原文不得用其他包许可替代；SPDX多选表达式未代替维护者作选择。",
-    "已配置随安装包third-party目录分发原文；完整声明与适用源码材料仍需审阅。"
+    "随受管理启动入口保留原文；无安装包，完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "8e022feeac8656bc436b4e26889062bf978ed9f9a2d10d6fa0011e70227da823",
-    "src-tauri/Cargo.lock": "4d1182d3e91feb9ab3dc06f7ac4a3b6149cda218300bcb77173f4a47fe5be339",
-    "package.json": "97cb8eec7dd0bbf7b5f96abfeabed16403470ee7fd58199be8c7a4e6ab7d048e",
+    "src-tauri/Cargo.toml": "bd381b3c8606970dd9f39242a418d2556198d3ab9bea0e80f361d9ca452b231a",
+    "src-tauri/Cargo.lock": "f172f891e526c7daae3b76c6202501f7bc83a1cc0cf84c841f2ce062887a74e3",
+    "package.json": "4bfc5c80fdb124dc3e65d187c3f8ef097a2f83ad4bfd7f996bce23bbc5d7f7a9",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
-    "resources/app-license-supplements.json": "c88914fb7864354c5c93000f14010fd2c8bf966c2ff3ac0b78a73dcf418db98a"
+    "resources/app-license-supplements.json": "3dc313feb68a0b7b667eee062f337d25560317087bed4d4e1d096259ec00c7fe"
   },
   "missingMaterials": [],
   "packages": [

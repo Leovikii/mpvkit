@@ -1,0 +1,19 @@
+{
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "MpvKit",
+        "width": 1040,
+        "height": 760,
+        "minWidth": 640,
+        "minHeight": 600,
+        "transparent": false,
+        "visible": false
+      }
+    ]
+  },
+  "bundle": {
+    "active": false
+  }
+}

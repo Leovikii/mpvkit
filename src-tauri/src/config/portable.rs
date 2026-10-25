@@ -20,7 +20,7 @@ impl Default for State {
             owner: "MpvKit".into(),
             revision: 0,
             settings: Settings::default(),
-            integration_enabled: true,
+            integration_enabled: cfg!(target_os = "windows"),
             manual_config: false,
         }
     }
@@ -43,21 +43,32 @@ pub fn read_state(root: &Path) -> Result<State> {
     Ok(state)
 }
 pub fn player_path(root: &Path) -> PathBuf {
-    root.join("mpv.exe")
+    {
+        #[cfg(target_os = "windows")]
+        {
+            root.join("mpv.exe")
+        }
+        #[cfg(target_os = "linux")]
+        {
+            let _ = root;
+            PathBuf::from("/usr/bin/mpv")
+        }
+    }
 }
 pub fn helper_path(root: &Path) -> PathBuf {
-    root.join(".mpvkit/launcher/mpvkit.exe")
+    root.join(crate::platform::HELPER)
 }
 pub fn editable(path: &str) -> bool {
-    path.strip_prefix("portable_config/").is_some_and(|name| {
-        ["mpv.conf", "input.conf", "fonts.conf"].contains(&name)
-            || name.starts_with("script-opts/") && name.ends_with(".conf")
-    })
+    path.strip_prefix(crate::config::relative!(""))
+        .is_some_and(|name| {
+            ["mpv.conf", "input.conf", "fonts.conf"].contains(&name)
+                || name.starts_with("script-opts/") && name.ends_with(".conf")
+        })
 }
 const PREVIEW_FILES: [&str; 3] = [
-    "portable_config/mpv.conf",
-    "portable_config/input.conf",
-    "portable_config/script-opts/thumbfast.conf",
+    crate::config::relative!("mpv.conf"),
+    crate::config::relative!("input.conf"),
+    crate::config::relative!("script-opts/thumbfast.conf"),
 ];
 
 #[derive(Serialize)]
@@ -217,7 +228,7 @@ fn generate_inner(
     let raw = text(
         &files
             .iter()
-            .find(|p| p.path == "portable_config/mpv.conf")
+            .find(|p| p.path == crate::config::relative!("mpv.conf"))
             .unwrap()
             .bytes,
     )?;
@@ -225,10 +236,14 @@ fn generate_inner(
     let existing = deploy::status(root)?.manifest;
     let conf = if let Some(manifest) = existing.as_ref().filter(|m| {
         !reset
-            && m.files.iter().any(|f| f.path == "portable_config/mpv.conf")
-            && root.join("portable_config/mpv.conf").exists()
+            && m.files
+                .iter()
+                .any(|f| f.path == crate::config::relative!("mpv.conf"))
+            && root.join(crate::config::relative!("mpv.conf")).exists()
     }) {
-        let old = text(&deploy::read_bytes(&root.join("portable_config/mpv.conf"))?)?;
+        let old = text(&deploy::read_bytes(
+            &root.join(crate::config::relative!("mpv.conf")),
+        )?)?;
         let (start, end) = bounds(&old)?;
         let previous = read_state(root)?;
         let old_files = base_files(player, &previous.settings)?;
@@ -236,7 +251,7 @@ fn generate_inner(
             &text(
                 &old_files
                     .iter()
-                    .find(|p| p.path == "portable_config/mpv.conf")
+                    .find(|p| p.path == crate::config::relative!("mpv.conf"))
                     .unwrap()
                     .bytes,
             )?,
@@ -251,7 +266,7 @@ fn generate_inner(
         if !manifest
             .files
             .iter()
-            .any(|f| f.path == "portable_config/mpv.conf")
+            .any(|f| f.path == crate::config::relative!("mpv.conf"))
         {
             return Err(error("config_owner", "主配置没有归属记录。"));
         }
@@ -274,12 +289,12 @@ fn generate_inner(
     };
     let mut other_manual = false;
     for p in &mut files {
-        if p.path == "portable_config/mpv.conf" {
+        if p.path == crate::config::relative!("mpv.conf") {
             p.bytes = conf.as_bytes().to_vec();
         }
         if existing.is_some()
             && editable(&p.path)
-            && p.path != "portable_config/mpv.conf"
+            && p.path != crate::config::relative!("mpv.conf")
             && deploy::file_hash(&root.join(&p.path))?.is_some()
         {
             let retained = deploy::read_bytes(&root.join(&p.path))?;
@@ -307,9 +322,9 @@ pub fn ready(root: &Path) -> Result<bool> {
         return Ok(false);
     };
     for name in [
-        "portable_config/mpv.conf",
-        "portable_config/input.conf",
-        "portable_config/script-opts/thumbfast.conf",
+        crate::config::relative!("mpv.conf"),
+        crate::config::relative!("input.conf"),
+        crate::config::relative!("script-opts/thumbfast.conf"),
         ".mpvkit/settings.json",
     ] {
         if !m.files.iter().any(|f| f.path == name) || deploy::file_hash(&root.join(name))?.is_none()
@@ -393,7 +408,7 @@ fn prepare_portable_mode(
         .manifest
         .ok_or_else(|| error("not_installed", "请先安装播放器。"))?;
     let mut watched = vec![
-        root.join("portable_config/mpv.conf"),
+        root.join(crate::config::relative!("mpv.conf")),
         root.join(".mpvkit/settings.json"),
     ];
     // Protect retained components and configuration too, including unchanged files.
@@ -471,7 +486,7 @@ pub fn prepare_remove_player(root: &Path) -> Result<deploy::DeploymentPlan> {
 mod tests {
     use super::*;
     fn install(root: &Path) {
-        let mut files = generate(root, &root.join("mpv.exe"), &Settings::default()).unwrap();
+        let mut files = generate(root, &player_path(root), &Settings::default()).unwrap();
         files.push(Payload {
             path: "mpv.exe".into(),
             bytes: b"fixture".to_vec(),
@@ -486,17 +501,29 @@ mod tests {
                 bytes: b"fixture".to_vec(),
             });
         }
-        deploy::execute(deploy::prepare_install(root, files, false, Default::default()).unwrap())
-            .unwrap();
+        deploy::execute(
+            deploy::prepare_install(
+                root,
+                files,
+                false,
+                BTreeMap::from([("mpv".into(), "fixture".into())]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
     }
     #[test]
     fn portable_configuration_preserves_edits_and_previews_only_explicit_replacement() {
         let root = std::env::temp_dir().join(format!("mpvkit-portable-{}", deploy::operation_id()));
         install(&root);
-        assert!(root.join("mpv.exe").exists());
+        assert!(player_path(&root).exists());
         assert!(!root.join("state").exists());
-        assert!(!root.join("portable_config/mpvkit-profiles.json").exists());
-        let path = root.join("portable_config/mpv.conf");
+        assert!(
+            !root
+                .join(crate::config::relative!("mpvkit-profiles.json"))
+                .exists()
+        );
+        let path = root.join(crate::config::relative!("mpv.conf"));
         let before = std::fs::read_to_string(&path).unwrap();
         assert!(before.contains("[mpvkit-balanced]"));
         let manual = before
@@ -506,7 +533,7 @@ mod tests {
             + "\n# custom\nvolume=23\n";
         std::fs::write(&path, &manual).unwrap();
         std::fs::write(
-            root.join("portable_config/input.conf"),
+            root.join(crate::config::relative!("input.conf")),
             "SPACE cycle pause\n",
         )
         .unwrap();
@@ -522,7 +549,7 @@ mod tests {
         assert!(after.contains("alang=ja"));
         assert!(!after.contains("slang="));
         assert_eq!(
-            std::fs::read_to_string(root.join("portable_config/input.conf")).unwrap(),
+            std::fs::read_to_string(root.join(crate::config::relative!("input.conf"))).unwrap(),
             "SPACE cycle pause\n"
         );
         std::fs::write(&path, after.replace("target-trc=auto", "target-trc=pq")).unwrap();
@@ -572,7 +599,7 @@ mod tests {
         assert_eq!(read(&root).unwrap().profile, Profile::HighQuality);
         assert!(!root.join(".mpvkit/playback.json").exists());
         assert!(
-            std::fs::read_to_string(root.join("portable_config/mpv.conf"))
+            std::fs::read_to_string(root.join(crate::config::relative!("mpv.conf")))
                 .unwrap()
                 .contains("profile=mpvkit-high-quality")
         );

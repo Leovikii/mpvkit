@@ -1,0 +1,37 @@
+{
+  "schemaVersion": 1,
+  "releaseReady": false,
+  "target": "x86_64-unknown-linux-gnu",
+  "scope": "Linux 应用依赖原文与共享 Rust 标准库版权汇编；系统 MPV/GTK/WebKitGTK/Vulkan 由系统包管理器维护，不随本应用分发。不是完整许可兼容性或源码交付证明。",
+  "rust": {
+    "version": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "host": "x86_64-unknown-linux-gnu",
+    "libraryCopyrightFormat": "原始HTML，保存为txt以保留字节；发行文件映射为html。"
+  },
+  "materials": [
+    {
+      "file": "rust-library-COPYRIGHT.txt",
+      "source": "https://github.com/rust-lang/rust/tree/1.98.1",
+      "note": "保留同版本工具链已有的标准库版权汇编；不据此宣称 Linux 原生依赖与完整源码义务已审阅。",
+      "size": 1512520,
+      "sha256": "68129500b616d5838629e68f55ff3aed5e096dacf60ce9eb41bbe599a563afa6"
+    }
+  ],
+  "limitations": [
+    "系统原生库、链接边界和完整对应源码义务仍需审阅。",
+    "uosc 字体、Go helper 和完整来源验收未完成。",
+    "不包含 WebView2/MSVC/NSIS 材料；Windows 记录另见 app-distribution-materials.json。"
+  ],
+  "repositoryLicense": {
+    "file": "LICENSE",
+    "sha256": "605e9047a563c5c8396ffb18232aa4304ec56586aee537c45064c6fb425e44ad",
+    "size": 35129,
+    "note": "用户于2026-10-20明确选择GPL-3.0-or-later；2026-10-25更新为当前Git检出字节摘要，未修改LICENSE正文或授权。历史Windows工作树摘要已失效。",
+    "identifier": "GPL-3.0-or-later",
+    "statement": {
+      "file": "COPYING.md",
+      "size": 948,
+      "sha256": "05893c9abe02fb20c685e43f19f44f058d769c26e4946a618969696ac97b0d82"
+    }
+  }
+}

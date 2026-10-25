@@ -1,4 +1,5 @@
 use super::*;
+#[cfg(target_os = "windows")]
 use std::os::windows::fs::OpenOptionsExt;
 
 struct Sandbox(PathBuf);
@@ -26,7 +27,7 @@ fn payload(path: &str, content: &str) -> Payload {
 fn plan(root: &Path, content: &str) -> DeploymentPlan {
     prepare_install(
         root,
-        vec![payload("portable_config/mpv.conf", content)],
+        vec![payload(crate::config::relative!("mpv.conf"), content)],
         false,
         BTreeMap::new(),
     )
@@ -46,7 +47,11 @@ fn install_is_read_only_until_confirmed_idempotent_and_uninstall_preserves_unkno
     let first = plan(&root, "volume=40");
     assert!(!root.exists());
     execute(first).unwrap();
-    write_new(&root.join("portable_config/user.conf"), b"keep user").unwrap();
+    write_new(
+        &root.join(crate::config::relative!("user.conf")),
+        b"keep user",
+    )
+    .unwrap();
     let previous = read_optional(&control(&root, "previous.json").unwrap()).unwrap();
     let repeat = plan(&root, "volume=40");
     assert!(repeat.preview.no_changes);
@@ -56,8 +61,11 @@ fn install_is_read_only_until_confirmed_idempotent_and_uninstall_preserves_unkno
         previous
     );
     execute(prepare_uninstall(&root).unwrap()).unwrap();
-    assert!(!root.join("portable_config/mpv.conf").exists());
-    assert_eq!(read(&root, "portable_config/user.conf"), "keep user");
+    assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
+    assert_eq!(
+        read(&root, crate::config::relative!("user.conf")),
+        "keep user"
+    );
     assert!(status(&root).unwrap().manifest.is_none());
 }
 
@@ -65,20 +73,30 @@ fn install_is_read_only_until_confirmed_idempotent_and_uninstall_preserves_unkno
 fn unknown_file_requires_explicit_replace_and_original_is_restored() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
-    write_new(&root.join("portable_config/mpv.conf"), b"original").unwrap();
+    write_new(
+        &root.join(crate::config::relative!("mpv.conf")),
+        b"original",
+    )
+    .unwrap();
     let blocked = plan(&root, "managed");
-    assert_eq!(blocked.preview.conflicts, ["portable_config/mpv.conf"]);
+    assert_eq!(
+        blocked.preview.conflicts,
+        [crate::config::relative!("mpv.conf")]
+    );
     assert_eq!(execute(blocked).unwrap_err().code, "file_conflict");
     let replacement = prepare_install(
         &root,
-        vec![payload("portable_config/mpv.conf", "managed")],
+        vec![payload(crate::config::relative!("mpv.conf"), "managed")],
         true,
         BTreeMap::new(),
     )
     .unwrap();
     execute(replacement).unwrap();
     execute(prepare_uninstall(&root).unwrap()).unwrap();
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "original");
+    assert_eq!(
+        read(&root, crate::config::relative!("mpv.conf")),
+        "original"
+    );
 }
 
 #[test]
@@ -86,7 +104,11 @@ fn stale_file_manifest_previous_record_and_expired_plans_are_rejected() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
     let first = plan(&root, "managed");
-    write_new(&root.join("portable_config/mpv.conf"), b"user appeared").unwrap();
+    write_new(
+        &root.join(crate::config::relative!("mpv.conf")),
+        b"user appeared",
+    )
+    .unwrap();
     assert_eq!(execute(first).unwrap_err().code, "stale_preview");
     let other = sandbox.0.join("other");
     install(&other, "one");
@@ -99,7 +121,7 @@ fn stale_file_manifest_previous_record_and_expired_plans_are_rejected() {
     let stale = plan(&other, "four");
     atomic_write(&control(&other, "previous.json").unwrap(), b"changed").unwrap();
     assert_eq!(execute(stale).unwrap_err().code, "stale_preview");
-    assert_eq!(read(&other, "portable_config/mpv.conf"), "three");
+    assert_eq!(read(&other, crate::config::relative!("mpv.conf")), "three");
 }
 
 #[test]
@@ -108,7 +130,11 @@ fn modified_managed_files_block_update_restore_and_uninstall() {
     let root = sandbox.root();
     install(&root, "one");
     install(&root, "two");
-    fs::write(root.join("portable_config/mpv.conf"), "user modification").unwrap();
+    fs::write(
+        root.join(crate::config::relative!("mpv.conf")),
+        "user modification",
+    )
+    .unwrap();
     assert!(!plan(&root, "three").preview.conflicts.is_empty());
     assert!(
         !prepare_uninstall(&root)
@@ -122,7 +148,10 @@ fn modified_managed_files_block_update_restore_and_uninstall() {
         execute(prepare_uninstall(&root).unwrap()).unwrap_err().code,
         "file_conflict"
     );
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "user modification");
+    assert_eq!(
+        read(&root, crate::config::relative!("mpv.conf")),
+        "user modification"
+    );
 }
 
 #[test]
@@ -133,7 +162,7 @@ fn previous_success_can_be_restored_and_unknown_files_are_preserved() {
     write_new(&external, b"external player").unwrap();
     let first = prepare_install(
         &root,
-        vec![payload("portable_config/mpv.conf", "one")],
+        vec![payload(crate::config::relative!("mpv.conf"), "one")],
         false,
         BTreeMap::new(),
     )
@@ -141,14 +170,14 @@ fn previous_success_can_be_restored_and_unknown_files_are_preserved() {
     execute(first).unwrap();
     let second = prepare_install(
         &root,
-        vec![payload("portable_config/mpv.conf", "two")],
+        vec![payload(crate::config::relative!("mpv.conf"), "two")],
         false,
         BTreeMap::new(),
     )
     .unwrap();
     execute(second).unwrap();
     execute(prepare_restore(&root).unwrap()).unwrap();
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "one");
+    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "one");
     execute(prepare_uninstall(&root).unwrap()).unwrap();
     assert_eq!(fs::read(external).unwrap(), b"external player");
 }
@@ -157,11 +186,15 @@ fn previous_success_can_be_restored_and_unknown_files_are_preserved() {
 fn corrupt_original_or_previous_backup_never_replaces_current_files() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
-    write_new(&root.join("portable_config/mpv.conf"), b"original").unwrap();
+    write_new(
+        &root.join(crate::config::relative!("mpv.conf")),
+        b"original",
+    )
+    .unwrap();
     execute(
         prepare_install(
             &root,
-            vec![payload("portable_config/mpv.conf", "one")],
+            vec![payload(crate::config::relative!("mpv.conf"), "one")],
             true,
             BTreeMap::new(),
         )
@@ -178,7 +211,7 @@ fn corrupt_original_or_previous_backup_never_replaces_current_files() {
         prepare_uninstall(&root).err().unwrap().code,
         "backup_changed"
     );
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "one");
+    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "one");
     install(&root, "two");
     let journal: Journal = decode(
         &read_optional(&control(&root, "previous.json").unwrap())
@@ -192,9 +225,10 @@ fn corrupt_original_or_previous_backup_never_replaces_current_files() {
     )
     .unwrap();
     assert_eq!(prepare_restore(&root).err().unwrap().code, "backup_changed");
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "two");
+    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "two");
 }
 
+#[cfg(target_os = "windows")]
 #[test]
 fn occupied_file_rolls_back_prior_replacements_and_keeps_last_success() {
     let sandbox = Sandbox::new();
@@ -259,13 +293,13 @@ fn interruption_after_manifest_commit_restores_files_and_previous_success_journa
         "recovery_required"
     );
     recover(prepare_recovery(&root).unwrap()).unwrap();
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "two");
+    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "two");
     assert_eq!(
         read_optional(&control(&root, "previous.json").unwrap()).unwrap(),
         previous
     );
     execute(prepare_restore(&root).unwrap()).unwrap();
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "one");
+    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "one");
 }
 
 #[test]
@@ -280,16 +314,26 @@ fn recovery_stops_for_user_changes_and_stale_preview_then_can_resume() {
         apply_change(&root, &update.journal, 0).unwrap();
     }
     let recovery = prepare_recovery(&root).unwrap();
-    fs::write(root.join("portable_config/mpv.conf"), "user change").unwrap();
+    fs::write(
+        root.join(crate::config::relative!("mpv.conf")),
+        "user change",
+    )
+    .unwrap();
     assert_eq!(recover(recovery).unwrap_err().code, "stale_preview");
     let blocked = prepare_recovery(&root).unwrap();
-    assert_eq!(blocked.preview.conflicts, ["portable_config/mpv.conf"]);
+    assert_eq!(
+        blocked.preview.conflicts,
+        [crate::config::relative!("mpv.conf")]
+    );
     assert_eq!(recover(blocked).unwrap_err().code, "recovery_conflict");
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "user change");
+    assert_eq!(
+        read(&root, crate::config::relative!("mpv.conf")),
+        "user change"
+    );
     assert!(status(&root).unwrap().recovery_required);
-    fs::write(root.join("portable_config/mpv.conf"), "two").unwrap();
+    fs::write(root.join(crate::config::relative!("mpv.conf")), "two").unwrap();
     recover(prepare_recovery(&root).unwrap()).unwrap();
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "one");
+    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "one");
 }
 
 #[test]
@@ -307,6 +351,23 @@ fn lock_excludes_another_process() {
         .args(["--exact", NAME, "--nocapture"])
         .env("MPVKIT_LOCK_TEST_ROOT", &root);
     crate::mpv::capture_command(command, Duration::from_secs(5)).unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn inherited_descriptor_cannot_extend_completed_operation_lock() {
+    let sandbox = Sandbox::new();
+    let root = sandbox.root();
+    let lock = acquire(&root).unwrap();
+    // A duplicate has the same flock lifetime as the descriptor inherited before exec.
+    let inherited = lock.0.try_clone().unwrap();
+    assert_eq!(acquire(&root).unwrap_err().code, "target_locked");
+    drop(lock);
+    let next = acquire(&root).unwrap();
+    drop(inherited);
+    assert_eq!(acquire(&root).unwrap_err().code, "target_locked");
+    drop(next);
+    assert!(acquire(&root).is_ok());
 }
 
 #[test]
@@ -381,6 +442,7 @@ fn path_boundaries_and_case_collisions_are_rejected() {
     assert!(!root.exists());
 }
 
+#[cfg(target_os = "windows")]
 #[test]
 fn junction_target_cannot_redirect_deployment() {
     let sandbox = Sandbox::new();
@@ -397,7 +459,7 @@ fn junction_target_cannot_redirect_deployment() {
     assert_eq!(
         prepare_install(
             &root,
-            vec![payload("portable_config/mpv.conf", "never")],
+            vec![payload(crate::config::relative!("mpv.conf"), "never")],
             false,
             BTreeMap::new()
         )
@@ -415,13 +477,21 @@ fn junction_target_cannot_redirect_deployment() {
 fn configuration_replacement_checks_scripts_repairs_missing_files_and_restores_original() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
-    write_new(&root.join("portable_config/mpv.conf"), b"original").unwrap();
-    write_new(&root.join("portable_config/notes.txt"), b"keep user").unwrap();
+    write_new(
+        &root.join(crate::config::relative!("mpv.conf")),
+        b"original",
+    )
+    .unwrap();
+    write_new(
+        &root.join(crate::config::relative!("notes.txt")),
+        b"keep user",
+    )
+    .unwrap();
     let versions = BTreeMap::from([("uosc".into(), "test".into())]);
     let files = || {
         vec![
-            payload("portable_config/mpv.conf", "managed"),
-            payload("portable_config/scripts/mpvkit.lua", "script"),
+            payload(crate::config::relative!("mpv.conf"), "managed"),
+            payload(crate::config::relative!("scripts/mpvkit.lua"), "script"),
         ]
     };
     let blocked = prepare_install(&root, files(), false, versions.clone()).unwrap();
@@ -429,10 +499,10 @@ fn configuration_replacement_checks_scripts_repairs_missing_files_and_restores_o
         blocked
             .preview
             .conflicts
-            .contains(&"portable_config/mpv.conf".into())
+            .contains(&crate::config::relative!("mpv.conf").into())
     );
     write_new(
-        &root.join("portable_config/scripts/old-osc.lua"),
+        &root.join(crate::config::relative!("scripts/old-osc.lua")),
         b"keep old",
     )
     .unwrap();
@@ -444,22 +514,35 @@ fn configuration_replacement_checks_scripts_repairs_missing_files_and_restores_o
             .iter()
             .any(|s| s.contains("old-osc"))
     );
-    fs::remove_file(root.join("portable_config/scripts/old-osc.lua")).unwrap();
+    fs::remove_file(root.join(crate::config::relative!("scripts/old-osc.lua"))).unwrap();
     let stale = prepare_install(&root, files(), true, versions.clone()).unwrap();
-    write_new(&root.join("portable_config/scripts/late.lua"), b"late").unwrap();
+    write_new(
+        &root.join(crate::config::relative!("scripts/late.lua")),
+        b"late",
+    )
+    .unwrap();
     assert_eq!(execute(stale).unwrap_err().code, "script_conflict");
-    fs::remove_file(root.join("portable_config/scripts/late.lua")).unwrap();
+    fs::remove_file(root.join(crate::config::relative!("scripts/late.lua"))).unwrap();
     execute(prepare_install(&root, files(), true, versions.clone()).unwrap()).unwrap();
     assert_eq!(
         status(&root).unwrap().manifest.unwrap().config_directory,
-        "portable_config"
+        default_config_directory()
     );
-    fs::remove_file(root.join("portable_config/scripts/mpvkit.lua")).unwrap();
+    fs::remove_file(root.join(crate::config::relative!("scripts/mpvkit.lua"))).unwrap();
     execute(prepare_install(&root, files(), false, versions).unwrap()).unwrap();
-    assert_eq!(read(&root, "portable_config/scripts/mpvkit.lua"), "script");
+    assert_eq!(
+        read(&root, crate::config::relative!("scripts/mpvkit.lua")),
+        "script"
+    );
     execute(prepare_uninstall(&root).unwrap()).unwrap();
-    assert_eq!(read(&root, "portable_config/mpv.conf"), "original");
-    assert_eq!(read(&root, "portable_config/notes.txt"), "keep user");
+    assert_eq!(
+        read(&root, crate::config::relative!("mpv.conf")),
+        "original"
+    );
+    assert_eq!(
+        read(&root, crate::config::relative!("notes.txt")),
+        "keep user"
+    );
 }
 
 // Thread-local and test-only: write a real prefix, then emulate the OS write error.
@@ -605,7 +688,7 @@ fn partial_staging_backup_and_commit_writes_preserve_success_and_allow_recovery(
             failure.assert_consumed();
             drop(failure);
             assert_eq!(
-                read(&root, "portable_config/mpv.conf"),
+                read(&root, crate::config::relative!("mpv.conf")),
                 "last success",
                 "{phase}"
             );
@@ -624,7 +707,7 @@ fn partial_staging_backup_and_commit_writes_preserve_success_and_allow_recovery(
             }
             assert!(!status(&root).unwrap().recovery_required);
             execute(prepare_restore(&root).unwrap()).unwrap();
-            assert_eq!(read(&root, "portable_config/mpv.conf"), "first");
+            assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "first");
         }
     }
 }

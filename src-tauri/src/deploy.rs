@@ -269,11 +269,16 @@ fn manifest_text(root: &Path) -> Result<Option<String>> {
 }
 
 pub fn default_config_directory() -> String {
-    "portable_config".into()
+    if cfg!(target_os = "windows") {
+        "portable_config"
+    } else {
+        "."
+    }
+    .into()
 }
 
 fn validate_manifest(manifest: &InstallManifest) -> Result<()> {
-    if manifest.config_directory != "portable_config" {
+    if manifest.config_directory != default_config_directory() {
         return Err(error("invalid_state", "配置目录布局不受支持。"));
     }
     if manifest.files.len() > MAX_FILES {
@@ -584,9 +589,14 @@ fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
         .ok_or_else(|| error("unsafe_path", "文件没有父目录。"))?;
     fs::create_dir_all(parent).map_err(|_| error("write_failed", "无法创建目标目录。"))?;
     platform::validate_local_path(path)?;
-    let mut file = OpenOptions::new()
-        .write(true)
-        .create_new(true)
+    let mut options = OpenOptions::new();
+    options.write(true).create_new(true);
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600);
+    }
+    let mut file = options
         .open(path)
         .map_err(|_| error("write_failed", "无法新建文件，可能已存在或被占用。"))?;
     #[cfg(test)]
@@ -627,7 +637,16 @@ fn set_content(path: &Path, bytes: Option<&[u8]>) -> Result<()> {
     }
 }
 
-pub(crate) fn acquire(root: &Path) -> Result<File> {
+#[derive(Debug)]
+pub(crate) struct TargetLock(File);
+impl Drop for TargetLock {
+    fn drop(&mut self) {
+        // Unlock explicitly: a concurrent Unix spawn may briefly inherit the open description.
+        let _ = self.0.unlock();
+    }
+}
+
+pub(crate) fn acquire(root: &Path) -> Result<TargetLock> {
     check_owner(root)?;
     fs::create_dir_all(root).map_err(|_| error("write_failed", "无法创建安装目标。"))?;
     let directory = root.join(CONTROL);
@@ -655,7 +674,7 @@ pub(crate) fn acquire(root: &Path) -> Result<File> {
         .map_err(|_| error("target_locked", "无法打开安装目标的操作锁。"))?;
     file.try_lock()
         .map_err(|_| error("target_locked", "另一个进程正在操作此安装目标。"))?;
-    Ok(file)
+    Ok(TargetLock(file))
 }
 
 fn validate_plan(plan: &DeploymentPlan, before_unregister: bool) -> Result<()> {
@@ -1085,7 +1104,7 @@ pub(crate) fn script_conflicts(root: &Path, manifest: &InstallManifest) -> Resul
     if !manifest.components.contains_key("uosc") {
         return Ok(vec![]);
     }
-    let prefix = "portable_config/scripts/";
+    let prefix = crate::config::relative!("scripts/");
     let directory = root.join(&manifest.config_directory).join("scripts");
     platform::validate_local_path(&directory)?;
     let entries = match fs::read_dir(&directory) {

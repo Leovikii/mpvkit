@@ -8,12 +8,16 @@ import { fileURLToPath } from "node:url";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 process.chdir(root);
-const check = process.argv.length === 3 && process.argv[2] === "--check";
-if (process.argv.length > 2 && !check) throw new Error("用法：node scripts/collect-app-notices.mjs [--check]");
+const args = process.argv.slice(2);
+const linux = args.includes("--linux");
+const check = args.includes("--check");
+if (args.some(arg => !["--check", "--linux"].includes(arg))) throw new Error("用法：node scripts/collect-app-notices.mjs [--linux] [--check]");
+const target = linux ? "x86_64-unknown-linux-gnu" : "x86_64-pc-windows-msvc";
+const suffix = linux ? "-linux" : "";
 const hash = bytes => createHash("sha256").update(bytes).digest("hex");
 const sort = (a, b) => a < b ? -1 : a > b ? 1 : 0;
 const decoder = new TextDecoder("utf-8", { fatal: true });
-const metadata = JSON.parse(execFileSync("cargo", ["metadata", "--manifest-path", "src-tauri/Cargo.toml", "--format-version", "1", "--locked", "--offline", "--filter-platform", "x86_64-pc-windows-msvc"], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }));
+const metadata = JSON.parse(execFileSync("cargo", ["metadata", "--manifest-path", "src-tauri/Cargo.toml", "--format-version", "1", "--locked", "--offline", "--filter-platform", target], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024 }));
 const resolved = new Set(metadata.resolve.nodes.map(node => node.id));
 const packages = [];
 const sections = [];
@@ -71,14 +75,14 @@ sections.sort(sort);
 const inventory = {
   schemaVersion: 1,
   releaseReady: false,
-  target: "x86_64-pc-windows-msvc",
-  scope: "Cargo已解析Windows依赖（含构建期）及前端生产依赖；不是二进制成分或许可兼容性证明。",
-  limitations: ["仅收集包内名称可识别的许可/NOTICE；源码内声明和附带原生库仍需审阅。", "未覆盖Rust工具链/标准库、MSVC/Windows SDK、WebView2/NSIS及组件MPV/uosc/thumbfast。", "缺失原文不得用其他包许可替代；SPDX多选表达式未代替维护者作选择。", "已配置随安装包third-party目录分发原文；完整声明与适用源码材料仍需审阅。"],
+  target,
+  scope: "Cargo已解析 " + target + " 依赖（含构建期）及前端生产依赖；不是二进制成分或许可兼容性证明。",
+  limitations: ["仅收集包内名称可识别的许可/NOTICE；源码内声明和附带原生库仍需审阅。", linux ? "未覆盖Rust工具链/标准库、系统GTK/WebKitGTK/Vulkan等原生库及组件uosc/thumbfast；系统MPV不随应用分发。" : "未覆盖Rust工具链/标准库、MSVC/Windows SDK、WebView2及组件MPV/uosc/thumbfast。", "缺失原文不得用其他包许可替代；SPDX多选表达式未代替维护者作选择。", "随受管理启动入口保留原文；无安装包，完整声明与适用源码材料仍需审阅。"],
   inputs: Object.fromEntries(["src-tauri/Cargo.toml", "src-tauri/Cargo.lock", "package.json", "pnpm-lock.yaml", "resources/app-license-supplements.json"].map(file => [file, hash(fs.readFileSync(file))])),
   missingMaterials: packages.filter(item => !item.materials.length).map(item => item.id),
   packages,
 };
-const distribution = JSON.parse(fs.readFileSync("resources/app-distribution-materials.json", "utf8"));
+const distribution = JSON.parse(fs.readFileSync("resources/app-distribution-materials" + suffix + ".json", "utf8"));
 for (const item of distribution.materials) {
   if (path.basename(item.file) !== item.file) throw new Error("分发原文路径越界");
   const bytes = fs.readFileSync(path.join("resources/licenses", item.file));
@@ -97,8 +101,8 @@ if (metadata.packages.find(item => item.id === metadata.resolve.root)?.license !
   || JSON.parse(fs.readFileSync("package.json", "utf8")).license !== projectLicense
   || JSON.parse(fs.readFileSync("src-tauri/tauri.conf.json", "utf8")).bundle.license !== projectLicense) throw new Error("项目许可元数据不一致");
 const outputs = {
-  "resources/app-dependency-inventory.json": JSON.stringify(inventory, null, 2) + "\n",
-  "resources/app-dependency-notices.txt": "MpvKit v" + JSON.parse(fs.readFileSync("package.json", "utf8")).version + " 应用依赖许可原文收集（未完成审阅）\n\n范围和缺口见 app-dependency-inventory.json。原文仅统一行尾和段尾换行，摘要对应包内原始字节。\n不表示已满足全部再分发义务；不替代组件许可或本项目授权。\n\n" + sections.join("\n"),
+  ["resources/app-dependency-inventory" + suffix + ".json"]: JSON.stringify(inventory, null, 2) + "\n",
+  ["resources/app-dependency-notices" + suffix + ".txt"]: "MpvKit v" + JSON.parse(fs.readFileSync("package.json", "utf8")).version + " 应用依赖许可原文收集（未完成审阅）\n\n范围和缺口见 app-dependency-inventory.json。原文仅统一行尾和段尾换行，摘要对应包内原始字节。\n不表示已满足全部再分发义务；不替代组件许可或本项目授权。\n\n" + sections.join("\n"),
 };
 for (const [file, content] of Object.entries(outputs)) {
   if (check) {

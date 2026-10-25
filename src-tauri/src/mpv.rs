@@ -38,6 +38,7 @@ pub fn file_stamp(path: &Path) -> Result<FileStamp> {
     })
 }
 
+#[cfg(target_os = "windows")]
 pub fn executable_path(value: &str) -> Result<PathBuf> {
     let path = PathBuf::from(value);
     if !path
@@ -46,7 +47,7 @@ pub fn executable_path(value: &str) -> Result<PathBuf> {
     {
         return Err(AppError::new(
             "mpv_required",
-            "请选择可信来源的 mpv.exe；检查版本会执行该文件。",
+            "播放器名称无效；检查版本会执行该文件。",
             "inspect",
         ));
     }
@@ -54,11 +55,25 @@ pub fn executable_path(value: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-/// Resolve an installed player without running it; managed runtime bytes must still match ownership.
+/// Windows verifies owned bytes; Linux probes the system player without taking ownership.
 pub fn managed_executable(
     root: &Path,
     manifest: &crate::deploy::InstallManifest,
 ) -> Result<PathBuf> {
+    #[cfg(target_os = "linux")]
+    {
+        if !manifest.components.contains_key("mpv") {
+            return Err(AppError::new(
+                "not_installed",
+                "请先安装播放增强。",
+                "inspect",
+            ));
+        }
+        let player = crate::config::player_path(root);
+        inspect(&player)?;
+        Ok(player)
+    }
+    #[cfg(target_os = "windows")]
     let player = {
         if !manifest
             .files
@@ -86,6 +101,7 @@ pub fn managed_executable(
         }
         crate::config::player_path(root)
     };
+    #[cfg(target_os = "windows")]
     executable_path(
         player
             .to_str()
@@ -202,7 +218,7 @@ pub fn inspect(executable: &Path) -> Result<MpvInfo> {
     })
 }
 
-#[cfg(test)]
+#[cfg(all(test, target_os = "windows"))]
 pub fn launch_args(config: &Path, media: &Path) -> Vec<OsString> {
     let mut config_arg = OsString::from("--config-dir=");
     config_arg.push(config);
@@ -250,7 +266,37 @@ pub fn ensure_managed_options(executable: &Path) -> Result<()> {
         "keep-open",
         "screenshot-directory",
         "screenshot-format",
+        "target-colorspace-hint",
+        "target-trc",
+        "target-prim",
     ]);
+    #[cfg(target_os = "linux")]
+    {
+        for key in ["--gpu-context", "--sub-fonts-dir", "--osd-fonts-dir"] {
+            if !available.contains(key) {
+                return Err(AppError::new(
+                    "managed_mpv_unsupported",
+                    "系统 MPV 缺少 Linux 配置所需参数，请使用系统包管理器更新。",
+                    "inspect",
+                ));
+            }
+        }
+        let contexts = capture(
+            executable,
+            &["--no-config".into(), "--gpu-context=help".into()],
+            Duration::from_secs(3),
+        )?;
+        if !contexts
+            .lines()
+            .any(|l| l.split_whitespace().next() == Some("waylandvk"))
+        {
+            return Err(AppError::new(
+                "wayland_required",
+                "系统 MPV 不支持 Wayland/Vulkan，请检查系统 MPV 构建。",
+                "inspect",
+            ));
+        }
+    }
     for key in keys {
         if !available.contains(format!("--{key}").as_str()) {
             return Err(AppError::new(

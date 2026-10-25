@@ -47,9 +47,9 @@
   ],
   "repositoryLicense": {
     "file": "LICENSE",
-    "sha256": "6852c5660e8b1091694e5350f2cbb7fff8f0e067d5fb1581982d5c78f90a655c",
-    "size": 35802,
-    "note": "用户于2026-10-20明确选择GPL-3.0-or-later；保留原始GPL v3正文，项目授权声明随包分发。",
+    "sha256": "605e9047a563c5c8396ffb18232aa4304ec56586aee537c45064c6fb425e44ad",
+    "size": 35129,
+    "note": "用户于2026-10-20明确选择GPL-3.0-or-later；2026-10-25更新为当前Git检出字节摘要，未修改LICENSE正文或授权。历史Windows工作树摘要已失效。",
     "identifier": "GPL-3.0-or-later",
     "statement": {
       "file": "COPYING.md",

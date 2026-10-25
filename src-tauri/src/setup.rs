@@ -19,6 +19,8 @@ pub struct ComponentHealth {
 pub struct Report {
     pub root: PathBuf,
     pub config_directory: PathBuf,
+    #[cfg(target_os = "linux")]
+    pub config_directory_source: &'static str,
     pub root_exists: bool,
     pub config_directory_exists: bool,
     pub generation: Option<String>,
@@ -38,13 +40,15 @@ pub fn status(root: &Path) -> Result<Report> {
     let deployment = deploy::status(root)?;
     let integration = integration::status(root)?;
     let state = config::portable::read_state(root)?;
-    let config_directory = root.join("portable_config");
+    let config_directory = config::directory(root)?;
     crate::platform::validate_local_path(&config_directory)?;
     let mut report = Report {
         root: root.into(),
         root_exists: root.is_dir(),
         config_directory_exists: config_directory.is_dir(),
         config_directory,
+        #[cfg(target_os = "linux")]
+        config_directory_source: crate::platform::mpv_config_location()?.source,
         generation: None,
         components: vec![],
         player_ready: false,
@@ -58,6 +62,16 @@ pub fn status(root: &Path) -> Result<Report> {
         integration,
         issues: vec![],
     };
+    #[cfg(target_os = "linux")]
+    {
+        let player = mpv::inspect(&config::player_path(root)).ok();
+        report.components.push(ComponentHealth {
+            id: "mpv".into(),
+            ready: player.is_some(),
+            version: player.map(|p| p.version),
+            issues: vec![],
+        });
+    }
     if let Some(m) = deployment.manifest {
         report.generation = Some(m.installation_id.clone());
         for file in &m.files {
@@ -69,15 +83,28 @@ pub fn status(root: &Path) -> Result<Report> {
                 report.issues.push(file.path.clone());
             }
         }
-        report.player_ready = mpv::managed_executable(root, &m).is_ok();
-        for id in ["mpv", "uosc", "thumbfast", "subtitle-font"] {
+        #[cfg(target_os = "windows")]
+        {
+            report.player_ready = mpv::managed_executable(root, &m).is_ok();
+        }
+        #[cfg(target_os = "linux")]
+        {
+            report.player_ready = report.components[0].ready && m.components.contains_key("mpv");
+        }
+        for id in [
+            #[cfg(target_os = "windows")]
+            "mpv",
+            "uosc",
+            "thumbfast",
+            "subtitle-font",
+        ] {
             let issues: Vec<_> = report
                 .issues
                 .iter()
                 .filter(|p| match id {
                     "mpv" => p.as_str() == "mpv.exe" || p.as_str() == "d3dcompiler_43.dll",
                     "uosc" => p.contains("uosc"),
-                    "thumbfast" => p.as_str() == "portable_config/scripts/thumbfast.lua",
+                    "thumbfast" => p.as_str() == crate::config::relative!("scripts/thumbfast.lua"),
                     _ => p.ends_with("fonts/LXGWWenKaiScreen.ttf"),
                 })
                 .cloned()
@@ -97,13 +124,15 @@ pub fn status(root: &Path) -> Result<Report> {
             });
         }
         report.components_ready = report.components.iter().all(|c| c.ready);
-        report.configuration_installed =
-            m.files.iter().any(|f| f.path == "portable_config/mpv.conf");
+        report.configuration_installed = m
+            .files
+            .iter()
+            .any(|f| f.path == crate::config::relative!("mpv.conf"));
         report.settings_ready = config::portable::ready(root)?;
         report.configuration_modified = config::modified(root)?;
         // Actual main-file mtime; never substitutes a cached save/inspection time.
         report.config_modified_at =
-            config::portable::modified_at(&root.join("portable_config/mpv.conf"));
+            config::portable::modified_at(&root.join(crate::config::relative!("mpv.conf")));
     }
     Ok(report)
 }
@@ -122,6 +151,20 @@ pub fn require_components(root: &Path) -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[cfg(target_os = "linux")]
+    #[test]
+    fn system_mpv_is_visible_without_mpvkit_installation() {
+        let root =
+            std::env::temp_dir().join(format!("mpvkit-system-status-{}", deploy::operation_id()));
+        let expected = mpv::inspect(&config::player_path(&root)).ok();
+        let report = status(&root).unwrap();
+        let player = report.components.iter().find(|c| c.id == "mpv").unwrap();
+        assert_eq!(player.ready, expected.is_some());
+        assert_eq!(player.version, expected.map(|p| p.version));
+        assert!(!report.player_ready && !report.components_ready && !report.settings_ready);
+        assert!(report.generation.is_none());
+        assert!(!root.exists());
+    }
     #[test]
     fn core_and_configuration_have_independent_health_and_real_mtime() {
         let root = std::env::temp_dir().join(format!("mpvkit-health-{}", deploy::operation_id()));
@@ -141,18 +184,26 @@ mod tests {
                 bytes: b"fixture".to_vec(),
             });
         }
-        deploy::execute(deploy::prepare_install(&root, files, false, Default::default()).unwrap())
-            .unwrap();
+        deploy::execute(
+            deploy::prepare_install(
+                &root,
+                files,
+                false,
+                std::collections::BTreeMap::from([("mpv".into(), "fixture".into())]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
         let core = status(&root).unwrap();
-        assert!(core.player_ready);
+        assert_eq!(core.player_ready, config::player_path(&root).is_file());
         assert!(!core.settings_ready);
-        assert!(!root.join("portable_config/mpv.conf").exists());
+        assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
         deploy::execute(config::prepare_portable(&root, Default::default(), false).unwrap())
             .unwrap();
         let configured = status(&root).unwrap();
         assert!(configured.settings_ready);
         assert!(configured.config_modified_at.is_some());
-        let path = root.join("portable_config/mpv.conf");
+        let path = root.join(crate::config::relative!("mpv.conf"));
         let mut bytes = std::fs::read(&path).unwrap();
         bytes.extend(
             b"
@@ -179,8 +230,11 @@ volume=20
         assert_eq!(status(&root).unwrap().config_modified_at, None);
         deploy::execute(config::prepare_portable(&root, Default::default(), false).unwrap())
             .unwrap();
-        std::fs::remove_file(root.join("mpv.exe")).unwrap();
-        assert!(config::prepare_portable(&root, Default::default(), false).is_err());
+        #[cfg(target_os = "windows")]
+        {
+            std::fs::remove_file(root.join("mpv.exe")).unwrap();
+            assert!(config::prepare_portable(&root, Default::default(), false).is_err());
+        }
         std::fs::remove_dir_all(root).unwrap();
     }
 }
@@ -233,7 +287,7 @@ pub fn files_only(files: deploy::DeploymentPlan) -> ChangePlan {
         retained: vec![],
     }
 }
-#[cfg(test)]
+#[cfg(all(test, target_os = "windows"))]
 pub fn prepare_configuration(
     root: &Path,
     settings: config::Settings,
@@ -289,7 +343,8 @@ pub fn prepare_uninstall(root: &Path) -> Result<ChangePlan> {
         .filter(|f| config::editable(&f.path) || f.path == ".mpvkit/settings.json")
         .map(|f| f.path.clone())
         .collect();
-    plan.retained.push("portable_config/watch_later/".into());
+    plan.retained
+        .push(crate::config::relative!("watch_later/").into());
     Ok(plan)
 }
 pub fn execute(plan: ChangePlan) -> Result<deploy::DeploymentStatus> {
@@ -340,8 +395,16 @@ mod transaction_tests {
                 bytes: b"fixture".to_vec(),
             });
         }
-        deploy::execute(deploy::prepare_install(root, files, false, Default::default()).unwrap())
-            .unwrap();
+        deploy::execute(
+            deploy::prepare_install(
+                root,
+                files,
+                false,
+                std::collections::BTreeMap::from([("mpv".into(), "fixture".into())]),
+            )
+            .unwrap(),
+        )
+        .unwrap();
     }
     #[test]
     fn draft_preview_is_read_only_and_apply_requires_components_and_fresh_files() {
@@ -376,7 +439,7 @@ mod transaction_tests {
         );
         let plan =
             prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint).unwrap();
-        std::fs::remove_file(root.join("portable_config/scripts/thumbfast.lua")).unwrap();
+        std::fs::remove_file(root.join(crate::config::relative!("scripts/thumbfast.lua"))).unwrap();
         assert!(execute(plan).is_err());
         assert_eq!(
             prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint)
@@ -385,7 +448,11 @@ mod transaction_tests {
                 .code,
             "components_required"
         );
-        std::fs::write(root.join("portable_config/input.conf"), "SPACE ignore\n").unwrap();
+        std::fs::write(
+            root.join(crate::config::relative!("input.conf")),
+            "SPACE ignore\n",
+        )
+        .unwrap();
         assert_eq!(
             prepare_draft(&root, settings, false, false, &preview.fingerprint)
                 .err()
@@ -396,21 +463,22 @@ mod transaction_tests {
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
+    #[cfg(target_os = "windows")]
     fn registration_failure_keeps_configuration_and_uninstall_failure_keeps_helper() {
         let root = std::env::temp_dir().join(format!("mpvkit-combined-{}", deploy::operation_id()));
         core(&root);
         let plan = prepare_configuration(&root, Default::default(), false).unwrap();
         assert_eq!(plan.preview().integration.unwrap().values.len(), 15);
-        assert!(!root.join("portable_config/mpv.conf").exists());
+        assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
         crate::platform::registry::FAIL_WRITE.with(|f| f.set(true));
         assert_eq!(execute(plan).err().unwrap().code, "integration_incomplete");
         assert!(status(&root).unwrap().settings_ready);
         assert!(!status(&root).unwrap().integration.registered);
-        let conf = deploy::read_bytes(&root.join("portable_config/mpv.conf")).unwrap();
+        let conf = deploy::read_bytes(&root.join(crate::config::relative!("mpv.conf"))).unwrap();
         execute(prepare_intent(&root, true).unwrap()).unwrap();
         assert!(status(&root).unwrap().integration.valid);
         assert_eq!(
-            deploy::read_bytes(&root.join("portable_config/mpv.conf")).unwrap(),
+            deploy::read_bytes(&root.join(crate::config::relative!("mpv.conf"))).unwrap(),
             conf
         );
         let removal = prepare_uninstall(&root).unwrap();
@@ -418,10 +486,10 @@ mod transaction_tests {
         assert!(execute(removal).is_err());
         assert!(root.join(".mpvkit/launcher/mpvkit.exe").exists());
         assert!(status(&root).unwrap().integration.valid);
-        std::fs::write(root.join("portable_config/private.txt"), "mine").unwrap();
-        std::fs::create_dir(root.join("portable_config/watch_later")).unwrap();
+        std::fs::write(root.join(crate::config::relative!("private.txt")), "mine").unwrap();
+        std::fs::create_dir(root.join(crate::config::relative!("watch_later"))).unwrap();
         std::fs::write(
-            root.join("portable_config/watch_later/position"),
+            root.join(crate::config::relative!("watch_later/position")),
             "start=10",
         )
         .unwrap();
@@ -431,15 +499,19 @@ mod transaction_tests {
         assert!(!root.join("mpv.exe").exists());
         assert!(!status(&root).unwrap().integration.registered);
         assert_eq!(
-            deploy::read_bytes(&root.join("portable_config/mpv.conf")).unwrap(),
+            deploy::read_bytes(&root.join(crate::config::relative!("mpv.conf"))).unwrap(),
             conf
         );
-        assert!(root.join("portable_config/private.txt").exists());
-        assert!(root.join("portable_config/watch_later/position").exists());
+        assert!(root.join(crate::config::relative!("private.txt")).exists());
+        assert!(
+            root.join(crate::config::relative!("watch_later/position"))
+                .exists()
+        );
         assert!(deploy::status(&root).unwrap().manifest.is_some());
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
+    #[cfg(target_os = "windows")]
     fn standalone_registration_rejects_a_modified_helper() {
         let root = std::env::temp_dir().join(format!("mpvkit-helper-{}", deploy::operation_id()));
         core(&root);
@@ -454,6 +526,7 @@ mod transaction_tests {
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
+    #[cfg(target_os = "windows")]
     fn stale_registration_preview_cannot_write_files_and_stale_uninstall_cannot_unregister() {
         let root =
             std::env::temp_dir().join(format!("mpvkit-stale-combined-{}", deploy::operation_id()));
@@ -468,7 +541,7 @@ mod transaction_tests {
             )
             .unwrap();
         assert!(execute(plan).is_err());
-        assert!(!root.join("portable_config/mpv.conf").exists());
+        assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
         registry
             .write("Software\\RegisteredApplications", "MpvKit", None)
             .unwrap();
