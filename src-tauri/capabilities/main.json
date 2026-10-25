@@ -3,5 +3,5 @@
   "identifier": "main",
   "description": "仅本地主管理窗口可调用显式注册的业务命令；不启用 shell 或文件系统插件。",
   "windows": ["main"],
-  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten"]
+  "permissions": ["core:event:allow-listen", "core:event:allow-unlisten", "core:window:allow-destroy"]
 }

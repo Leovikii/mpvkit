@@ -267,14 +267,34 @@ pub async fn read_settings() -> Result<crate::config::Settings> {
         .map_err(|_| AppError::new("worker_failed", "读取设置异常结束。", "config"))?
 }
 #[tauri::command]
+pub async fn preview_configuration(
+    settings: crate::config::Settings,
+    replace_manual: bool,
+) -> Result<crate::config::portable::ConfigurationPreview> {
+    let root = platform::app_root()?;
+    tauri::async_runtime::spawn_blocking(move || {
+        crate::config::portable::preview(&root, &settings, replace_manual)
+    })
+    .await
+    .map_err(|_| AppError::new("worker_failed", "配置预览异常结束。", "config"))?
+}
+#[tauri::command]
 pub async fn preview_settings(
     settings: crate::config::Settings,
-    replace_manual: Option<bool>,
+    replace_manual: bool,
+    integration_enabled: bool,
+    expected_fingerprint: String,
     state: State<'_, PendingDeployment>,
 ) -> Result<crate::setup::ChangePreview> {
     let root = platform::app_root()?;
     let plan = tauri::async_runtime::spawn_blocking(move || {
-        crate::setup::prepare_configuration(&root, settings, replace_manual.unwrap_or(false))
+        crate::setup::prepare_draft(
+            &root,
+            settings,
+            replace_manual,
+            integration_enabled,
+            &expected_fingerprint,
+        )
     })
     .await
     .map_err(|_| AppError::new("worker_failed", "设置预览异常结束。", "config"))??;

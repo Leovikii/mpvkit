@@ -87,6 +87,7 @@ fn main() {
             commands::export_diagnostics,
             commands::read_settings,
             commands::preview_settings,
+            commands::preview_configuration,
             commands::component_sources,
             commands::component_catalog,
             commands::cancel_component_download,

@@ -406,7 +406,21 @@ pub fn unpack(asset: &Asset, bytes: &[u8], cancel: &AtomicBool) -> Result<Vec<Pa
         }
     }
     check_cancel(cancel)?;
-    let required: &[&str] = match asset.id {
+    let required = required_paths(asset.id);
+    if required.is_empty() {
+        return Err(error("component_unknown", "未知组件。"));
+    }
+    if required
+        .iter()
+        .any(|name| !payloads.iter().any(|p| p.path == *name))
+    {
+        return Err(error("component_incomplete", "固定组件缺少必要文件。"));
+    }
+    Ok(payloads)
+}
+
+pub(crate) fn required_paths(id: &str) -> &'static [&'static str] {
+    match id {
         "mpv" => &[
             "mpv.exe",
             "d3dcompiler_43.dll",
@@ -420,15 +434,8 @@ pub fn unpack(asset: &Asset, bytes: &[u8], cancel: &AtomicBool) -> Result<Vec<Pa
         ],
         "thumbfast" => &["portable_config/scripts/thumbfast.lua"],
         "subtitle-font" => &["portable_config/fonts/LXGWWenKaiScreen.ttf"],
-        _ => return Err(error("component_unknown", "未知组件。")),
-    };
-    if required
-        .iter()
-        .any(|name| !payloads.iter().any(|p| p.path == *name))
-    {
-        return Err(error("component_incomplete", "固定组件缺少必要文件。"));
+        _ => &[],
     }
-    Ok(payloads)
 }
 
 #[cfg(test)]

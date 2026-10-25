@@ -54,6 +54,88 @@ pub fn editable(path: &str) -> bool {
             || name.starts_with("script-opts/") && name.ends_with(".conf")
     })
 }
+const PREVIEW_FILES: [&str; 3] = [
+    "portable_config/mpv.conf",
+    "portable_config/input.conf",
+    "portable_config/script-opts/thumbfast.conf",
+];
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigurationFile {
+    pub path: String,
+    pub before: String,
+    pub after: String,
+    pub modified_at: Option<u64>,
+    pub retained: bool,
+    pub exists: bool,
+}
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ConfigurationPreview {
+    pub fingerprint: String,
+    pub files: Vec<ConfigurationFile>,
+}
+pub fn modified_at(path: &Path) -> Option<u64> {
+    std::fs::metadata(path)
+        .ok()?
+        .modified()
+        .ok()?
+        .duration_since(std::time::UNIX_EPOCH)
+        .ok()
+        .map(|d| d.as_millis() as u64)
+}
+pub fn fingerprint(root: &Path) -> Result<String> {
+    let mut bytes = serde_json::to_vec(&read_state(root)?.settings)
+        .map_err(|_| error("settings_encode", "无法读取设置。"))?;
+    for name in PREVIEW_FILES {
+        bytes.extend_from_slice(
+            serde_json::to_string(&deploy::file_hash(&root.join(name))?)
+                .map_err(|_| error("settings_encode", "无法读取配置。"))?
+                .as_bytes(),
+        );
+    }
+    Ok(deploy::hash_bytes(&bytes))
+}
+// Read-only rendering uses exactly the same merger as the deployment plan.
+pub fn preview(root: &Path, settings: &Settings, replace: bool) -> Result<ConfigurationPreview> {
+    let fingerprint = fingerprint(root)?;
+    let payloads = generate_inner(root, &player_path(root), settings, replace, false)?;
+    let manifest = deploy::status(root)?.manifest;
+    let mut files = Vec::new();
+    for name in PREVIEW_FILES {
+        let path = root.join(name);
+        let exists = deploy::file_hash(&path)?.is_some();
+        if exists
+            && !manifest
+                .as_ref()
+                .is_some_and(|m| m.files.iter().any(|f| f.path == name))
+        {
+            return Err(error(
+                "file_conflict",
+                "配置文件已存在且未受管理，未自动覆盖。",
+            ));
+        }
+        let before = if exists {
+            text(&deploy::read_bytes(&path)?)?
+        } else {
+            String::new()
+        };
+        let after = text(&payloads.iter().find(|p| p.path == name).unwrap().bytes)?;
+        files.push(ConfigurationFile {
+            path: name.into(),
+            retained: exists && before == after,
+            exists,
+            before,
+            after,
+            modified_at: modified_at(&path),
+        });
+    }
+    if fingerprint != self::fingerprint(root)? {
+        return Err(error("stale_preview", "配置已变化，请重新预览。"));
+    }
+    Ok(ConfigurationPreview { fingerprint, files })
+}
 fn text(bytes: &[u8]) -> Result<String> {
     if bytes.len() > 1024 * 1024 {
         return Err(error("config_limit", "配置过大，未自动修改。"));
@@ -285,31 +367,53 @@ pub fn prepare_portable(
     settings: Settings,
     replace: bool,
 ) -> Result<deploy::DeploymentPlan> {
-    prepare_portable_mode(root, settings, replace, false)
+    prepare_portable_mode(root, settings, replace, false, None)
 }
 pub fn reset(root: &Path) -> Result<deploy::DeploymentPlan> {
-    prepare_portable_mode(root, read(root)?, true, true)
+    prepare_portable_mode(root, read(root)?, true, true, None)
+}
+pub fn prepare_draft(
+    root: &Path,
+    settings: Settings,
+    replace: bool,
+    integration_enabled: bool,
+) -> Result<deploy::DeploymentPlan> {
+    prepare_portable_mode(root, settings, replace, false, Some(integration_enabled))
 }
 fn prepare_portable_mode(
     root: &Path,
     settings: Settings,
     replace: bool,
     reset: bool,
+    integration_enabled: Option<bool>,
 ) -> Result<deploy::DeploymentPlan> {
     crate::setup::require_components(root)?;
     settings.validate()?;
     let m = deploy::status(root)?
         .manifest
         .ok_or_else(|| error("not_installed", "请先安装播放器。"))?;
-    let watched = [
+    let mut watched = vec![
         root.join("portable_config/mpv.conf"),
         root.join(".mpvkit/settings.json"),
     ];
+    // Protect retained components and configuration too, including unchanged files.
+    watched.extend(m.files.iter().map(|f| root.join(&f.path)));
     let hashes = watched
         .iter()
         .map(|p| deploy::file_hash(p))
         .collect::<Result<Vec<_>>>()?;
     let mut files = generate_inner(root, &player_path(root), &settings, replace, reset)?;
+    if let Some(enabled) = integration_enabled {
+        let payload = files
+            .iter_mut()
+            .find(|p| p.path == ".mpvkit/settings.json")
+            .unwrap();
+        let mut state: State = serde_json::from_slice(&payload.bytes)
+            .map_err(|_| error("settings_invalid", "设置记录无效。"))?;
+        state.integration_enabled = enabled;
+        payload.bytes = serde_json::to_vec_pretty(&state)
+            .map_err(|_| error("settings_encode", "无法保存设置。"))?;
+    }
     for p in &files {
         if !m.files.iter().any(|f| f.path == p.path)
             && deploy::file_hash(&root.join(&p.path))?.is_some()
@@ -372,14 +476,14 @@ mod tests {
             path: "mpv.exe".into(),
             bytes: b"fixture".to_vec(),
         });
-        for p in [
-            "scripts/uosc/main.lua",
-            "scripts/thumbfast.lua",
-            "fonts/LXGWWenKaiScreen.ttf",
-        ] {
+        for p in crate::components::ASSETS
+            .iter()
+            .flat_map(|a| crate::components::required_paths(a.id))
+            .filter(|p| **p != "mpv.exe")
+        {
             files.push(Payload {
-                path: format!("portable_config/{p}"),
-                bytes: b"-- fixture".to_vec(),
+                path: (*p).into(),
+                bytes: b"fixture".to_vec(),
             });
         }
         deploy::execute(deploy::prepare_install(root, files, false, Default::default()).unwrap())

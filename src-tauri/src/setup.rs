@@ -70,31 +70,25 @@ pub fn status(root: &Path) -> Result<Report> {
             }
         }
         report.player_ready = mpv::managed_executable(root, &m).is_ok();
-        for (id, required) in [
-            ("mpv", "mpv.exe"),
-            ("uosc", "portable_config/scripts/uosc/main.lua"),
-            ("thumbfast", "portable_config/scripts/thumbfast.lua"),
-            (
-                "subtitle-font",
-                "portable_config/fonts/LXGWWenKaiScreen.ttf",
-            ),
-        ] {
+        for id in ["mpv", "uosc", "thumbfast", "subtitle-font"] {
             let issues: Vec<_> = report
                 .issues
                 .iter()
                 .filter(|p| match id {
                     "mpv" => p.as_str() == "mpv.exe" || p.as_str() == "d3dcompiler_43.dll",
                     "uosc" => p.contains("uosc"),
-                    "thumbfast" => p.contains("thumbfast"),
+                    "thumbfast" => p.as_str() == "portable_config/scripts/thumbfast.lua",
                     _ => p.ends_with("fonts/LXGWWenKaiScreen.ttf"),
                 })
                 .cloned()
                 .collect();
-            let ready = if id == "mpv" {
-                report.player_ready
-            } else {
-                m.files.iter().any(|p| p.path == required) && issues.is_empty()
-            };
+            let ready = issues.is_empty()
+                && (id != "mpv" || report.player_ready)
+                && crate::components::required_paths(id)
+                    .iter()
+                    .all(|required| {
+                        m.files.iter().any(|f| f.path == *required) && root.join(required).is_file()
+                    });
             report.components.push(ComponentHealth {
                 id: id.into(),
                 version: m.components.get(id).cloned(),
@@ -108,27 +102,20 @@ pub fn status(root: &Path) -> Result<Report> {
         report.settings_ready = config::portable::ready(root)?;
         report.configuration_modified = config::modified(root)?;
         // Actual main-file mtime; never substitutes a cached save/inspection time.
-        report.config_modified_at = std::fs::metadata(root.join("portable_config/mpv.conf"))
-            .ok()
-            .and_then(|m| m.modified().ok())
-            .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
-            .map(|d| d.as_millis() as u64);
+        report.config_modified_at =
+            config::portable::modified_at(&root.join("portable_config/mpv.conf"));
     }
     Ok(report)
 }
 pub fn require_components(root: &Path) -> Result<()> {
-    let deployment = deploy::status(root)?;
-    if deployment.recovery_required || root.join(".mpvkit/association-pending.json").exists() {
+    let report = status(root)?;
+    if report.recovery_required || !report.components_ready {
         return Err(AppError::new(
             "components_required",
             "请先安装或修复播放器。",
             "setup",
         ));
     }
-    let manifest = deployment
-        .manifest
-        .ok_or_else(|| AppError::new("components_required", "请先安装播放器。", "setup"))?;
-    mpv::managed_executable(root, &manifest)?;
     Ok(())
 }
 
@@ -140,10 +127,20 @@ mod tests {
         let root = std::env::temp_dir().join(format!("mpvkit-health-{}", deploy::operation_id()));
         assert!(!status(&root).unwrap().player_ready);
         assert!(!root.exists());
-        let files = vec![deploy::Payload {
+        let mut files = vec![deploy::Payload {
             path: "mpv.exe".into(),
             bytes: b"fixture".to_vec(),
         }];
+        for name in crate::components::ASSETS
+            .iter()
+            .flat_map(|a| crate::components::required_paths(a.id))
+            .filter(|p| **p != "mpv.exe")
+        {
+            files.push(deploy::Payload {
+                path: (*name).into(),
+                bytes: b"fixture".to_vec(),
+            });
+        }
         deploy::execute(deploy::prepare_install(&root, files, false, Default::default()).unwrap())
             .unwrap();
         let core = status(&root).unwrap();
@@ -236,6 +233,7 @@ pub fn files_only(files: deploy::DeploymentPlan) -> ChangePlan {
         retained: vec![],
     }
 }
+#[cfg(test)]
 pub fn prepare_configuration(
     root: &Path,
     settings: config::Settings,
@@ -247,12 +245,36 @@ pub fn prepare_configuration(
         config::portable::read_state(root)?.integration_enabled,
     )
 }
+pub fn prepare_draft(
+    root: &Path,
+    settings: config::Settings,
+    replace: bool,
+    enabled: bool,
+    expected: &str,
+) -> Result<ChangePlan> {
+    if config::portable::fingerprint(root)? != expected {
+        return Err(AppError::new(
+            "stale_preview",
+            "配置在预览后改变，请重新预览。",
+            "config",
+        ));
+    }
+    let files = config::portable::prepare_draft(root, settings, replace, enabled)?;
+    if config::portable::fingerprint(root)? != expected {
+        return Err(AppError::new(
+            "stale_preview",
+            "配置在预览后改变，请重新预览。",
+            "config",
+        ));
+    }
+    with_integration(files, enabled)
+}
 pub fn prepare_intent(root: &Path, enabled: bool) -> Result<ChangePlan> {
     let files = config::portable::prepare_intent(root, enabled)?;
-    if config::portable::ready(root)?
-        && mpv::managed_executable(root, &deploy::status(root)?.manifest.unwrap()).is_ok()
-        || !enabled
-    {
+    if config::portable::ready(root)? || !enabled {
+        if enabled {
+            require_components(root)?;
+        }
         with_integration(files, enabled)
     } else {
         Ok(files_only(files))
@@ -286,7 +308,7 @@ pub fn execute(plan: ChangePlan) -> Result<deploy::DeploymentStatus> {
             integration::execute(registration).map_err(|_| {
                 AppError::new(
                     "integration_incomplete",
-                    "文件已保存，系统打开方式未完成。请在播放器管理页重试或恢复。",
+                    "文件已保存，系统打开方式未完成。请重试登记或恢复。",
                     "integration",
                 )
             })?;
@@ -308,8 +330,70 @@ mod transaction_tests {
             path: ".mpvkit/settings.json".into(),
             bytes: serde_json::to_vec(&config::portable::State::default()).unwrap(),
         });
+        for name in crate::components::ASSETS
+            .iter()
+            .flat_map(|a| crate::components::required_paths(a.id))
+            .filter(|p| **p != "mpv.exe")
+        {
+            files.push(deploy::Payload {
+                path: (*name).into(),
+                bytes: b"fixture".to_vec(),
+            });
+        }
         deploy::execute(deploy::prepare_install(root, files, false, Default::default()).unwrap())
             .unwrap();
+    }
+    #[test]
+    fn draft_preview_is_read_only_and_apply_requires_components_and_fresh_files() {
+        let root = std::env::temp_dir().join(format!("mpvkit-draft-{}", deploy::operation_id()));
+        let settings = config::Settings::default();
+        let preview = config::portable::preview(&root, &settings, false).unwrap();
+        assert_eq!(preview.files.len(), 3);
+        assert!(
+            preview
+                .files
+                .iter()
+                .all(|f| f.before.is_empty() && f.modified_at.is_none())
+        );
+        assert!(!root.exists());
+        assert_eq!(
+            prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint)
+                .err()
+                .unwrap()
+                .code,
+            "components_required"
+        );
+        core(&root);
+        let plan =
+            prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint).unwrap();
+        execute(plan).unwrap();
+        let preview = config::portable::preview(&root, &settings, false).unwrap();
+        assert!(
+            preview
+                .files
+                .iter()
+                .all(|f| f.retained && f.modified_at.is_some())
+        );
+        let plan =
+            prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint).unwrap();
+        std::fs::remove_file(root.join("portable_config/scripts/thumbfast.lua")).unwrap();
+        assert!(execute(plan).is_err());
+        assert_eq!(
+            prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint)
+                .err()
+                .unwrap()
+                .code,
+            "components_required"
+        );
+        std::fs::write(root.join("portable_config/input.conf"), "SPACE ignore\n").unwrap();
+        assert_eq!(
+            prepare_draft(&root, settings, false, false, &preview.fingerprint)
+                .err()
+                .unwrap()
+                .code,
+            "stale_preview"
+        );
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn registration_failure_keeps_configuration_and_uninstall_failure_keeps_helper() {
