@@ -74,10 +74,13 @@ try {
     await page.getByText('配置已保存。',{exact:true}).waitFor();
   }
   await scenario('conflict');await button('保存配置').click();
-  assert(await dialog.getByRole('button',{name:'保存配置',exact:true}).isDisabled());
-  await dialog.getByRole('checkbox').check();assert(await dialog.getByRole('button',{name:'保存配置',exact:true}).isEnabled());
+  assert(await dialog.getByRole('button',{name:'保存配置',exact:true}).isEnabled());
+  assert.equal(await dialog.getByRole('checkbox').count(),0);
+  assert.match(await dialog.innerText(),/不保留历史备份/);
   for(let i=0;i<10;i++){await page.keyboard.press('Tab');assert(await dialog.evaluate(e=>e.contains(document.activeElement)));}
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
+  await scenario('ready'); await button('重置配置').click(); assert.match(await dialog.innerText(),/覆盖手改内容/); await page.keyboard.press('Escape');
+  await button('卸载 MPV 核心').click(); await dialog.getByRole('button',{name:'卸载 MPV 核心',exact:true}).click(); assert.equal(await button('卸载 MPV 核心').count(),0);
   await scenario('core');await button('English').click();
   for(const size of [{width:1200,height:800},{width:900,height:700},{width:640,height:600}]) {
     await page.setViewportSize(size);

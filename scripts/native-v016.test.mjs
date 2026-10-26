@@ -58,15 +58,28 @@ test("native WinGet core install, failures, retry, upgrade and ownership boundar
     const plan=await ipc(p,"preview_core",{action:"upgrade"});await fs.appendFile(core,Buffer.from([0]));
     await assert.rejects(ipc(p,"apply_core",{previewId:plan.id}),e=>e.code==="stale_preview");
     await fs.copyFile(path.join(global,"test-tools/core-source/mpv.exe"),core);
-    await fs.writeFile(mode,"no-update");await advanced(p);await p.getByRole("button",{name:"Player components",exact:true}).click();await p.getByRole("button",{name:"Install / update MPV core",exact:true}).click();await confirm(p);await settled(p);
+    await fs.writeFile(mode,"no-update");await p.getByRole("button",{name:"Install / update MPV core",exact:true}).click();await confirm(p);await settled(p);
     assert.equal(hash(await fs.readFile(core)),coreHash);
     const before=await ipc(p,"preview_configuration",{settings:await ipc(p,"read_settings"),replaceManual:false});
     await ipc(p,"apply_deployment",{previewId:(await ipc(p,"preview_settings",{settings:await ipc(p,"read_settings"),integrationEnabled:false,expectedFingerprint:before.fingerprint})).id});
     const conf=await fs.readFile(path.join(root,"mpv.conf"));
     await ipc(p,"apply_deployment",{previewId:(await ipc(p,"preview_maintenance",{action:"uninstall"})).id});
-    assert.equal(hash(await fs.readFile(core)),coreHash);assert.deepEqual(await fs.readFile(path.join(root,"mpv.conf")),conf);
+    assert.equal(hash(await fs.readFile(core)),coreHash);assert(!await exists(path.join(root,"mpv.conf")));
+    await fs.writeFile(path.join(root,"user.txt"),"keep");
+    for(const [value,expected] of [["cancel","winget_failed"],["failed","winget_failed"],["false-success","mpv_uninstall_incomplete"]]) {
+      await fs.writeFile(mode,"");const removal=await ipc(p,"preview_core",{action:"uninstall"});
+      await fs.writeFile(mode,value);await assert.rejects(ipc(p,"apply_core",{previewId:removal.id}),e=>e.code===expected);
+      assert.equal(hash(await fs.readFile(core)),coreHash);
+    }
+    await fs.writeFile(mode,""); await p.getByRole("button",{name:"Refresh",exact:true}).click();await settled(p);
+    await p.getByRole("button",{name:"Uninstall core",exact:true}).click();
+    await p.getByRole("dialog").getByRole("button",{name:"Cancel",exact:true}).click();assert(await exists(core));
+    await p.getByRole("button",{name:"Uninstall core",exact:true}).click();await confirm(p);await settled(p);
+    assert(!await exists(core));assert.equal(await fs.readFile(path.join(root,"user.txt"),"utf8"),"keep");
+    assert.equal((await ipc(p,"setup_status")).playerReady,false);
+    for(const name of ["staging","recovery","previous.json","backups","receipts","install.json"])assert(!await exists(path.join(root,".mpvkit",name)),name);
     const calls=await fs.readFile(path.join(global,"test-tools/calls.txt"),"utf8");
-    for(const line of calls.trim().split(/\r?\n/)){assert(line.includes("--id|shinchiro.mpv|--exact|--source|winget"));assert(!line.includes("uninstall"));}
+    for(const line of calls.trim().split(/\r?\n/)){assert(line.includes("--id|shinchiro.mpv|--exact|--source|winget"));if(line.startsWith("uninstall|"))assert(!line.includes("--accept-package-agreements"));}
     assert.deepEqual(session.errors,[]);await fs.writeFile(path.join(artifacts,"result.json"),JSON.stringify({passed:true,root,coreHash,calls: calls.split(/\r?\n/),checks:["missing manager","source failure","bounded output","source timeout","cancel","elevation refused","failed exit","false success","preview cancel","install and enhancements","stale preview","upgrade no update","uninstall retains system core"]},null,2));
   } finally {if(session)await session.stop();console.log("WinGet evidence: "+artifacts);}
 });
@@ -151,8 +164,7 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     plan=await ipc(p,"preview_settings",{settings});await fs.appendFile(conf,"\n# hand edit\n");
     await assert.rejects(ipc(p,"apply_deployment",{previewId:plan.id}),e=>e.code==="stale_preview");
     plan=await ipc(p,"preview_settings",{settings});await ipc(p,"apply_deployment",{previewId:plan.id});assert.match(await fs.readFile(conf,"utf8"),/# hand edit/);
-    const reset=await ipc(p,"preview_maintenance",{action:"reset-config"});await ipc(p,"apply_deployment",{previewId:reset.id});assert.match(await fs.readFile(conf,"utf8"),/# hand edit/);
-    const restore=await ipc(p,"preview_maintenance",{action:"restore"});await ipc(p,"apply_deployment",{previewId:restore.id});assert.match(await fs.readFile(conf,"utf8"),/# hand edit/);
+    const reset=await ipc(p,"preview_maintenance",{action:"reset-config"});await ipc(p,"apply_deployment",{previewId:reset.id});assert.doesNotMatch(await fs.readFile(conf,"utf8"),/# hand edit/);
     // Introspection is appended only to this private test copy, never the installed managed script.
     const config=path.join(sandbox,"test-config");await fs.cp(original,config,{recursive:true});
     await fs.appendFile(path.join(config,"scripts/uosc/main.lua"),`\nlocal pause_events = {}
@@ -223,7 +235,7 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     await call(["set_property","playlist-pos",0]);await wait(async()=>await get("playlist-pos")===0&&typeof await get("time-pos")==="number");
     await call(["seek",2.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")!==0,"shuffle advances at EOF");assert.deepEqual((await get("playlist")).map(f=>f.filename),paths);await call(["set_property","pause",true]);
     await call(["script-message-to","mpvkit","playback-mode","sequential"],["set_property","playlist-pos",2],["set_property","pause",false]);await wait(async()=>await get("eof-reached")&&await get("pause"),"sequential keeps last frame");
-    await call(["script-message-to","mpvkit","playback-mode","playlist"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")===0,"playlist wraps at EOF");await call(["set_property","pause",true]);
+    await call(["script-message-to","mpvkit","playback-mode","playlist"],["seek",2.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")===0,"playlist wraps at EOF");await call(["set_property","pause",true]);
     await call(["script-message-to","mpvkit","playback-mode","file"],["seek",2.8,"absolute+exact"],["set_property","pause",false]);await sleep(700);assert.equal(await get("playlist-pos"),0);assert(await get("time-pos")<2);await call(["set_property","pause",true]);
     await call(["script-message-to","mpvkit","playback-mode","sequential"],["seek",1,"absolute+exact"]);
     await call(["script-message-to","mpvkit","speed-menu"]);await wait(async()=>(await inspect()).menu?.type==="mpvkit-speed","speed menu opened");data=await inspect();assert.equal(data.menu.type,"mpvkit-speed");assert.equal(data.menu.items.length,6);assert.match(data.menu.items[2].hint,/Current/);
@@ -412,7 +424,7 @@ async function ipc(page,command,args={}) {
   }
   return rawIpc(page,command,args);
 }
-async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Save configuration|Save configuration|Apply changes|Clean cache|Reset configuration|Undo last change|Remove enhancements|Install \/ update with WinGet)$/,exact:true}).click();}
+async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Save configuration|Save configuration|Apply changes|Clean logs|Reset configuration|Uninstall core|Remove enhancements|Install \/ update with WinGet)$/,exact:true}).click();}
 async function settled(page) { await page.locator("main[aria-busy=false]").waitFor(); }
 async function english(page) {
   await page.getByRole("button",{name:/^(应用设置|App settings)$/}).click();
@@ -449,7 +461,7 @@ test("native v016 install, manual configuration, native profiles and unified sav
   await fs.writeFile(confPath,conf.replace('target-trc=auto','target-trc=pq'));
   await assert.rejects(ipc(p,'preview_settings',{settings}),e=>e.code==='config_manual_conflict');
   await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);await advanced(p);
-  await p.getByLabel('Replace manual edits to managed settings',{exact:true}).check();await p.getByRole('button',{name:'Save configuration',exact:true}).click();
+  assert.equal(await p.getByLabel('Replace manual edits to managed settings',{exact:true}).count(),0);await p.getByRole('button',{name:'Save configuration',exact:true}).click();
   await p.getByRole('dialog').getByRole('button',{name:'Before',exact:true}).click();
   await p.getByRole('dialog').getByText('Before',{exact:true}).waitFor();await p.screenshot({animations:"disabled",path:path.join(artifacts,'configuration-diff.png')});
   await p.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert((await fs.readFile(confPath,'utf8')).includes('target-trc=pq'));
@@ -483,7 +495,13 @@ test("native v016 install, manual configuration, native profiles and unified sav
   await assert.rejects(ipc(q,'preview_settings',{settings:await ipc(q,'read_settings')}),e=>e.code==='config_structure');
   const reset=await ipc(q,'preview_maintenance',{action:'reset-config'});assert.equal(reset.configurationDiffs[0].before,'volume=31\n');
   await ipc(q,'apply_deployment',{previewId:reset.id});assert((await fs.readFile(confPath,'utf8')).includes('# >>> MpvKit'));
-  const undo=await ipc(q,'preview_maintenance',{action:'restore'});await ipc(q,'apply_deployment',{previewId:undo.id});assert.equal(await fs.readFile(confPath,'utf8'),'volume=31\n');
+  await assert.rejects(ipc(q,'preview_maintenance',{action:'restore'}));
+  assert.equal((await ipc(q,'read_settings')).profile,'balanced');
+  await q.getByRole('button',{name:'Refresh',exact:true}).click();await settled(q);
+  await q.getByRole('button',{name:'Reset configuration',exact:true}).click();
+  assert.match(await q.getByRole('dialog').innerText(),/without historical backups/);
+  await confirm(q);await settled(q);await q.getByRole('dialog').waitFor({state:'hidden'});
+  assert.equal(await q.getByLabel('Quality',{exact:true}).inputValue(),'balanced');
   await fs.writeFile(confPath,prior);
   await q.screenshot({animations:"disabled",path:path.join(artifacts,'status.png')});assert.deepEqual(session.errors,[]);
   await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({sandbox,root,checks:['native install','isolated integration','direct config','manual edits','preview cancel','native profile','GUI-closed save','managed launch'],passed:true},null,2));
@@ -547,7 +565,7 @@ test("native v016 real playback: keys, menu, position-only resume and font", {ti
   run(ffmpeg,["-y","-v","error","-f","lavfi","-i","color=black:s=640x360:r=24:d=30","-f","lavfi","-i","anullsrc=r=8000:cl=mono","-t","30","-c:v","libx264","-preset","ultrafast","-c:a","pcm_s16le",media]);
   let session,playerId;const player=path.join(global,"system-mpv/mpv.exe"),pipe=String.raw`\\.\pipe\mpvkit-player-`+path.basename(sandbox);
   const call=async(...commands)=>probeMpv(pipe,commands);const get=async key=>(await call(["get_property",key]))[0];
-  async function waitFor(check){for(let i=0;i<80;i++){if(await check())return;await sleep(100);}assert.fail("player condition timed out");}
+  async function waitFor(check){for(let i=0;i<80;i++){try{if(await check())return;}catch{}await sleep(100);}assert.fail("player condition timed out");}
   async function launch(){const preview=await ipc(session.page,"preview_launch",{media});await ipc(session.page,"launch_mpv",{previewId:preview.id});playerId=await latestPlayer(root);await waitFor(async()=>{try{return await get("duration")>=29;}catch{return false;}});await sleep(500);}
   async function quit(){await call(["quit"]);for(let n=0;n<60;n++){try{await get("pid");}catch{playerId=null;return;}await sleep(100);}assert.fail("player did not quit");}
   try {
@@ -688,10 +706,11 @@ test("native pre-edit, combined save, timestamps, stale plans and responsive lay
   }
   await p.evaluate(()=>document.documentElement.style.fontSize='');
   // Uninstall keeps user files; drafts survive core loss and component-only reinstall.
+  await fs.appendFile(conf,'\n# manual file retained on uninstall\n');
   const bytes=await fs.readFile(conf);const watch=path.join(root,'watch_later');await fs.mkdir(watch,{recursive:true});await fs.writeFile(path.join(watch,'position'),'start=10');
   const removal=await ipc(p,'preview_maintenance',{action:'uninstall'});await ipc(p,'apply_deployment',{previewId:removal.id});
   await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);assert.deepEqual(await fs.readFile(conf),bytes);assert(await exists(path.join(watch,'position')));
-  await p.getByRole('button',{name:'Repair components only',exact:true}).click();await confirm(p);await dialog.locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);
+  await p.getByRole('button',{name:'Install components only',exact:true}).click();await confirm(p);await dialog.locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);
   assert.deepEqual(await fs.readFile(conf),bytes);assert.equal(await p.getByLabel('Quality',{exact:true}).inputValue(),'power-saving');
   await p.getByRole('button',{name:'Save configuration',exact:true}).click();await confirm(p);await settled(p);assert.equal((await ipc(p,'read_settings')).profile,'power-saving');
   await p.getByLabel('Quality',{exact:true}).selectOption('balanced');

@@ -78,6 +78,9 @@ pub fn check_capacity(root: &Path) -> Result<()> {
     Ok(())
 }
 pub fn prepare(root: &Path) -> Result<Plan> {
+    prepare_keep(root, KEEP)
+}
+fn prepare_keep(root: &Path, keep: usize) -> Result<Plan> {
     deploy::status(root)?;
     let mut candidates = Vec::new();
     let mut skipped = 0;
@@ -142,7 +145,7 @@ pub fn prepare(root: &Path) -> Result<Plan> {
         ));
     }
     candidates.sort_by_key(|v| std::cmp::Reverse(v.0));
-    let old: Vec<_> = candidates.into_iter().skip(KEEP).collect();
+    let old: Vec<_> = candidates.into_iter().skip(keep).collect();
     let preview = Preview {
         id: deploy::operation_id(),
         files: old.iter().map(|v| v.1.clone()).collect(),
@@ -158,6 +161,36 @@ pub fn prepare(root: &Path) -> Result<Plan> {
             .collect(),
         created: Instant::now(),
     })
+}
+// Reuse the same ownership, content and running-process checks for uninstall.
+pub(crate) fn uninstall_files(root: &Path) -> Result<Vec<(String, String, bool)>> {
+    let mut files = Vec::new();
+    for (log, hash, owner_hash) in prepare_keep(root, 0)?.hashes {
+        let relative = log
+            .strip_prefix(root)
+            .map_err(|_| error("logs_path", "日志路径越界。"))?
+            .to_string_lossy()
+            .replace('\\', "/");
+        files.push((relative, hash, true));
+        // The owner identifies only the generated log; retain it beside unknown files.
+        let directory = log.parent().expect("session parent");
+        let names = fs::read_dir(directory)
+            .map_err(|_| error("logs_unavailable", "会话目录不可读取。"))?
+            .collect::<std::io::Result<Vec<_>>>()
+            .map_err(|_| error("logs_unavailable", "会话目录不可读取。"))?;
+        let remove_owner = names.len() == 2
+            && names
+                .iter()
+                .all(|e| matches!(e.file_name().to_str(), Some("session.log" | "session.json")));
+        let owner = directory
+            .join("session.json")
+            .strip_prefix(root)
+            .expect("validated log parent")
+            .to_string_lossy()
+            .replace('\\', "/");
+        files.push((owner, owner_hash, remove_owner));
+    }
+    Ok(files)
 }
 pub fn execute(plan: Plan) -> Result<usize> {
     if plan.created.elapsed() > Duration::from_secs(300) {
@@ -272,6 +305,67 @@ mod tests {
             root.join(".mpvkit/cache/sessions/session-0/session.json")
                 .exists()
         );
+        fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn uninstall_cleans_all_inactive_owned_logs_in_one_transaction() {
+        let root =
+            std::env::temp_dir().join(format!("mpvkit-log-uninstall-{}", deploy::operation_id()));
+        deploy::execute(deploy::prepare_install(&root, vec![], false, Default::default()).unwrap())
+            .unwrap();
+        for (name, text) in [
+            ("idle", "phase=launch status=prepared\n".to_string()),
+            ("modified", "user changed\n".into()),
+            (
+                "active",
+                format!("phase=launch status=started pid={}\n", std::process::id()),
+            ),
+            ("unknown", "phase=launch status=prepared\n".into()),
+        ] {
+            let dir = root.join(".mpvkit/cache/sessions").join(name);
+            fs::create_dir_all(&dir).unwrap();
+            fs::write(
+                dir.join("session.json"),
+                format!(r#"{{"schemaVersion":1,"owner":"MpvKit","sessionId":"{name}"}}"#),
+            )
+            .unwrap();
+            fs::write(dir.join("session.log"), text).unwrap();
+            if name == "unknown" {
+                fs::write(dir.join("user.txt"), b"keep").unwrap();
+            }
+        }
+        let mut plan = deploy::prepare_uninstall(&root).unwrap();
+        plan.remove_generated_logs(uninstall_files(&root).unwrap())
+            .unwrap();
+        assert!(
+            plan.preview
+                .changes
+                .iter()
+                .any(|c| c.path.ends_with("idle/session.log"))
+        );
+        let owner = root.join(".mpvkit/cache/sessions/unknown/session.json");
+        let original = fs::read(&owner).unwrap();
+        fs::write(&owner, b"changed owner").unwrap();
+        assert_eq!(deploy::execute(plan).unwrap_err().code, "stale_preview");
+        assert!(owner.with_file_name("session.log").exists());
+        fs::write(owner, original).unwrap();
+        let mut plan = deploy::prepare_uninstall(&root).unwrap();
+        plan.remove_generated_logs(uninstall_files(&root).unwrap())
+            .unwrap();
+        deploy::execute(plan).unwrap();
+        let sessions = root.join(".mpvkit/cache/sessions");
+        assert!(!sessions.join("idle").exists());
+        assert!(sessions.join("modified/session.log").exists());
+        assert!(sessions.join("active/session.log").exists());
+        assert!(!sessions.join("unknown/session.log").exists());
+        assert_eq!(
+            fs::read(sessions.join("unknown/user.txt")).unwrap(),
+            b"keep"
+        );
+        assert!(sessions.join("unknown/session.json").exists());
+        for name in ["staging", "recovery", "pending.json"] {
+            assert!(!root.join(".mpvkit").join(name).exists());
+        }
         fs::remove_dir_all(root).unwrap();
     }
 }

@@ -117,6 +117,7 @@ pub fn preview(root: &Path, settings: &Settings, replace: bool) -> Result<Config
         let path = root.join(name);
         let exists = deploy::file_hash(&path)?.is_some();
         if exists
+            && !replace
             && !manifest
                 .as_ref()
                 .is_some_and(|m| m.files.iter().any(|f| f.path == name))
@@ -285,7 +286,8 @@ fn generate_inner(
         if p.path == crate::config::relative!("mpv.conf") {
             p.bytes = conf.as_bytes().to_vec();
         }
-        if existing.is_some()
+        if !reset
+            && existing.is_some()
             && editable(&p.path)
             && p.path != crate::config::relative!("mpv.conf")
             && deploy::file_hash(&root.join(&p.path))?.is_some()
@@ -379,7 +381,7 @@ pub fn prepare_portable(
     prepare_portable_mode(root, settings, replace, false, None)
 }
 pub fn reset(root: &Path) -> Result<deploy::DeploymentPlan> {
-    prepare_portable_mode(root, read(root)?, true, true, None)
+    prepare_portable_mode(root, Settings::default(), true, true, None)
 }
 pub fn prepare_draft(
     root: &Path,
@@ -426,7 +428,8 @@ fn prepare_portable_mode(
             .map_err(|_| error("settings_encode", "无法保存设置。"))?;
     }
     for p in &files {
-        if !m.files.iter().any(|f| f.path == p.path)
+        if !replace
+            && !m.files.iter().any(|f| f.path == p.path)
             && deploy::file_hash(&root.join(&p.path))?.is_some()
         {
             return Err(error(
@@ -460,23 +463,6 @@ pub fn prepare_intent(root: &Path, enabled: bool) -> Result<deploy::DeploymentPl
     let mut plan = deploy::prepare_install(root, files, false, m.components)?;
     plan.guard(state_path, state_hash);
     Ok(plan)
-}
-pub fn prepare_remove_player(root: &Path) -> Result<deploy::DeploymentPlan> {
-    let m = deploy::status(root)?
-        .manifest
-        .ok_or_else(|| error("not_installed", "播放器未安装。"))?;
-    let mut files = Vec::new();
-    for file in m.files {
-        if (editable(&file.path) || file.path == ".mpvkit/settings.json")
-            && deploy::file_hash(&root.join(&file.path))?.is_some()
-        {
-            files.push(Payload {
-                bytes: deploy::read_bytes(&root.join(&file.path))?,
-                path: file.path,
-            });
-        }
-    }
-    deploy::prepare_install(root, files, false, Default::default())
 }
 #[cfg(test)]
 mod tests {
@@ -571,22 +557,80 @@ mod tests {
         let reset_plan = reset(&root).unwrap();
         assert!(reset_plan.preview.conflicts.is_empty());
         assert_eq!(
-            reset_plan.preview.configuration_diffs[0].before,
+            reset_plan
+                .preview
+                .configuration_diffs
+                .iter()
+                .find(|d| d.path == crate::config::relative!("mpv.conf"))
+                .unwrap()
+                .before,
             "changed after preview"
         );
         deploy::execute(reset_plan).unwrap();
         assert!(std::fs::read_to_string(&path).unwrap().contains(BEGIN));
-        assert!(
-            modified(&root).unwrap(),
-            "retained input.conf still differs from defaults"
-        );
-        deploy::execute(deploy::prepare_restore(&root).unwrap()).unwrap();
-        assert_eq!(
-            std::fs::read_to_string(&path).unwrap(),
-            "changed after preview"
-        );
+        assert!(!modified(&root).unwrap());
+        assert_eq!(read(&root).unwrap(), Settings::default());
+        for name in [
+            "input.conf",
+            "script-opts/uosc.conf",
+            "script-opts/thumbfast.conf",
+        ] {
+            let expected = preview(&root, &Settings::default(), false).unwrap();
+            let file = expected.files.iter().find(|f| f.path == name).unwrap();
+            assert_eq!(
+                std::fs::read_to_string(root.join(name)).unwrap(),
+                file.after
+            );
+        }
         std::fs::remove_dir_all(root).unwrap();
     }
+    #[test]
+    fn unmanaged_configuration_requires_concrete_preview_and_fresh_approval() {
+        let root =
+            std::env::temp_dir().join(format!("mpvkit-reinstall-{}", deploy::operation_id()));
+        install(&root);
+        let manifest = deploy::status(&root).unwrap().manifest.unwrap();
+        let files = manifest
+            .files
+            .iter()
+            .filter(|f| !editable(&f.path))
+            .map(|f| Payload {
+                path: f.path.clone(),
+                bytes: deploy::read_bytes(&root.join(&f.path)).unwrap(),
+            })
+            .collect();
+        let path = root.join("mpv.conf");
+        std::fs::write(&path, "volume=11\n").unwrap();
+        deploy::execute(deploy::prepare_install(&root, files, false, manifest.components).unwrap())
+            .unwrap();
+        assert_eq!(
+            preview(&root, &Settings::default(), false)
+                .err()
+                .unwrap()
+                .code,
+            "file_conflict"
+        );
+        let shown = preview(&root, &Settings::default(), true).unwrap();
+        assert_eq!(
+            shown
+                .files
+                .iter()
+                .find(|f| f.path == "mpv.conf")
+                .unwrap()
+                .before,
+            "volume=11\n"
+        );
+        let pending = prepare_portable(&root, Settings::default(), true).unwrap();
+        std::fs::write(&path, "late edit\n").unwrap();
+        assert_eq!(deploy::execute(pending).unwrap_err().code, "stale_preview");
+        deploy::execute(prepare_portable(&root, Settings::default(), true).unwrap()).unwrap();
+        assert!(std::fs::read_to_string(path).unwrap().contains(BEGIN));
+        for name in ["recovery", "staging", "previous.json"] {
+            assert!(!root.join(".mpvkit").join(name).exists());
+        }
+        std::fs::remove_dir_all(root).unwrap();
+    }
+
     #[test]
     fn uosc_configuration_is_previewed_guarded_and_preserved() {
         let root = std::env::temp_dir().join(format!("mpvkit-uosc-{}", deploy::operation_id()));
@@ -611,7 +655,7 @@ mod tests {
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
-    fn unified_profile_saves_are_generation_safe_and_restore_as_one_transaction() {
+    fn unified_profile_saves_are_generation_safe_and_reset_to_defaults() {
         let root = std::env::temp_dir().join(format!("mpvkit-portable-{}", deploy::operation_id()));
         install(&root);
         let m = deploy::status(&root).unwrap().manifest.unwrap();
@@ -635,7 +679,7 @@ mod tests {
                 .is_err()
         );
         assert!(saved.revision > state.revision);
-        deploy::execute(deploy::prepare_restore(&root).unwrap()).unwrap();
+        deploy::execute(reset(&root).unwrap()).unwrap();
         assert_eq!(read(&root).unwrap().profile, Profile::Balanced);
         assert!(crate::setup::status(&root).unwrap().settings_ready);
         assert!(!root.join(".mpvkit/setup.json").exists());

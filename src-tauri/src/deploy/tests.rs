@@ -52,14 +52,10 @@ fn install_is_read_only_until_confirmed_idempotent_and_uninstall_preserves_unkno
         b"keep user",
     )
     .unwrap();
-    let previous = read_optional(&control(&root, "previous.json").unwrap()).unwrap();
     let repeat = plan(&root, "volume=40");
     assert!(repeat.preview.no_changes);
     execute(repeat).unwrap();
-    assert_eq!(
-        read_optional(&control(&root, "previous.json").unwrap()).unwrap(),
-        previous
-    );
+    assert_clean(&root);
     execute(prepare_uninstall(&root).unwrap()).unwrap();
     assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
     assert_eq!(
@@ -70,7 +66,7 @@ fn install_is_read_only_until_confirmed_idempotent_and_uninstall_preserves_unkno
 }
 
 #[test]
-fn unknown_file_requires_explicit_replace_and_original_is_restored() {
+fn unknown_file_requires_explicit_replace_without_history() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
     write_new(
@@ -93,14 +89,12 @@ fn unknown_file_requires_explicit_replace_and_original_is_restored() {
     .unwrap();
     execute(replacement).unwrap();
     execute(prepare_uninstall(&root).unwrap()).unwrap();
-    assert_eq!(
-        read(&root, crate::config::relative!("mpv.conf")),
-        "original"
-    );
+    assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
+    assert_clean(&root);
 }
 
 #[test]
-fn stale_file_manifest_previous_record_and_expired_plans_are_rejected() {
+fn stale_file_manifest_and_expired_plans_are_rejected() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
     let first = plan(&root, "managed");
@@ -118,14 +112,11 @@ fn stale_file_manifest_previous_record_and_expired_plans_are_rejected() {
     let mut expired = plan(&other, "four");
     expired.created = Instant::now() - Duration::from_secs(301);
     assert_eq!(execute(expired).unwrap_err().code, "stale_preview");
-    let stale = plan(&other, "four");
-    atomic_write(&control(&other, "previous.json").unwrap(), b"changed").unwrap();
-    assert_eq!(execute(stale).unwrap_err().code, "stale_preview");
     assert_eq!(read(&other, crate::config::relative!("mpv.conf")), "three");
 }
 
 #[test]
-fn modified_managed_files_block_update_restore_and_uninstall() {
+fn modified_managed_files_block_update_but_survive_uninstall() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
     install(&root, "one");
@@ -136,18 +127,9 @@ fn modified_managed_files_block_update_restore_and_uninstall() {
     )
     .unwrap();
     assert!(!plan(&root, "three").preview.conflicts.is_empty());
-    assert!(
-        !prepare_uninstall(&root)
-            .unwrap()
-            .preview
-            .conflicts
-            .is_empty()
-    );
-    assert!(!prepare_restore(&root).unwrap().preview.conflicts.is_empty());
-    assert_eq!(
-        execute(prepare_uninstall(&root).unwrap()).unwrap_err().code,
-        "file_conflict"
-    );
+    execute(prepare_uninstall(&root).unwrap()).unwrap();
+    assert!(status(&root).unwrap().manifest.is_none());
+    assert_clean(&root);
     assert_eq!(
         read(&root, crate::config::relative!("mpv.conf")),
         "user modification"
@@ -155,76 +137,25 @@ fn modified_managed_files_block_update_restore_and_uninstall() {
 }
 
 #[test]
-fn previous_success_can_be_restored_and_unknown_files_are_preserved() {
+fn corrupt_current_recovery_never_overwrites_files() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
-    let external = sandbox.0.join("mpv.exe");
-    write_new(&external, b"external player").unwrap();
-    let first = prepare_install(
-        &root,
-        vec![payload(crate::config::relative!("mpv.conf"), "one")],
-        false,
-        BTreeMap::new(),
-    )
-    .unwrap();
-    execute(first).unwrap();
-    let second = prepare_install(
-        &root,
-        vec![payload(crate::config::relative!("mpv.conf"), "two")],
-        false,
-        BTreeMap::new(),
-    )
-    .unwrap();
-    execute(second).unwrap();
-    execute(prepare_restore(&root).unwrap()).unwrap();
-    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "one");
-    execute(prepare_uninstall(&root).unwrap()).unwrap();
-    assert_eq!(fs::read(external).unwrap(), b"external player");
-}
-
-#[test]
-fn corrupt_original_or_previous_backup_never_replaces_current_files() {
-    let sandbox = Sandbox::new();
-    let root = sandbox.root();
-    write_new(
-        &root.join(crate::config::relative!("mpv.conf")),
-        b"original",
-    )
-    .unwrap();
-    execute(
-        prepare_install(
-            &root,
-            vec![payload(crate::config::relative!("mpv.conf"), "one")],
-            true,
-            BTreeMap::new(),
-        )
-        .unwrap(),
-    )
-    .unwrap();
-    let entry = status(&root).unwrap().manifest.unwrap().files.remove(0);
+    install(&root, "one");
+    let update = plan(&root, "two");
+    {
+        let _lock = acquire(&root).unwrap();
+        begin(&update).unwrap();
+        apply_change(&root, &update.journal, 0).unwrap();
+    }
     fs::write(
-        control(&root, &entry.original_backup.unwrap()).unwrap(),
-        b"corrupted",
-    )
-    .unwrap();
-    assert_eq!(
-        prepare_uninstall(&root).err().unwrap().code,
-        "backup_changed"
-    );
-    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "one");
-    install(&root, "two");
-    let journal: Journal = decode(
-        &read_optional(&control(&root, "previous.json").unwrap())
-            .unwrap()
-            .unwrap(),
-    )
-    .unwrap();
-    fs::write(
-        control(&root, journal.changes[0].backup.as_ref().unwrap()).unwrap(),
+        control(&root, update.journal.changes[0].backup.as_ref().unwrap()).unwrap(),
         b"corrupt",
     )
     .unwrap();
-    assert_eq!(prepare_restore(&root).err().unwrap().code, "backup_changed");
+    assert_eq!(
+        prepare_recovery(&root).err().unwrap().code,
+        "backup_changed"
+    );
     assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "two");
 }
 
@@ -236,7 +167,6 @@ fn occupied_file_rolls_back_prior_replacements_and_keeps_last_success() {
     let initial = vec![payload("a.conf", "old a"), payload("b.conf", "old b")];
     execute(prepare_install(&root, initial, false, BTreeMap::new()).unwrap()).unwrap();
     let manifest = read_optional(&control(&root, "install.json").unwrap()).unwrap();
-    let previous = read_optional(&control(&root, "previous.json").unwrap()).unwrap();
     let update = prepare_install(
         &root,
         vec![payload("a.conf", "new a"), payload("b.conf", "new b")],
@@ -256,20 +186,16 @@ fn occupied_file_rolls_back_prior_replacements_and_keeps_last_success() {
         read_optional(&control(&root, "install.json").unwrap()).unwrap(),
         manifest
     );
-    assert_eq!(
-        read_optional(&control(&root, "previous.json").unwrap()).unwrap(),
-        previous
-    );
+    assert_clean(&root);
     assert!(!status(&root).unwrap().recovery_required);
 }
 
 #[test]
-fn interruption_after_manifest_commit_restores_files_and_previous_success_journal() {
+fn interruption_before_completion_marker_restores_current_operation() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
     install(&root, "one");
     install(&root, "two");
-    let previous = read_optional(&control(&root, "previous.json").unwrap()).unwrap();
     let update = plan(&root, "three");
     {
         let _lock = acquire(&root).unwrap();
@@ -278,11 +204,6 @@ fn interruption_after_manifest_commit_restores_files_and_previous_success_journa
         set_content(
             &control(&root, "install.json").unwrap(),
             update.journal.new_manifest.as_deref().map(str::as_bytes),
-        )
-        .unwrap();
-        atomic_write(
-            &control(&root, "previous.json").unwrap(),
-            &serde_json::to_vec_pretty(&update.journal).unwrap(),
         )
         .unwrap();
         // Stop before removing pending.json, just as after process interruption.
@@ -294,12 +215,8 @@ fn interruption_after_manifest_commit_restores_files_and_previous_success_journa
     );
     recover(prepare_recovery(&root).unwrap()).unwrap();
     assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "two");
-    assert_eq!(
-        read_optional(&control(&root, "previous.json").unwrap()).unwrap(),
-        previous
-    );
-    execute(prepare_restore(&root).unwrap()).unwrap();
-    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "one");
+    assert_clean(&root);
+    assert_clean(&root);
 }
 
 #[test]
@@ -474,7 +391,7 @@ fn junction_target_cannot_redirect_deployment() {
 }
 
 #[test]
-fn configuration_replacement_checks_scripts_repairs_missing_files_and_restores_original() {
+fn configuration_replacement_checks_scripts_and_repairs_missing_files() {
     let sandbox = Sandbox::new();
     let root = sandbox.root();
     write_new(
@@ -535,10 +452,8 @@ fn configuration_replacement_checks_scripts_repairs_missing_files_and_restores_o
         "script"
     );
     execute(prepare_uninstall(&root).unwrap()).unwrap();
-    assert_eq!(
-        read(&root, crate::config::relative!("mpv.conf")),
-        "original"
-    );
+    assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
+    assert_clean(&root);
     assert_eq!(
         read(&root, crate::config::relative!("notes.txt")),
         "keep user"
@@ -664,7 +579,6 @@ fn partial_staging_backup_and_commit_writes_preserve_success_and_allow_recovery(
             install(&root, "first");
             install(&root, "last success");
             let old_manifest = read(&root, ".mpvkit/install.json");
-            let old_previous = read(&root, ".mpvkit/previous.json");
             let update = plan(&root, "new content");
             let id = &update.journal.id;
             let (directory, filename, skip, failures) = match phase {
@@ -675,7 +589,7 @@ fn partial_staging_backup_and_commit_writes_preserve_success_and_allow_recovery(
                     1,
                 ),
                 "backup" => (
-                    control(&root, &format!("backups/{id}")).unwrap(),
+                    control(&root, &format!("recovery/{id}")).unwrap(),
                     Some("0"),
                     0,
                     1,
@@ -693,11 +607,7 @@ fn partial_staging_backup_and_commit_writes_preserve_success_and_allow_recovery(
                 "{phase}"
             );
             assert_eq!(read(&root, ".mpvkit/install.json"), old_manifest, "{phase}");
-            assert_eq!(
-                read(&root, ".mpvkit/previous.json"),
-                old_previous,
-                "{phase}"
-            );
+
             if phase == "commit-and-rollback" {
                 assert_eq!(error.code, "recovery_required");
                 assert!(status(&root).unwrap().recovery_required);
@@ -706,8 +616,7 @@ fn partial_staging_backup_and_commit_writes_preserve_success_and_allow_recovery(
                 assert_eq!(error.code, "write_failed");
             }
             assert!(!status(&root).unwrap().recovery_required);
-            execute(prepare_restore(&root).unwrap()).unwrap();
-            assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "first");
+            assert_clean(&root);
         }
     }
 }
@@ -734,4 +643,78 @@ fn partial_owner_record_write_can_retry_without_taking_over_unknown_directories(
         assert_eq!(fs::read(marker).unwrap(), b"keep");
         assert!(unknown.join(CONTROL).is_dir());
     }
+}
+
+fn assert_clean(root: &Path) {
+    for name in [
+        "recovery",
+        "staging",
+        "pending.json",
+        "previous.json",
+        "backups",
+        "receipts",
+    ] {
+        assert!(
+            !root.join(CONTROL).join(name).exists(),
+            "scratch/history remains: {name}"
+        );
+    }
+}
+
+#[test]
+fn completed_cleanup_retries_and_preserves_unknown_or_modified_scratch() {
+    let sandbox = Sandbox::new();
+    let root = sandbox.root();
+    install(&root, "one");
+    let update = plan(&root, "two");
+    {
+        let _lock = acquire(&root).unwrap();
+        begin(&update).unwrap();
+        apply_change(&root, &update.journal, 0).unwrap();
+        set_content(
+            &control(&root, "install.json").unwrap(),
+            update.journal.new_manifest.as_deref().map(str::as_bytes),
+        )
+        .unwrap();
+        let mut finished = update.journal.clone();
+        finished.finished = true;
+        atomic_write(
+            &control(&root, "pending.json").unwrap(),
+            &serde_json::to_vec(&finished).unwrap(),
+        )
+        .unwrap();
+    }
+    let staged = control(&root, &format!("staging/{}/0", update.journal.id)).unwrap();
+    fs::write(&staged, b"changed").unwrap();
+    assert_eq!(status(&root).unwrap_err().code, "cleanup_changed");
+    assert_eq!(fs::read(&staged).unwrap(), b"changed");
+    assert_eq!(read(&root, crate::config::relative!("mpv.conf")), "two");
+    fs::write(&staged, b"two").unwrap();
+    let unknown = staged.with_file_name("user.txt");
+    fs::write(&unknown, b"keep").unwrap();
+    status(&root).unwrap();
+    assert!(!root.join(CONTROL).join("pending.json").exists());
+    assert_eq!(fs::read(unknown).unwrap(), b"keep");
+    assert!(!root.join(CONTROL).join("recovery").exists());
+}
+
+#[test]
+fn failed_first_install_prunes_only_empty_generated_ancestors() {
+    let sandbox = Sandbox::new();
+    let root = sandbox.root();
+    let update = prepare_install(
+        &root,
+        vec![payload("scripts/uosc/main.lua", "new")],
+        false,
+        BTreeMap::new(),
+    )
+    .unwrap();
+    {
+        let _lock = acquire(&root).unwrap();
+        begin(&update).unwrap();
+        apply_change(&root, &update.journal, 0).unwrap();
+    }
+    recover(prepare_recovery(&root).unwrap()).unwrap();
+    assert!(!root.join("scripts").exists());
+    assert_clean(&root);
 }

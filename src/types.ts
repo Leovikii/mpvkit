@@ -10,6 +10,6 @@ export type Progress = {component: string; phase: string; received: number; tota
 export type ConfigurationPreview = {fingerprint:string;files:{path:string;before:string;after:string;modifiedAt:number|null;retained:boolean;exists:boolean}[]};
 export type DraftRequest = {settings:Settings;replaceManual:boolean;integrationEnabled:boolean;expectedFingerprint:string};
 export type CorePreview = {id:string;action:string;package:string;source:string;executable:string;configDirectory:string;details:string};
-export type Preview = {kind:"core";data:CorePreview;continueInstall:boolean} | { kind: "install" | "playback" | "maintenance"; data: Deployment } | {kind:"configuration";data:ConfigurationPreview;readOnly:boolean} | { kind: "integration"; data: Registration } | { kind: "download"; data: null } | {kind: "logs" | "assets" | "diagnostics"; data: {id: string; [key: string]: unknown}};
+export type Preview = {kind:"core";data:CorePreview;continueInstall:boolean} | { kind: "install" | "playback" | "maintenance"; data: Deployment } | {kind:"configuration";data:ConfigurationPreview;readOnly:boolean} | { kind: "integration"; data: Registration } | { kind: "download"; data: null } | {kind: "logs" | "diagnostics"; data: {id: string; [key: string]: unknown}};
 export const defaultSettings: Settings = {schemaVersion: 3, profile: "balanced", overrides: {}, playback: {hdr:"auto",keepOpen:false,autoPlaylist:true}};
 export const defaultAppSettings: AppSettings = {schemaVersion:1,language:"system",theme:"system",accent:"system"};

@@ -66,9 +66,21 @@ fn managed_control_file(relative: &str) -> bool {
     relative == ".mpvkit/settings.json" || relative.starts_with(".mpvkit/launcher/")
 }
 
+fn generated_log(relative: &str) -> bool {
+    relative
+        .strip_prefix(".mpvkit/cache/sessions/")
+        .is_some_and(|tail| {
+            let parts: Vec<_> = tail.split('/').collect();
+            parts.len() == 2
+                && !parts[0].is_empty()
+                && matches!(parts[1], "session.log" | "session.json")
+        })
+}
+
 fn target(root: &Path, relative: &str) -> Result<PathBuf> {
     validate_relative(relative)?;
     if !managed_control_file(relative)
+        && !generated_log(relative)
         && relative
             .split('/')
             .next()
@@ -126,8 +138,6 @@ pub fn file_hash(path: &Path) -> Result<Option<String>> {
 pub struct OwnedFile {
     pub path: String,
     pub sha256: String,
-    pub original_backup: Option<String>,
-    pub original_sha256: Option<String>,
 }
 
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
@@ -149,7 +159,7 @@ struct Journal {
     id: String,
     old_manifest: Option<String>,
     new_manifest: Option<String>,
-    previous_before: Option<String>,
+    finished: bool,
     changes: Vec<Change>,
 }
 
@@ -191,7 +201,6 @@ pub struct DeploymentPlan {
     journal: Journal,
     payloads: Vec<Option<Vec<u8>>>,
     manifest_before: Option<String>,
-    previous_bytes: Option<String>,
     guards: Vec<(PathBuf, Option<String>)>,
 }
 
@@ -201,7 +210,6 @@ pub struct DeploymentStatus {
     pub root: PathBuf,
     pub manifest: Option<InstallManifest>,
     pub recovery_required: bool,
-    pub previous_available: bool,
 }
 
 fn control(root: &Path, name: &str) -> Result<PathBuf> {
@@ -294,11 +302,6 @@ fn validate_manifest(manifest: &InstallManifest) -> Result<()> {
         {
             return Err(error("invalid_state", "安装记录包含冲突路径或无效摘要。"));
         }
-        match (&entry.original_backup, &entry.original_sha256) {
-            (Some(path), Some(hash)) if valid_hash(hash) => validate_backup(path)?,
-            (None, None) => {}
-            _ => return Err(error("invalid_state", "原件备份缺少有效摘要。")),
-        }
     }
     Ok(())
 }
@@ -311,7 +314,7 @@ fn validate_backup(path: &str) -> Result<()> {
     validate_relative(path)?;
     let parts: Vec<_> = path.split('/').collect();
     if parts.len() != 3
-        || parts[0] != "backups"
+        || parts[0] != "recovery"
         || !parts[1].bytes().all(|c| c.is_ascii_hexdigit() || c == b'-')
         || parts[1].is_empty()
         || parts[2].parse::<usize>().is_err()
@@ -322,12 +325,21 @@ fn validate_backup(path: &str) -> Result<()> {
 }
 
 pub fn status(root: &Path) -> Result<DeploymentStatus> {
+    if let Some(text) = read_optional(&control(root, "pending.json")?)? {
+        let journal: Journal = decode(&text)?;
+        validate_journal(&journal)?;
+        if journal.finished {
+            let _lock = acquire(root)?;
+            if read_optional(&control(root, "pending.json")?)?.as_deref() == Some(&text) {
+                clean_transaction(root, &journal)?;
+            }
+        }
+    }
     let manifest = manifest_text(root)?.map(|s| decode(&s)).transpose()?;
     Ok(DeploymentStatus {
         root: root.into(),
         manifest,
         recovery_required: read_optional(&control(root, "pending.json")?)?.is_some(),
-        previous_available: read_optional(&control(root, "previous.json")?)?.is_some(),
     })
 }
 
@@ -365,6 +377,9 @@ pub fn prepare_install(
     let mut seen = BTreeSet::new();
     let mut total = 0u64;
     for payload in payloads {
+        if generated_log(&payload.path) {
+            return Err(error("reserved_path", "组件不能写入日志记录。"));
+        }
         let path = target(root, &payload.path)?;
         let key = payload.path.to_ascii_lowercase();
         if !seen.insert(key.clone()) {
@@ -388,18 +403,10 @@ pub fn prepare_install(
         }
         let backup = before
             .as_ref()
-            .map(|_| format!("backups/{id}/{}", changes.len()));
-        let original_backup = previous
-            .map(|e| e.original_backup.clone())
-            .unwrap_or_else(|| backup.clone());
-        let original_sha256 = previous
-            .map(|e| e.original_sha256.clone())
-            .unwrap_or_else(|| before.clone());
+            .map(|_| format!("recovery/{id}/{}", changes.len()));
         files.push(OwnedFile {
             path: payload.path.clone(),
             sha256: after.clone(),
-            original_backup,
-            original_sha256,
         });
         if before.as_deref() != Some(&after) || previous.is_none() {
             changes.push(Change {
@@ -411,38 +418,23 @@ pub fn prepare_install(
             data.push(Some(payload.bytes));
         }
     }
-    // A complete desired set: omitted managed files restore their original bytes.
+    // Omitted owned files are removed only when their recorded bytes still match.
+    // User modifications are left in place and lose ownership when uninstalling.
     for previous in owned
         .values()
         .filter(|f| !seen.contains(&f.path.to_ascii_lowercase()))
     {
         let before = file_hash(&target(root, &previous.path)?)?;
-        if before.is_none() && crate::config::editable(&previous.path) {
-            files.push((*previous).clone());
+        if before.is_none() || before.as_deref() != Some(&previous.sha256) {
             continue;
         }
-        if before.as_deref() != Some(&previous.sha256) {
-            conflicts.push(previous.path.clone());
-        }
-        let bytes = previous
-            .original_backup
-            .as_ref()
-            .map(|b| read_backup(root, b))
-            .transpose()?;
-        let after = bytes.as_ref().map(|b| hash_bytes(b));
-        if after != previous.original_sha256 {
-            return Err(error("backup_changed", "原件备份摘要不匹配。"));
-        }
-        let backup = before
-            .as_ref()
-            .map(|_| format!("backups/{id}/{}", changes.len()));
         changes.push(Change {
             path: previous.path.clone(),
+            backup: Some(format!("recovery/{id}/{}", changes.len())),
             before,
-            after,
-            backup,
+            after: None,
         });
-        data.push(bytes);
+        data.push(None);
     }
     files.sort_by(|a, b| a.path.cmp(&b.path));
     let manifest = InstallManifest {
@@ -469,7 +461,7 @@ pub fn prepare_install(
             changes,
             old_manifest: old_text,
             new_manifest: Some(new_text),
-            previous_before: None,
+            finished: false,
         },
         conflicts,
         data,
@@ -512,16 +504,11 @@ fn read_backup(root: &Path, relative: &str) -> Result<Vec<u8>> {
 
 fn make_plan(
     root: &Path,
-    mut journal: Journal,
+    journal: Journal,
     conflicts: Vec<String>,
     payloads: Vec<Option<Vec<u8>>>,
     no_changes: bool,
 ) -> Result<DeploymentPlan> {
-    let previous_bytes = read_optional(&control(root, "previous.json")?)?;
-    if let Some(text) = &previous_bytes {
-        validate_journal(&decode(text)?)?;
-    }
-    journal.previous_before = previous_bytes.as_ref().map(|s| hash_bytes(s.as_bytes()));
     let mut configuration_diffs = Vec::new();
     for (change, bytes) in journal.changes.iter().zip(&payloads) {
         if crate::config::editable(&change.path) {
@@ -559,7 +546,6 @@ fn make_plan(
         created: Instant::now(),
         journal,
         payloads,
-        previous_bytes,
         guards: Vec::new(),
     })
 }
@@ -716,9 +702,6 @@ fn validate_plan(plan: &DeploymentPlan, before_unregister: bool) -> Result<()> {
     if file_hash(&control(&plan.preview.root, "install.json")?)? != plan.manifest_before {
         return Err(error("stale_preview", "安装记录已变化，请重新预览。"));
     }
-    if file_hash(&control(&plan.preview.root, "previous.json")?)? != plan.journal.previous_before {
-        return Err(error("stale_preview", "上一成功记录已变化，请重新预览。"));
-    }
     for change in &plan.journal.changes {
         if file_hash(&target(&plan.preview.root, &change.path)?)? != change.before {
             return Err(error("stale_preview", "预览后目标文件已变化，请重新预览。"));
@@ -733,13 +716,6 @@ fn begin(plan: &DeploymentPlan) -> Result<()> {
         .map_err(|_| error("state_write", "无法生成恢复记录。"))?;
     // The durable journal precedes staging, backups, and all target mutations.
     atomic_write(&control(root, "pending.json")?, &bytes)?;
-    cleanup::record(root, &plan.journal)?;
-    if let Some(previous) = &plan.previous_bytes {
-        write_new(
-            &control(root, &format!("backups/{}/previous.json", plan.journal.id))?,
-            previous.as_bytes(),
-        )?;
-    }
     for (index, change) in plan.journal.changes.iter().enumerate() {
         if let Some(relative) = &change.backup {
             let source = target(root, &change.path)?;
@@ -786,6 +762,46 @@ fn apply_change(root: &Path, journal: &Journal, index: usize) -> Result<()> {
 }
 
 impl DeploymentPlan {
+    pub(crate) fn remove_generated_logs(
+        &mut self,
+        files: Vec<(String, String, bool)>,
+    ) -> Result<()> {
+        if self.journal.changes.len() + files.len() > MAX_FILES {
+            return Err(error("file_limit", "待清理文件过多，请先清理日志。"));
+        }
+        for (path, hash, remove) in files {
+            if !generated_log(&path)
+                || file_hash(&target(&self.preview.root, &path)?)?.as_ref() != Some(&hash)
+            {
+                return Err(error("stale_preview", "日志在预览时改变，请重试。"));
+            }
+            if !remove {
+                self.guard(target(&self.preview.root, &path)?, Some(hash));
+                continue;
+            }
+            let change = Change {
+                path,
+                before: Some(hash),
+                after: None,
+                backup: Some(format!(
+                    "recovery/{}/{}",
+                    self.journal.id,
+                    self.journal.changes.len()
+                )),
+            };
+            self.preview.changes.push(change.clone());
+            self.journal.changes.push(change);
+            self.payloads.push(None);
+        }
+        Ok(())
+    }
+
+    pub(crate) fn for_uninstall(mut self) -> Self {
+        self.journal.new_manifest = None;
+        self.preview.no_changes = self.journal.old_manifest.is_none();
+        self
+    }
+
     pub(crate) fn validate_before_integration(&self) -> Result<()> {
         validate_plan(self, true)
     }
@@ -835,15 +851,13 @@ pub fn execute(plan: DeploymentPlan) -> Result<DeploymentStatus> {
             &control(root, "install.json")?,
             plan.journal.new_manifest.as_deref().map(str::as_bytes),
         )?;
-        let bytes = serde_json::to_vec_pretty(&plan.journal)
-            .map_err(|_| error("state_write", "无法保留上一成功版本。"))?;
-        atomic_write(&control(root, "previous.json")?, &bytes)?;
-        fs::remove_file(control(root, "pending.json")?)
-            .map_err(|_| error("state_write", "完成记录无法落盘，请恢复确认。"))?;
-        status(root)
+        Ok(())
     })();
     match applied {
-        Ok(status) => Ok(status),
+        Ok(()) => {
+            complete_transaction(root, &plan.journal)?;
+            status(root)
+        }
         Err(original) => {
             if read_optional(&control(root, "pending.json")?)?.is_some()
                 && rollback(root, &plan.journal).is_err()
@@ -859,7 +873,9 @@ pub fn execute(plan: DeploymentPlan) -> Result<DeploymentStatus> {
 }
 
 fn validate_journal(journal: &Journal) -> Result<()> {
-    if journal.changes.len() > MAX_FILES
+    if journal.schema_version != 1
+        || journal.owner != OWNER
+        || journal.changes.len() > MAX_FILES
         || journal.id.is_empty()
         || !journal
             .id
@@ -878,7 +894,7 @@ fn validate_journal(journal: &Journal) -> Result<()> {
                 != change
                     .before
                     .as_ref()
-                    .map(|_| format!("backups/{}/{index}", journal.id))
+                    .map(|_| format!("recovery/{}/{index}", journal.id))
         {
             return Err(error("invalid_state", "恢复记录的路径或摘要无效。"));
         }
@@ -905,21 +921,6 @@ fn recovery_conflicts(root: &Path, journal: &Journal) -> Result<Vec<String>> {
             && Some(hash_bytes(&read_backup(root, relative)?)) != change.before
         {
             return Err(error("backup_changed", "备份摘要不匹配，已停止恢复。"));
-        }
-    }
-    let previous_path = control(root, "previous.json")?;
-    let current_previous = file_hash(&previous_path)?;
-    let new_previous = Some(hash_bytes(
-        &serde_json::to_vec_pretty(journal)
-            .map_err(|_| error("invalid_state", "恢复记录无法编码。"))?,
-    ));
-    if current_previous != journal.previous_before && current_previous != new_previous {
-        conflicts.push("上一成功记录".into());
-    }
-    if current_previous == new_previous && journal.previous_before.is_some() {
-        let backup = control(root, &format!("backups/{}/previous.json", journal.id))?;
-        if file_hash(&backup)? != journal.previous_before {
-            return Err(error("backup_changed", "上一成功记录的备份缺失或变化。"));
         }
     }
     let current = read_optional(&control(root, "install.json")?)?;
@@ -956,18 +957,55 @@ fn rollback(root: &Path, journal: &Journal) -> Result<()> {
         &control(root, "install.json")?,
         journal.old_manifest.as_deref().map(str::as_bytes),
     )?;
-    let previous_path = control(root, "previous.json")?;
-    if file_hash(&previous_path)? != journal.previous_before {
-        let backup = control(root, &format!("backups/{}/previous.json", journal.id))?;
-        let bytes = if journal.previous_before.is_some() {
-            read_optional(&backup)?
-        } else {
-            None
-        };
-        set_content(&previous_path, bytes.as_deref().map(str::as_bytes))?;
+    complete_transaction(root, journal)?;
+    Ok(())
+}
+
+fn complete_transaction(root: &Path, journal: &Journal) -> Result<()> {
+    let mut finished = journal.clone();
+    finished.finished = true;
+    let bytes = serde_json::to_vec_pretty(&finished)
+        .map_err(|_| error("state_write", "无法记录操作完成状态。"))?;
+    atomic_write(&control(root, "pending.json")?, &bytes)?;
+    clean_transaction(root, &finished)
+}
+
+fn prune_empty(root: &Path, path: &Path) {
+    let mut directory = path.parent();
+    while let Some(parent) = directory.filter(|p| *p != root && p.starts_with(root)) {
+        if platform::validate_local_path(parent).is_err() || fs::remove_dir(parent).is_err() {
+            break;
+        }
+        directory = parent.parent();
+    }
+}
+
+fn clean_transaction(root: &Path, journal: &Journal) -> Result<()> {
+    validate_journal(journal)?;
+    for (index, change) in journal.changes.iter().enumerate() {
+        for (name, expected) in [
+            (format!("recovery/{}/{index}", journal.id), &change.before),
+            (format!("staging/{}/{index}", journal.id), &change.after),
+        ] {
+            let path = control(root, &name)?;
+            if let Some(current) = file_hash(&path)? {
+                if Some(&current) != expected.as_ref() {
+                    return Err(error(
+                        "cleanup_changed",
+                        "事务临时文件被修改，已保留；请检查后重试。",
+                    ));
+                }
+                fs::remove_file(&path)
+                    .map_err(|_| error("cleanup_failed", "临时文件被占用，下次检查将重试清理。"))?;
+            }
+            prune_empty(root, &path);
+        }
+        if file_hash(&target(root, &change.path)?)?.is_none() {
+            prune_empty(root, &target(root, &change.path)?);
+        }
     }
     fs::remove_file(control(root, "pending.json")?)
-        .map_err(|_| error("state_write", "恢复完成但记录无法清理。"))?;
+        .map_err(|_| error("cleanup_failed", "操作完成记录无法清理，下次检查将重试。"))?;
     Ok(())
 }
 
@@ -985,6 +1023,12 @@ pub fn prepare_recovery(root: &Path) -> Result<RecoveryPlan> {
     let text = read_optional(&control(root, "pending.json")?)?
         .ok_or_else(|| error("nothing_to_recover", "没有待恢复操作。"))?;
     let journal: Journal = decode(&text)?;
+    if journal.finished {
+        return Err(error(
+            "cleanup_failed",
+            "操作已完成，请刷新以重试临时文件清理。",
+        ));
+    }
     let conflicts = recovery_conflicts(root, &journal)?;
     let current = journal
         .changes
@@ -1033,63 +1077,6 @@ pub fn recover(plan: RecoveryPlan) -> Result<DeploymentStatus> {
     }
     rollback(root, &plan.journal)?;
     status(root)
-}
-
-pub fn prepare_restore(root: &Path) -> Result<DeploymentPlan> {
-    let text = read_optional(&control(root, "previous.json")?)?
-        .ok_or_else(|| error("no_previous_install", "没有上一成功操作可恢复。"))?;
-    let previous: Journal = decode(&text)?;
-    validate_journal(&previous)?;
-    let current = manifest_text(root)?;
-    if current != previous.new_manifest || status(root)?.recovery_required {
-        return Err(error(
-            "restore_conflict",
-            "当前安装与上一成功记录不一致，请先处理恢复。",
-        ));
-    }
-    let id = operation_id();
-    let mut changes = vec![];
-    let mut data = vec![];
-    let mut conflicts = vec![];
-    for change in &previous.changes {
-        let before = file_hash(&target(root, &change.path)?)?;
-        if before != change.after {
-            conflicts.push(change.path.clone());
-        }
-        let bytes = change
-            .backup
-            .as_ref()
-            .map(|b| read_backup(root, b))
-            .transpose()?;
-        if bytes.as_ref().map(|b| hash_bytes(b)) != change.before {
-            return Err(error("backup_changed", "上一版本备份已变化。"));
-        }
-        let backup = before
-            .as_ref()
-            .map(|_| format!("backups/{id}/{}", changes.len()));
-        changes.push(Change {
-            path: change.path.clone(),
-            before,
-            after: change.before.clone(),
-            backup,
-        });
-        data.push(bytes);
-    }
-    make_plan(
-        root,
-        Journal {
-            schema_version: 1,
-            owner: OWNER.into(),
-            id,
-            changes,
-            old_manifest: current,
-            new_manifest: previous.old_manifest,
-            previous_before: None,
-        },
-        conflicts,
-        data,
-        false,
-    )
 }
 
 #[cfg(test)]
@@ -1149,5 +1136,3 @@ pub(crate) fn script_conflicts(root: &Path, manifest: &InstallManifest) -> Resul
     }
     Ok(conflicts)
 }
-
-pub mod cleanup;

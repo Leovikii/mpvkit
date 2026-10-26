@@ -343,14 +343,19 @@ pub fn prepare_intent(root: &Path, enabled: bool) -> Result<ChangePlan> {
     }
 }
 pub fn prepare_uninstall(root: &Path) -> Result<ChangePlan> {
-    let mut plan = with_integration(config::portable::prepare_remove_player(root)?, false)?;
-    let m = deploy::status(root)?.manifest.unwrap();
-    plan.retained = m
-        .files
-        .iter()
-        .filter(|f| config::editable(&f.path) || f.path == ".mpvkit/settings.json")
-        .map(|f| f.path.clone())
-        .collect();
+    let m = deploy::status(root)?
+        .manifest
+        .ok_or_else(|| AppError::new("not_installed", "尚未安装播放增强。", "setup"))?;
+    // The integration record is removed first by execute(); the plan itself remains read-only.
+    let files = deploy::prepare_install(root, vec![], false, Default::default())?;
+    let mut files = files.for_uninstall();
+    files.remove_generated_logs(crate::logs::uninstall_files(root)?)?;
+    let mut plan = with_integration(files, false)?;
+    for file in &m.files {
+        if deploy::file_hash(&root.join(&file.path))?.is_some_and(|hash| hash != file.sha256) {
+            plan.retained.push(file.path.clone());
+        }
+    }
     plan.retained
         .push(crate::config::relative!("watch_later/").into());
     Ok(plan)
@@ -511,16 +516,13 @@ mod transaction_tests {
         execute(removal).unwrap();
         assert!(root.join("mpv.exe").exists());
         assert!(!status(&root).unwrap().integration.registered);
-        assert_eq!(
-            deploy::read_bytes(&root.join(crate::config::relative!("mpv.conf"))).unwrap(),
-            conf
-        );
+        assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
         assert!(root.join(crate::config::relative!("private.txt")).exists());
         assert!(
             root.join(crate::config::relative!("watch_later/position"))
                 .exists()
         );
-        assert!(deploy::status(&root).unwrap().manifest.is_some());
+        assert!(deploy::status(&root).unwrap().manifest.is_none());
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]

@@ -209,7 +209,7 @@ pub struct CorePreview {
     pub details: String,
 }
 fn args(action: &str) -> Vec<&str> {
-    vec![
+    let mut args = vec![
         action,
         "--id",
         PACKAGE,
@@ -218,9 +218,12 @@ fn args(action: &str) -> Vec<&str> {
         "winget",
         "--disable-interactivity",
         "--accept-source-agreements",
-        "--accept-package-agreements",
         "--silent",
-    ]
+    ];
+    if action != "uninstall" {
+        args.push("--accept-package-agreements");
+    }
+    args
 }
 fn run(
     winget: &Path,
@@ -244,7 +247,7 @@ fn run(
     })
 }
 pub fn prepare(action: &str) -> Result<CorePlan> {
-    if !matches!(action, "install" | "upgrade") {
+    if !matches!(action, "install" | "upgrade" | "uninstall") {
         return Err(error("invalid_action", "不支持此核心操作。"));
     }
     let root = super::app_root()?;
@@ -254,11 +257,18 @@ pub fn prepare(action: &str) -> Result<CorePlan> {
     } else {
         None
     };
+    if action == "uninstall" && stamp.is_none() {
+        return Err(error("not_installed", "MPV 核心未安装。"));
+    }
     let winget = winget_path()?;
     let (status, details) = run(
         &winget,
         &[
-            "show",
+            if action == "uninstall" {
+                "list"
+            } else {
+                "show"
+            },
             "--id",
             PACKAGE,
             "--exact",
@@ -307,7 +317,7 @@ fn check_exit(code: u32) -> Result<()> {
         )),
     }
 }
-pub fn execute(plan: CorePlan) -> Result<mpv::MpvInfo> {
+pub fn execute(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
     let _lock = crate::deploy::acquire(&super::default_root()?)?;
     let root = super::app_root()?;
     let player = player_path(&root)?;
@@ -329,9 +339,24 @@ pub fn execute(plan: CorePlan) -> Result<mpv::MpvInfo> {
         &args(&plan.preview.action),
         Duration::from_secs(900),
     )?;
+    if plan.preview.action == "uninstall" && !status.success() {
+        return Err(error(
+            "winget_failed",
+            "WinGet 卸载未完成，请检查系统授权或包状态；配置未清除。",
+        ));
+    }
     check_exit(status.code().unwrap_or(-1) as u32)?;
     let root = super::app_root()?;
     let player = player_path(&root)?;
+    if plan.preview.action == "uninstall" {
+        if player.exists() {
+            return Err(error(
+                "mpv_uninstall_incomplete",
+                "WinGet 已结束，但 MPV 核心仍存在，请检查包状态。",
+            ));
+        }
+        return Ok(None);
+    }
     let info = mpv::inspect(&player).map_err(|_| {
         error(
             "mpv_install_incomplete",
@@ -339,7 +364,7 @@ pub fn execute(plan: CorePlan) -> Result<mpv::MpvInfo> {
         )
     })?;
     mpv::ensure_managed_options(&player)?;
-    Ok(info)
+    Ok(Some(info))
 }
 
 #[cfg(test)]
@@ -403,6 +428,9 @@ mod tests {
             ]
         );
         assert!(!args("upgrade").contains(&"--include-unknown"));
+        assert!(!args("uninstall").contains(&"--accept-package-agreements"));
+        assert!(args("uninstall").contains(&"--silent"));
+        assert!(!args("uninstall").contains(&"--purge"));
         for code in [0, 0x8A15002B] {
             check_exit(code).unwrap();
         }

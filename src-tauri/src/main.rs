@@ -45,7 +45,6 @@ fn main() {
         return;
     }
     let builder = tauri::Builder::default();
-    #[cfg(target_os = "windows")]
     let builder = builder.manage(commands::PendingCore::default());
     builder
         .setup(|app| {
@@ -64,7 +63,6 @@ fn main() {
                 platform::appearance::apply(&webview);
             }
         })
-        .manage(commands::PendingAssetCleanup::default())
         .manage(commands::PendingLaunch::default())
         .manage(commands::PendingDeployment::default())
         .manage(commands::ComponentJob::default())
@@ -73,9 +71,7 @@ fn main() {
         .manage(commands::PendingLogCleanup::default())
         .invoke_handler(tauri::generate_handler![
             commands::setup_status,
-            #[cfg(target_os = "windows")]
             commands::preview_core,
-            #[cfg(target_os = "windows")]
             commands::apply_core,
             commands::read_app_settings,
             commands::save_app_settings,
@@ -86,8 +82,6 @@ fn main() {
             commands::preview_integration_intent,
             commands::app_information,
             commands::license_text,
-            commands::preview_asset_cleanup,
-            commands::clean_assets,
             commands::preview_log_cleanup,
             commands::clean_logs,
             commands::integration_status,

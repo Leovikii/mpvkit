@@ -3,6 +3,11 @@ mod windows;
 #[cfg(target_os = "windows")]
 pub mod windows_mpv;
 #[cfg(target_os = "windows")]
+pub use windows_mpv as core;
+#[cfg(target_os = "linux")]
+#[path = "linux_core.rs"]
+pub mod core;
+#[cfg(target_os = "windows")]
 pub use windows::*;
 #[cfg(target_os = "linux")]
 mod linux;
@@ -33,3 +38,7 @@ pub const HELPER: &str = ".mpvkit/launcher/mpvkit";
 pub const UOSC_HELPER: &str = "scripts/uosc/bin/ziggy-windows.exe";
 #[cfg(target_os = "linux")]
 pub const UOSC_HELPER: &str = "scripts/uosc/bin/ziggy-linux";
+
+#[cfg(all(test, target_os = "windows"))]
+#[path = "linux_core.rs"]
+mod linux_core_contract;

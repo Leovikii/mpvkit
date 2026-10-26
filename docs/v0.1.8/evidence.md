@@ -202,3 +202,34 @@ Linux 原生构建、专用 Rust/GTK 测试和 Wayland 实播仍未运行；本�
 新增用例开发中修正了切页动画等待、首装确认按钮匹配，以及把视频 eof-reached 属性用于最终纯音频的测试假设；纯音频完成以原生暂停状态和进程存活判断。最终完整回归全部通过，未放宽产品配置保护或改写 MPV EOF 行为。已目视检查本批 1200/640 宽度原生界面及离线预览，固定底栏和开关均正常，200% 文字检查通过。
 
 Linux 无原生测试环境，`rustup target list --installed` 仅 Windows x64；本批没有 ELF 构建、Linux 专用测试或 Wayland 实播。可行范围为共享生成/部署逻辑的 Windows 测试、Linux 条件源码及参数审阅、Rust 全模块格式检查和 Linux 依赖材料检查。下一任务仍为可用 Linux 环境下的原生构建、大小写目录/字幕加载、实际队列及 KDE Wayland 实播；真实 WinGet 安装/UAC 仍需隔离 Windows 虚拟机，既有 HDR/高刷/功耗与来源许可缺口保留。
+
+
+## 组件管理与自动清理（2026-10-26，本批）
+
+基线为已推送的 eb8425005e9b182e31858c50d694ab4954ccb6f0。实现范围见[维护方案](maintenance.md)及[最新交接](plan.md#组件管理与自动清理2026-10-26本批交接)。实现与验证完成后，用户已追加授权将本批提交并推送至 origin/main；没有 CI、安装包、真实系统包安装/卸载或开发者配置变更。
+
+- Rust 62 通过 / 6 默认忽略；fmt、clippy all-targets -D warnings 通过。覆盖成功/失败/中断清理、当前事务恢复副本被改、未知暂存项保留、空目录边界、手改卸载保留、完整默认重置、日志活动/归属/预览过期保护，以及卸载后未受管理配置的明确覆盖预览和执行前复核。
+- pnpm build / test:frontend 2 项、离线独立预览检查通过；含顶部组件管理、卸载取消、重置提示、无历史备份勾选、双语/主题/640 宽/200% 文字和焦点锁。两平台依赖材料检查通过（Windows 319 包/565 材料，Linux 356 包/618 材料）。Node 24.22.1 与声明 24.19.0 的既有 engine 提示保留，未升级依赖要求。
+- Linux 核心调用模块完整纳入 Windows 测试编译，发行版/固定参数契约通过；不调用真实 pacman。Linux 专用集成测试更新为卸载删除未改配置、保留续播与系统核心并清理事务；因本机仅 Windows target，未执行 Linux 专用测试、ELF 构建、polkit 授权或 Wayland 实播。
+- 最终 EXE 的 Windows 完整原生回归 **8/8 通过，290222ms**，另含 **52 个真实 MPV 轨道子用例**。核心安装/升级/卸载使用隔离 WinGet 进程夹具，播放使用此前校验的真实 MPV；没有调用主机包管理器或修改真实配置/登记。
+
+最终单 EXE：`src-tauri/target/debug/mpvkit.exe`，**30661632 字节**，SHA-256 **`2f6e3aef909339349fb97ff5abe42589bd2b7ee51d7697362acc9e569c403ccd`**。`pnpm tauri build --debug --no-bundle` 通过，包含最终的日志归属 guard 和重装预览修正；bundle.active=false。
+
+完整回归命令：`node --test --test-reporter=tap --test-concurrency=1 scripts/native-v016.test.mjs`。`MPVKIT_CORE_SOURCE` 与 `MPVKIT_FFMPEG` 沿用前文已校验资产；每个用例从新隔离根开始。
+
+| 最终 EXE 证据（`.local/e2e-artifacts/`） | 目录 |
+| --- | --- |
+| WinGet 安装/升级/卸载、失败/取消/虚假成功及归属 | `mpvkit-winget-gf72OW` |
+| 启动尺寸与切集窗口保持 | `mpvkit-v018-window-dOYBpV` |
+| uosc 布局/模式/信息/控制台 | `mpvkit-v018-yv1VdP` |
+| 连播、自然排序队列与字幕语种后缀 | `mpvkit-v018-autoplay-WSbmU5` |
+| 安装/手改/profile/helper/完整重置及 52 轨道用例 | `mpvkit-v016-LIs6sN` |
+| 双语/主题/路径 | `mpvkit-v016-ui-FUE1Rx` |
+| 快捷键/控制台/续播/字体/缩略图 | `mpvkit-v016-player-Ox36AE` |
+| 预编辑/时间戳/过期保护/响应布局/卸载重装保存 | `mpvkit-v016-draft-QR9VsF` |
+
+原生用例开发中修正了旧“恢复上次操作/卸载保留全部配置”的测试假设，按钮短名称同步；控制台属性轮询允许异步出现，循环测试从最后媒体 EOF 前重新开始，避免把播放结束后修改循环属性视为自动重启约定。初轮失败不作为通过证据。
+
+上一轮原生回归 7/8 通过，重装保存发现实际产品缺陷：卸载后保留的手改配置不再受安装清单管理，配置预览仍一律拒绝这些文件，不能进入差异确认。已在共享配置预览层按本次明确替换意图放行，继续保留预览指纹与执行前摘要检查；新增 Rust 回归并通过。最终 EXE 的独立重装用例先通过（40639ms，`mpvkit-v016-draft-vM9qO0`），随后完整套件 8/8 通过，证据见上表；之前的 7/8 不作为全套通过依据。
+
+真实 WinGet 安装/卸载器、UAC、共享系统包缓存以及 Linux pacman/polkit 均未在开发者主机运行。包管理器缓存由其自身管理；自动清理只针对 MpvKit 有归属的操作文件。归属未知或已手改的文件与旧开发版实际数据不清理。保留两个最小 owner/lock 控制文件，不声称卸载后根目录必为空。已目视审阅 Windows 顶部组件区与重置/保存差异截图；完整路径、状态及操作按钮可见。

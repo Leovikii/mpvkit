@@ -306,9 +306,13 @@ fn arch_wayland_install_playback_and_uninstall() {
         }
     }
     assert!(launch::prepare_managed(&root, media.to_str().unwrap()).is_ok());
-    let keep = fs::read(&config_file).unwrap();
     setup::execute(setup::prepare_uninstall(&root).unwrap()).unwrap();
-    assert_eq!(fs::read(config_file).unwrap(), keep);
+    assert!(!config_file.exists());
+    assert!(deploy::status(&root).unwrap().manifest.is_none());
+    assert!(watch.exists());
+    for name in ["staging", "recovery", "pending.json"] {
+        assert!(!root.join(".mpvkit").join(name).exists());
+    }
     let removed = setup::status(&root).unwrap();
     assert!(removed.player_ready && !removed.components_ready);
     let system_player_after = removed.components.iter().find(|c| c.id == "mpv").unwrap();

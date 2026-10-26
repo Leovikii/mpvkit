@@ -23,7 +23,6 @@ pub struct Report {
     pub managed_files: usize,
     pub changed_or_unavailable_files: usize,
     pub recovery_required: bool,
-    pub previous_available: bool,
     pub privacy: &'static str,
 }
 pub struct ExportPlan {
@@ -136,7 +135,6 @@ pub fn prepare(root: &Path, destination: &Path) -> Result<ExportPlan> {
         managed_files,
         changed_or_unavailable_files: changed,
         recovery_required: status.recovery_required,
-        previous_available: status.previous_available,
         privacy: "仅含固定组件版本、检查代码和文件计数；未包含用户名、绝对路径、媒体/URL、原始配置或日志。仅保存本地，不上传。",
     };
     Ok(ExportPlan {

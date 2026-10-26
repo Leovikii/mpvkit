@@ -113,10 +113,6 @@ pub async fn preview_maintenance(
         "uninstall" => crate::setup::prepare_uninstall(&root)
             .map(Box::new)
             .map(PendingOperation::Deployment),
-        "restore" => crate::deploy::prepare_restore(&root)
-            .map(crate::setup::files_only)
-            .map(Box::new)
-            .map(PendingOperation::Deployment),
         "recover" => crate::deploy::prepare_recovery(&root)
             .map(Box::new)
             .map(PendingOperation::Recovery),
@@ -460,48 +456,6 @@ pub async fn clean_logs(preview_id: String, state: State<'_, PendingLogCleanup>)
         .map_err(|_| AppError::new("worker_failed", "日志清理异常结束。", "logs"))?
 }
 
-#[derive(Default)]
-pub struct PendingAssetCleanup(Mutex<Option<crate::deploy::cleanup::Plan>>);
-#[tauri::command]
-pub async fn preview_asset_cleanup(
-    state: State<'_, PendingAssetCleanup>,
-) -> Result<crate::deploy::cleanup::Preview> {
-    let root = platform::app_root()?;
-    let plan = tauri::async_runtime::spawn_blocking(move || crate::deploy::cleanup::prepare(&root))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "清理预览异常。", "cleanup"))??;
-    let preview = plan.preview.clone();
-    *state
-        .0
-        .lock()
-        .map_err(|_| AppError::new("state_unavailable", "清理状态不可用。", "cleanup"))? =
-        Some(plan);
-    Ok(preview)
-}
-#[tauri::command]
-pub async fn clean_assets(
-    preview_id: String,
-    state: State<'_, PendingAssetCleanup>,
-) -> Result<usize> {
-    let plan = {
-        let mut pending = state
-            .0
-            .lock()
-            .map_err(|_| AppError::new("state_unavailable", "清理状态不可用。", "cleanup"))?;
-        if pending.as_ref().is_none_or(|p| p.preview.id != preview_id) {
-            return Err(AppError::new(
-                "stale_preview",
-                "清理预览不匹配。",
-                "cleanup",
-            ));
-        }
-        pending.take().expect("matched cleanup")
-    };
-    tauri::async_runtime::spawn_blocking(move || crate::deploy::cleanup::execute(plan))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "清理异常结束，请重新预览。", "cleanup"))?
-}
-
 #[tauri::command]
 pub async fn setup_status() -> Result<crate::setup::Report> {
     let root = platform::app_root()?;
@@ -608,19 +562,16 @@ pub async fn open_player_directory() -> Result<()> {
     .map_err(|_| AppError::new("worker_failed", "无法打开目录。", "paths"))?
 }
 
-#[cfg(target_os = "windows")]
 #[derive(Default)]
-pub struct PendingCore(Mutex<Option<platform::windows_mpv::CorePlan>>);
-#[cfg(target_os = "windows")]
+pub struct PendingCore(Mutex<Option<platform::core::CorePlan>>);
 #[tauri::command]
 pub async fn preview_core(
     action: String,
     state: State<'_, PendingCore>,
-) -> Result<platform::windows_mpv::CorePreview> {
-    let plan =
-        tauri::async_runtime::spawn_blocking(move || platform::windows_mpv::prepare(&action))
-            .await
-            .map_err(|_| AppError::new("worker_failed", "核心预览异常。", "system-mpv"))??;
+) -> Result<platform::core::CorePreview> {
+    let plan = tauri::async_runtime::spawn_blocking(move || platform::core::prepare(&action))
+        .await
+        .map_err(|_| AppError::new("worker_failed", "核心预览异常。", "system-mpv"))??;
     let preview = plan.preview.clone();
     *state
         .0
@@ -629,12 +580,11 @@ pub async fn preview_core(
         Some(plan);
     Ok(preview)
 }
-#[cfg(target_os = "windows")]
 #[tauri::command]
 pub async fn apply_core(
     preview_id: String,
     state: State<'_, PendingCore>,
-) -> Result<crate::mpv::MpvInfo> {
+) -> Result<Option<crate::mpv::MpvInfo>> {
     let plan = {
         let mut pending = state
             .0
@@ -649,7 +599,7 @@ pub async fn apply_core(
         }
         pending.take().expect("matched core plan")
     };
-    tauri::async_runtime::spawn_blocking(move || platform::windows_mpv::execute(plan))
+    tauri::async_runtime::spawn_blocking(move || platform::core::execute(plan))
         .await
         .map_err(|_| {
             AppError::new(

@@ -8,6 +8,14 @@ fn copy_tree(source: &Path, target: &Path) {
         else { fs::copy(entry.path(), target.join(entry.file_name())).unwrap(); }
     }
 }
+fn remove_copies(source: &Path, target: &Path) {
+    for entry in fs::read_dir(source).unwrap() {
+        let entry=entry.unwrap(); let path=target.join(entry.file_name());
+        if entry.file_type().unwrap().is_dir() { remove_copies(&entry.path(), &path); let _=fs::remove_dir(&path); }
+        else if path.exists() { assert_eq!(fs::read(entry.path()).unwrap(),fs::read(&path).unwrap()); fs::remove_file(path).unwrap(); }
+    }
+    let _=fs::remove_dir(target);
+}
 fn main() {
     let exe = env::current_exe().unwrap();
     let tools = exe.parent().unwrap();
@@ -16,7 +24,7 @@ fn main() {
     let mode = fs::read_to_string(tools.join("mode")).unwrap_or_default();
     if mode == "flood" { print!("{}", "x".repeat(1024 * 1024)); return; }
     if mode == "stall" { thread::sleep(Duration::from_secs(60)); }
-    if args[0] == "show" {
+    if args[0] == "show" || args[0] == "list" {
         if mode == "source-failed" { process::exit(1); }
         println!("Fixture only: shinchiro.mpv 0.41.0\nSource: winget\nNo system changes");
         return;
@@ -27,6 +35,12 @@ fn main() {
         "elevation" => process::exit(0x8A150019u32 as i32),
         "no-update" => process::exit(0x8A15002Bu32 as i32),
         "false-success" => return,
+        _ if args[0] == "uninstall" => {
+            // Delete only matching fixture copies, never an arbitrary tree.
+            let source = tools.join("core-source");
+            let target = tools.parent().unwrap().join("system-mpv");
+            remove_copies(&source, &target);
+        },
         _ => copy_tree(&tools.join("core-source"), &tools.parent().unwrap().join("system-mpv")),
     }
 }
