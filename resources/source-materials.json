@@ -3,30 +3,6 @@
   "releaseReady": false,
   "materials": [
     {
-      "file": "mpv-Copyright.txt",
-      "url": "https://raw.githubusercontent.com/mpv-player/mpv/6a262d11f63733d37e3ee6d5fafcb1be1ef83952/Copyright",
-      "size": 4096,
-      "sha256": "bfe9ee4cceabcb8ecbfadf208d04156f73d801e6a57369a5606bb8341e204a23"
-    },
-    {
-      "file": "mpv-GPL-2.txt",
-      "url": "https://raw.githubusercontent.com/mpv-player/mpv/6a262d11f63733d37e3ee6d5fafcb1be1ef83952/LICENSE.GPL",
-      "size": 17984,
-      "sha256": "edaef632cbb643e4e7a221717a6c441a4c1a7c918e6e4d56debc3d8739b233f6"
-    },
-    {
-      "file": "mpv-LGPL-2.1.txt",
-      "url": "https://raw.githubusercontent.com/mpv-player/mpv/6a262d11f63733d37e3ee6d5fafcb1be1ef83952/LICENSE.LGPL",
-      "size": 26410,
-      "sha256": "72b672113d642cbb8ef5dcc76938db801983c56e50b1400ab930f1a64d6dc8d9"
-    },
-    {
-      "file": "ffmpeg-GPL-3.txt",
-      "url": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/38ac3a9237d1175e1461e6aee2dee24be1710a55/COPYING.GPLv3",
-      "size": 35147,
-      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903"
-    },
-    {
       "file": "uosc-LGPL-2.1.txt",
       "url": "https://raw.githubusercontent.com/tomasklaen/uosc/d124c2c930d69446448022851373e00ae592390d/LICENSE.LGPL",
       "size": 26530,
@@ -89,18 +65,6 @@
       "sha256": "ba38832f9d7e0ad601a1ab90d58f251ba957532885ef80dca050a611962fd8b6"
     }
   ],
-  "build": {
-    "repository": "https://github.com/shinchiro/mpv-winbuild-cmake",
-    "commit": "1f8d2e76255abc48f0456d9be99b4cab9c6566e6",
-    "run": "https://github.com/shinchiro/mpv-winbuild-cmake/actions/runs/39344977314",
-    "logArtifactId": 12231887596,
-    "logArchiveSize": 217799,
-    "logArchiveSha256": "c20c9e52932c364864371a6e300cef9e8610c33ae4ceea7d5a550934211764d7",
-    "logEntries": 1199,
-    "expandedLogBytes": 4264138,
-    "ffmpegLicense": "GPL version 3 or later",
-    "completeCorrespondingSource": false
-  },
   "uoscFonts": [
     {
       "file": "uosc_icons.otf",
@@ -156,7 +120,14 @@
     "file": "uosc.conf",
     "size": 13866,
     "sha256": "d956aea5d2e90f7690ede41c6a23f855d045f3aa9b05932df27d8045fa3b3396",
-    "deployed": false
+    "deployed": false,
+    "managedOverride": {
+      "source": "resources/uosc.conf",
+      "file": "script-opts/uosc.conf",
+      "size": 539,
+      "sha256": "02572c54431821065cc4a84825e3f9d6623c9d6eeec73c2c8d8600d0a98d2878",
+      "owner": "MpvKit"
+    }
   },
   "uoscHelper": {
     "file": "scripts/uosc/bin/ziggy-windows.exe",
@@ -210,5 +181,26 @@
     "licenseFile": "licenses/LXGWWenKaiScreen-OFL.txt",
     "licenseSha256": "ba38832f9d7e0ad601a1ab90d58f251ba957532885ef80dca050a611962fd8b6",
     "modified": false
+  },
+  "uoscIntegration": {
+    "date": "2026-10-26",
+    "source": "resources/scripts/uosc-bridge.lua",
+    "license": "GPL-3.0-or-later",
+    "size": 1301,
+    "sha256": "cb9849fd346d16952ed836cbfe86780103c3dfa52f5c7f856d046cfe4505d023",
+    "upstreamFile": "scripts/uosc/main.lua",
+    "upstreamSize": 43478,
+    "upstreamSha256": "bf97dcde4f1b8bd74a5e1c672a436a5584b5db2dc9413ab5585745afd9e1dd8d",
+    "deployedSize": 44779,
+    "deployedSha256": "7d62cde2949232e35c01dbf51fa9be01fdbf46f94ff009f1128fe6520cf695cf",
+    "method": "Append the MpvKit bridge to the unchanged, verified uosc 5.13.0 main.lua prefix. Publish actual shuffle state and adapt optional controls to scaled width. Navigation, other upstream Lua, fonts and helpers are unchanged."
+  },
+  "systemMpv": {
+    "manager": "winget",
+    "packageId": "shinchiro.mpv",
+    "source": "winget",
+    "distributedByMpvKit": false,
+    "exactCoreCommitVerified": false,
+    "note": "Installed core licenses and corresponding sources are the responsibility of its distributor; historic fixed-core evidence remains in versioned docs."
   }
 }

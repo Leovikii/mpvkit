@@ -120,7 +120,14 @@
     "file": "uosc.conf",
     "size": 13866,
     "sha256": "d956aea5d2e90f7690ede41c6a23f855d045f3aa9b05932df27d8045fa3b3396",
-    "deployed": false
+    "deployed": false,
+    "managedOverride": {
+      "source": "resources/uosc.conf",
+      "file": "script-opts/uosc.conf",
+      "size": 539,
+      "sha256": "02572c54431821065cc4a84825e3f9d6623c9d6eeec73c2c8d8600d0a98d2878",
+      "owner": "MpvKit"
+    }
   },
   "uoscHelper": {
     "file": "scripts/uosc/bin/ziggy-linux",
@@ -179,5 +186,18 @@
     "path": "/usr/bin/mpv",
     "redistributed": false,
     "note": "系统包管理器维护，不套用 Windows 固定构建的来源证据。"
+  },
+  "uoscIntegration": {
+    "date": "2026-10-26",
+    "source": "resources/scripts/uosc-bridge.lua",
+    "license": "GPL-3.0-or-later",
+    "size": 1301,
+    "sha256": "cb9849fd346d16952ed836cbfe86780103c3dfa52f5c7f856d046cfe4505d023",
+    "upstreamFile": "scripts/uosc/main.lua",
+    "upstreamSize": 43478,
+    "upstreamSha256": "bf97dcde4f1b8bd74a5e1c672a436a5584b5db2dc9413ab5585745afd9e1dd8d",
+    "deployedSize": 44779,
+    "deployedSha256": "7d62cde2949232e35c01dbf51fa9be01fdbf46f94ff009f1128fe6520cf695cf",
+    "method": "Append the MpvKit bridge to the unchanged, verified uosc 5.13.0 main.lua prefix. Publish actual shuffle state and adapt optional controls to scaled width. Navigation, other upstream Lua, fonts and helpers are unchanged."
   }
 }

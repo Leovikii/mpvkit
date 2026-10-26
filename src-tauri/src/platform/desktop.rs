@@ -1,14 +1,10 @@
 use crate::error::{AppError, Result};
 use serde::Serialize;
-use std::{
-    ffi::OsString,
-    os::windows::ffi::OsStringExt,
-    path::{Path, PathBuf},
-};
+use std::path::Path;
 use windows_sys::Win32::{
     Globalization::*,
-    System::{Com::*, Registry::*},
-    UI::{Accessibility::*, Controls::Dialogs::*, Shell::*, WindowsAndMessaging::*},
+    System::Registry::*,
+    UI::{Accessibility::*, Shell::*, WindowsAndMessaging::*},
 };
 
 fn wide(s: &str) -> Vec<u16> {
@@ -133,68 +129,6 @@ pub fn environment() -> Environment {
             && power.SystemStatusFlag == 0
             && unsafe { GetSystemMetrics(SM_REMOTESESSION) } == 0,
     }
-}
-pub fn choose_path(folder: bool, owner: isize) -> Result<Option<PathBuf>> {
-    // This function is called on a dedicated blocking worker; balance COM initialization.
-    let initialized =
-        unsafe { CoInitializeEx(std::ptr::null(), COINIT_APARTMENTTHREADED as u32) } >= 0;
-    let result = if folder {
-        let title = wide("MpvKit");
-        let info = BROWSEINFOW {
-            hwndOwner: owner as _,
-            lpszTitle: title.as_ptr(),
-            ulFlags: BIF_RETURNONLYFSDIRS | BIF_NEWDIALOGSTYLE,
-            ..Default::default()
-        };
-        let item = unsafe { SHBrowseForFolderW(&info) };
-        if item.is_null() {
-            Ok(None)
-        } else {
-            let mut buffer = vec![0u16; 32768];
-            let ok =
-                unsafe { SHGetPathFromIDListEx(item, buffer.as_mut_ptr(), buffer.len() as u32, 0) };
-            unsafe {
-                CoTaskMemFree(item.cast());
-            }
-            if ok == 0 {
-                Err(AppError::new("dialog_path", "无法读取所选目录。", "paths"))
-            } else {
-                Ok(Some(PathBuf::from(OsString::from_wide(
-                    &buffer[..buffer.iter().position(|n| *n == 0).unwrap_or(buffer.len())],
-                ))))
-            }
-        }
-    } else {
-        let mut buffer = vec![0u16; 32768];
-        let mut info = OPENFILENAMEW {
-            lStructSize: std::mem::size_of::<OPENFILENAMEW>() as u32,
-            hwndOwner: owner as _,
-            lpstrFile: buffer.as_mut_ptr(),
-            nMaxFile: buffer.len() as u32,
-            Flags: OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR,
-            ..Default::default()
-        };
-        if unsafe { GetOpenFileNameW(&mut info) } != 0 {
-            Ok(Some(PathBuf::from(text(&buffer))))
-        } else if unsafe { CommDlgExtendedError() } == 0 {
-            Ok(None)
-        } else {
-            Err(AppError::new(
-                "dialog_failed",
-                "无法打开文件选择器。",
-                "paths",
-            ))
-        }
-    };
-    if initialized {
-        unsafe {
-            CoUninitialize();
-        }
-    }
-    if let Ok(Some(path)) = &result {
-        super::validate_local_path(path)?;
-    }
-    result
 }
 pub fn open_directory(path: &Path) -> Result<()> {
     super::validate_local_path(path)?;

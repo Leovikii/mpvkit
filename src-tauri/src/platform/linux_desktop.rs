@@ -2,7 +2,7 @@ use crate::error::{AppError, Result};
 use gtk::prelude::*;
 use gtk::{gio, glib};
 use serde::Serialize;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use std::time::Duration;
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
@@ -111,53 +111,6 @@ pub fn environment() -> Environment {
     }
 }
 
-pub async fn choose_path(folder: bool, window: tauri::WebviewWindow) -> Result<Option<PathBuf>> {
-    let native_window = window.clone();
-    let (send, receive) = std::sync::mpsc::sync_channel::<Result<Option<PathBuf>>>(1);
-    window
-        .run_on_main_thread(move || {
-            let parent = match native_window.gtk_window() {
-                Ok(parent) => parent,
-                Err(_) => {
-                    let _ = send.send(Err(AppError::new(
-                        "window_unavailable",
-                        "窗口不可用。",
-                        "paths",
-                    )));
-                    return;
-                }
-            };
-            let dialog = gtk::FileChooserNative::new(
-                Some("MpvKit"),
-                Some(&parent),
-                if folder {
-                    gtk::FileChooserAction::SelectFolder
-                } else {
-                    gtk::FileChooserAction::Open
-                },
-                None,
-                None,
-            );
-            dialog.set_modal(true);
-            // Native dialogs have no window-system reference; keep ownership until response.
-            let result = if dialog.run() == gtk::ResponseType::Accept {
-                dialog.filename()
-            } else {
-                None
-            };
-            dialog.destroy();
-            let _ = send.send(Ok(result));
-        })
-        .map_err(|_| AppError::new("dialog_failed", "无法打开文件选择器。", "paths"))?;
-    let path = tauri::async_runtime::spawn_blocking(move || receive.recv())
-        .await
-        .map_err(|_| AppError::new("dialog_failed", "选择器异常结束。", "paths"))?
-        .map_err(|_| AppError::new("dialog_failed", "选择器异常结束。", "paths"))??;
-    if let Some(path) = &path {
-        super::validate_local_path(path)?;
-    }
-    Ok(path)
-}
 pub fn open_directory(path: &Path) -> Result<()> {
     super::validate_local_path(path)?;
     if !path.is_dir() {

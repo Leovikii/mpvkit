@@ -269,12 +269,7 @@ fn manifest_text(root: &Path) -> Result<Option<String>> {
 }
 
 pub fn default_config_directory() -> String {
-    if cfg!(target_os = "windows") {
-        "portable_config"
-    } else {
-        "."
-    }
-    .into()
+    ".".into()
 }
 
 fn validate_manifest(manifest: &InstallManifest) -> Result<()> {

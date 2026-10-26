@@ -253,23 +253,26 @@ fn managed_launch_checks_owned_files_and_user_additions_before_execution() {
     let sandbox = Sandbox::new();
     let player = sandbox.player("");
     let root = sandbox.path("managed");
-    let mut files = crate::config::generate(
+    let files = crate::config::generate(
         &root,
         &root.join("mpv.exe"),
         &crate::config::Settings::default(),
     )
     .unwrap();
-    files.push(crate::deploy::Payload {
-        path: "mpv.exe".into(),
-        bytes: fs::read(&player).unwrap(),
-    });
+    fs::create_dir_all(&root).unwrap();
+    fs::copy(&player, root.join("mpv.exe")).unwrap();
     crate::deploy::execute(
-        crate::deploy::prepare_install(&root, files, false, std::collections::BTreeMap::new())
-            .unwrap(),
+        crate::deploy::prepare_install(
+            &root,
+            files,
+            false,
+            std::collections::BTreeMap::from([("mpv".into(), "fixture".into())]),
+        )
+        .unwrap(),
     )
     .unwrap();
     let media = sandbox.media();
-    fs::write(root.join("portable_config/mpv.conf"), "volume=17\n").unwrap();
+    fs::write(root.join("mpv.conf"), "volume=17\n").unwrap();
     let plan = prepare_managed(&root, media.to_str().unwrap()).unwrap();
     assert!(plan.preview.arguments.iter().any(|a| a == "--config=yes"));
     assert!(
@@ -284,10 +287,10 @@ fn managed_launch_checks_owned_files_and_user_additions_before_execution() {
             .iter()
             .all(|a| !a.starts_with("--include=") && !a.starts_with("--scale="))
     );
-    assert_eq!(plan.preview.config_directory, root.join("portable_config"));
-    fs::write(root.join("portable_config/mpv.conf"), "changed").unwrap();
+    assert_eq!(plan.preview.config_directory, root.clone());
+    fs::write(root.join("mpv.conf"), "changed").unwrap();
     assert_eq!(execute(plan).unwrap_err().code, "stale_preview");
-    fs::write(root.join("portable_config/scripts/mpvkit.lua"), "modified").unwrap();
+    fs::write(root.join("scripts/mpvkit.lua"), "modified").unwrap();
     assert_eq!(
         prepare_managed(&root, media.to_str().unwrap())
             .err()
@@ -302,20 +305,23 @@ fn missing_optional_components_fall_back_without_loading_scripts_but_modified_co
     let sandbox = Sandbox::new();
     let player = sandbox.player("");
     let root = sandbox.path("managed");
-    let mut files =
-        crate::config::generate(&root, &root.join("mpv.exe"), &Default::default()).unwrap();
-    files.push(crate::deploy::Payload {
-        path: "mpv.exe".into(),
-        bytes: fs::read(&player).unwrap(),
-    });
+    let files = crate::config::generate(&root, &root.join("mpv.exe"), &Default::default()).unwrap();
+    fs::create_dir_all(&root).unwrap();
+    fs::copy(&player, root.join("mpv.exe")).unwrap();
     crate::deploy::execute(
-        crate::deploy::prepare_install(&root, files, false, Default::default()).unwrap(),
+        crate::deploy::prepare_install(
+            &root,
+            files,
+            false,
+            std::collections::BTreeMap::from([("mpv".into(), "fixture".into())]),
+        )
+        .unwrap(),
     )
     .unwrap();
     let media = sandbox.media();
-    fs::remove_file(root.join("portable_config/scripts/mpvkit.lua")).unwrap();
+    fs::remove_file(root.join("scripts/mpvkit.lua")).unwrap();
     let plan = prepare_managed(&root, media.to_str().unwrap()).unwrap();
-    assert_eq!(plan.preview.config_directory, root.join("portable_config"));
+    assert_eq!(plan.preview.config_directory, root.clone());
     assert!(plan.preview.arguments.contains(&"--load-scripts=no".into()));
     assert!(
         plan.preview
@@ -323,7 +329,7 @@ fn missing_optional_components_fall_back_without_loading_scripts_but_modified_co
             .iter()
             .any(|s| s.contains("组件文件缺失"))
     );
-    fs::write(root.join("portable_config/scripts/mpvkit.lua"), "modified").unwrap();
+    fs::write(root.join("scripts/mpvkit.lua"), "modified").unwrap();
     assert_eq!(execute(plan).unwrap_err().code, "stale_preview");
     assert_eq!(
         prepare_managed(&root, media.to_str().unwrap())
@@ -335,93 +341,41 @@ fn missing_optional_components_fall_back_without_loading_scripts_but_modified_co
 }
 
 #[test]
-fn managed_runtime_is_verified_before_launch_and_diagnostic_probes() {
-    for changed in ["player", "library", "missing-library", "unowned-player"] {
-        let sandbox = Sandbox::new();
-        let player_bytes = fs::read(sandbox.player("")).unwrap();
-        let root = sandbox.path("managed");
-        let mut files = vec![
-            crate::deploy::Payload {
-                path: "mpv.exe".into(),
-                bytes: player_bytes.clone(),
-            },
-            crate::deploy::Payload {
-                path: "d3dcompiler_43.dll".into(),
-                bytes: b"original dependency".to_vec(),
-            },
-            crate::deploy::Payload {
-                path: "portable_config/mpv.conf".into(),
-                bytes: b"volume=40\n".to_vec(),
-            },
-        ];
-        files.extend(
-            crate::config::generate(&root, &root.join("mpv.exe"), &Default::default())
-                .unwrap()
-                .into_iter()
-                .filter(|f| f.path != "portable_config/mpv.conf"),
-        );
-        crate::deploy::execute(
-            crate::deploy::prepare_install(&root, files, false, Default::default()).unwrap(),
+fn system_core_is_not_owned_and_package_updates_invalidate_pending_launches() {
+    let sandbox = Sandbox::new();
+    let root = sandbox.path("config");
+    let player = mpv::fixture_player(&root);
+    let files = crate::config::generate(&root, &player, &Default::default()).unwrap();
+    crate::deploy::execute(
+        crate::deploy::prepare_install(
+            &root,
+            files,
+            false,
+            std::collections::BTreeMap::from([("mpv".into(), "fixture".into())]),
         )
-        .unwrap();
-        fs::write(root.join("mode"), "record-probes").unwrap();
-        let witness = root.join("probes.txt");
-        let media = sandbox.media();
-        prepare_managed(&root, media.to_str().unwrap()).unwrap();
-        assert!(
-            witness.exists(),
-            "valid runtime must permit capability queries"
-        );
-        fs::remove_file(&witness).unwrap();
-        let baseline = crate::diagnostics::prepare(&root, &sandbox.path("baseline.json")).unwrap();
-        assert_eq!(
-            baseline.report.actual_player_version.as_deref(),
-            Some("mpv 0.40.0-fixture")
-        );
-        assert!(
-            witness.exists(),
-            "valid runtime must permit diagnostic queries"
-        );
-        fs::remove_file(&witness).unwrap();
-        match changed {
-            "player" => {
-                let mut changed = player_bytes;
-                changed.push(0);
-                fs::write(root.join("mpv.exe"), changed).unwrap();
-            }
-            "library" => {
-                fs::write(root.join("d3dcompiler_43.dll"), b"changed dependency!").unwrap()
-            }
-            "missing-library" => fs::remove_file(root.join("d3dcompiler_43.dll")).unwrap(),
-            "unowned-player" => {
-                let path = root.join(".mpvkit/install.json");
-                let mut manifest = crate::deploy::status(&root).unwrap().manifest.unwrap();
-                manifest.files.retain(|file| file.path != "mpv.exe");
-                fs::write(path, serde_json::to_vec_pretty(&manifest).unwrap()).unwrap();
-            }
-            _ => unreachable!(),
-        }
-        let launch = prepare_managed(&root, media.to_str().unwrap());
-        let diagnosis = crate::diagnostics::prepare(&root, &sandbox.path("blocked.json")).unwrap();
-        assert!(
-            !witness.exists(),
-            "{changed}: no player process may run before integrity/ownership checks"
-        );
-        let expected = if changed == "unowned-player" {
-            "managed_player_unowned"
-        } else {
-            "file_conflict"
-        };
-        assert_eq!(launch.err().unwrap().code, expected);
-        assert_eq!(diagnosis.report.player_issue, Some(expected));
-        assert!(diagnosis.report.actual_player_version.is_none());
-        assert_eq!(
-            diagnosis.report.changed_or_unavailable_files,
-            usize::from(changed != "unowned-player")
-        );
-        assert!(
-            !sandbox.path("blocked.json").exists(),
-            "diagnostic preview remains read-only"
-        );
-    }
+        .unwrap(),
+    )
+    .unwrap();
+    assert!(
+        !crate::deploy::status(&root)
+            .unwrap()
+            .manifest
+            .unwrap()
+            .files
+            .iter()
+            .any(|f| f.path == "mpv.exe")
+    );
+    let media = sandbox.media();
+    let plan = prepare_managed(&root, media.to_str().unwrap()).unwrap();
+    let mut bytes = fs::read(&player).unwrap();
+    bytes.push(0);
+    fs::write(&player, bytes).unwrap();
+    assert_eq!(execute(plan).unwrap_err().code, "stale_preview");
+    prepare_managed(&root, media.to_str().unwrap()).unwrap();
+    let diagnosis = crate::diagnostics::prepare(&root, &sandbox.path("report.json")).unwrap();
+    assert_eq!(
+        diagnosis.report.actual_player_version.as_deref(),
+        Some("mpv 0.40.0-fixture")
+    );
+    assert_eq!(diagnosis.report.changed_or_unavailable_files, 0);
 }

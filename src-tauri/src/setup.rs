@@ -18,8 +18,8 @@ pub struct ComponentHealth {
 #[serde(rename_all = "camelCase")]
 pub struct Report {
     pub root: PathBuf,
+    pub player_directory: PathBuf,
     pub config_directory: PathBuf,
-    #[cfg(target_os = "linux")]
     pub config_directory_source: &'static str,
     pub root_exists: bool,
     pub config_directory_exists: bool,
@@ -44,11 +44,20 @@ pub fn status(root: &Path) -> Result<Report> {
     crate::platform::validate_local_path(&config_directory)?;
     let mut report = Report {
         root: root.into(),
+        player_directory: config::player_path(root)?.parent().unwrap().into(),
         root_exists: root.is_dir(),
         config_directory_exists: config_directory.is_dir(),
         config_directory,
-        #[cfg(target_os = "linux")]
-        config_directory_source: crate::platform::mpv_config_location()?.source,
+        config_directory_source: {
+            #[cfg(target_os = "linux")]
+            {
+                crate::platform::mpv_config_location()?.source
+            }
+            #[cfg(target_os = "windows")]
+            {
+                crate::platform::windows_mpv::config_location()?.source
+            }
+        },
         generation: None,
         components: vec![],
         player_ready: false,
@@ -62,15 +71,20 @@ pub fn status(root: &Path) -> Result<Report> {
         integration,
         issues: vec![],
     };
-    #[cfg(target_os = "linux")]
     {
-        let player = mpv::inspect(&config::player_path(root)).ok();
+        let player = mpv::inspect(&config::player_path(root)?)
+            .and_then(|info| {
+                mpv::ensure_managed_options(&info.executable)?;
+                Ok(info)
+            })
+            .ok();
         report.components.push(ComponentHealth {
             id: "mpv".into(),
             ready: player.is_some(),
             version: player.map(|p| p.version),
             issues: vec![],
         });
+        report.player_ready = report.components[0].ready;
     }
     if let Some(m) = deployment.manifest {
         report.generation = Some(m.installation_id.clone());
@@ -83,26 +97,12 @@ pub fn status(root: &Path) -> Result<Report> {
                 report.issues.push(file.path.clone());
             }
         }
-        #[cfg(target_os = "windows")]
-        {
-            report.player_ready = mpv::managed_executable(root, &m).is_ok();
-        }
-        #[cfg(target_os = "linux")]
-        {
-            report.player_ready = report.components[0].ready && m.components.contains_key("mpv");
-        }
-        for id in [
-            #[cfg(target_os = "windows")]
-            "mpv",
-            "uosc",
-            "thumbfast",
-            "subtitle-font",
-        ] {
+        report.player_ready = report.components[0].ready;
+        for id in ["uosc", "thumbfast", "subtitle-font"] {
             let issues: Vec<_> = report
                 .issues
                 .iter()
                 .filter(|p| match id {
-                    "mpv" => p.as_str() == "mpv.exe" || p.as_str() == "d3dcompiler_43.dll",
                     "uosc" => p.contains("uosc"),
                     "thumbfast" => p.as_str() == crate::config::relative!("scripts/thumbfast.lua"),
                     _ => p.ends_with("fonts/LXGWWenKaiScreen.ttf"),
@@ -110,7 +110,6 @@ pub fn status(root: &Path) -> Result<Report> {
                 .cloned()
                 .collect();
             let ready = issues.is_empty()
-                && (id != "mpv" || report.player_ready)
                 && crate::components::required_paths(id)
                     .iter()
                     .all(|required| {
@@ -156,28 +155,34 @@ mod tests {
     fn system_mpv_is_visible_without_mpvkit_installation() {
         let root =
             std::env::temp_dir().join(format!("mpvkit-system-status-{}", deploy::operation_id()));
-        let expected = mpv::inspect(&config::player_path(&root)).ok();
+        let path = config::player_path(&root).unwrap();
+        let expected = mpv::inspect(&path)
+            .ok()
+            .filter(|_| mpv::ensure_managed_options(&path).is_ok());
         let report = status(&root).unwrap();
         let player = report.components.iter().find(|c| c.id == "mpv").unwrap();
         assert_eq!(player.ready, expected.is_some());
         assert_eq!(player.version, expected.map(|p| p.version));
-        assert!(!report.player_ready && !report.components_ready && !report.settings_ready);
+        assert_eq!(report.player_ready, player.ready);
+        assert!(!report.components_ready && !report.settings_ready);
         assert!(report.generation.is_none());
         assert!(!root.exists());
     }
     #[test]
     fn core_and_configuration_have_independent_health_and_real_mtime() {
         let root = std::env::temp_dir().join(format!("mpvkit-health-{}", deploy::operation_id()));
-        assert!(!status(&root).unwrap().player_ready);
+        let path = config::player_path(&root).unwrap();
+        assert_eq!(
+            status(&root).unwrap().player_ready,
+            mpv::inspect(&path).is_ok() && mpv::ensure_managed_options(&path).is_ok()
+        );
         assert!(!root.exists());
-        let mut files = vec![deploy::Payload {
-            path: "mpv.exe".into(),
-            bytes: b"fixture".to_vec(),
-        }];
+        #[cfg(target_os = "windows")]
+        mpv::fixture_player(&root);
+        let mut files = Vec::new();
         for name in crate::components::ASSETS
             .iter()
             .flat_map(|a| crate::components::required_paths(a.id))
-            .filter(|p| **p != "mpv.exe")
         {
             files.push(deploy::Payload {
                 path: (*name).into(),
@@ -195,7 +200,10 @@ mod tests {
         )
         .unwrap();
         let core = status(&root).unwrap();
-        assert_eq!(core.player_ready, config::player_path(&root).is_file());
+        assert_eq!(
+            core.player_ready,
+            config::player_path(&root).unwrap().is_file()
+        );
         assert!(!core.settings_ready);
         assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
         deploy::execute(config::prepare_portable(&root, Default::default(), false).unwrap())
@@ -348,6 +356,14 @@ pub fn prepare_uninstall(root: &Path) -> Result<ChangePlan> {
     Ok(plan)
 }
 pub fn execute(plan: ChangePlan) -> Result<deploy::DeploymentStatus> {
+    #[cfg(not(test))]
+    if crate::platform::app_root()? != plan.files.preview.root {
+        return Err(AppError::new(
+            "stale_preview",
+            "配置位置已改变，请重新预览。",
+            "setup",
+        ));
+    }
     plan.files.validate_before_integration()?;
     if let Some(registration) = &plan.integration {
         integration::validate_pending(registration)?;
@@ -377,10 +393,8 @@ mod transaction_tests {
     use super::*;
     fn core(root: &Path) {
         let mut files = config::runtime_files().unwrap();
-        files.push(deploy::Payload {
-            path: "mpv.exe".into(),
-            bytes: b"fixture".to_vec(),
-        });
+        #[cfg(target_os = "windows")]
+        mpv::fixture_player(root);
         files.push(deploy::Payload {
             path: ".mpvkit/settings.json".into(),
             bytes: serde_json::to_vec(&config::portable::State::default()).unwrap(),
@@ -388,7 +402,6 @@ mod transaction_tests {
         for name in crate::components::ASSETS
             .iter()
             .flat_map(|a| crate::components::required_paths(a.id))
-            .filter(|p| **p != "mpv.exe")
         {
             files.push(deploy::Payload {
                 path: (*name).into(),
@@ -411,7 +424,7 @@ mod transaction_tests {
         let root = std::env::temp_dir().join(format!("mpvkit-draft-{}", deploy::operation_id()));
         let settings = config::Settings::default();
         let preview = config::portable::preview(&root, &settings, false).unwrap();
-        assert_eq!(preview.files.len(), 3);
+        assert_eq!(preview.files.len(), 4);
         assert!(
             preview
                 .files
@@ -496,7 +509,7 @@ mod transaction_tests {
         let removal = prepare_uninstall(&root).unwrap();
         assert!(!removal.preview().retained.is_empty());
         execute(removal).unwrap();
-        assert!(!root.join("mpv.exe").exists());
+        assert!(root.join("mpv.exe").exists());
         assert!(!status(&root).unwrap().integration.registered);
         assert_eq!(
             deploy::read_bytes(&root.join(crate::config::relative!("mpv.conf"))).unwrap(),
@@ -547,7 +560,7 @@ mod transaction_tests {
             .unwrap();
         execute(prepare_configuration(&root, Default::default(), false).unwrap()).unwrap();
         let plan = prepare_uninstall(&root).unwrap();
-        std::fs::write(root.join("mpv.exe"), "changed").unwrap();
+        std::fs::write(config::helper_path(&root), "changed").unwrap();
         assert!(execute(plan).is_err());
         assert!(status(&root).unwrap().integration.registered);
         std::fs::remove_dir_all(root).unwrap();

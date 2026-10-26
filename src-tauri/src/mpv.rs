@@ -38,7 +38,7 @@ pub fn file_stamp(path: &Path) -> Result<FileStamp> {
     })
 }
 
-#[cfg(target_os = "windows")]
+#[cfg(all(test, target_os = "windows"))]
 pub fn executable_path(value: &str) -> Result<PathBuf> {
     let path = PathBuf::from(value);
     if !path
@@ -55,58 +55,21 @@ pub fn executable_path(value: &str) -> Result<PathBuf> {
     Ok(path)
 }
 
-/// Windows verifies owned bytes; Linux probes the system player without taking ownership.
+/// Probe the system core without taking ownership of package-manager files.
 pub fn managed_executable(
     root: &Path,
     manifest: &crate::deploy::InstallManifest,
 ) -> Result<PathBuf> {
-    #[cfg(target_os = "linux")]
-    {
-        if !manifest.components.contains_key("mpv") {
-            return Err(AppError::new(
-                "not_installed",
-                "请先安装播放增强。",
-                "inspect",
-            ));
-        }
-        let player = crate::config::player_path(root);
-        inspect(&player)?;
-        Ok(player)
+    if !manifest.components.contains_key("mpv") {
+        return Err(AppError::new(
+            "not_installed",
+            "请先安装播放增强。",
+            "inspect",
+        ));
     }
-    #[cfg(target_os = "windows")]
-    let player = {
-        if !manifest
-            .files
-            .iter()
-            .any(|file| file.path.eq_ignore_ascii_case("mpv.exe"))
-        {
-            return Err(AppError::new(
-                "managed_player_unowned",
-                "播放器缺少受管理归属记录；已停止查询，请检查或重新部署。",
-                "inspect",
-            ));
-        }
-        for file in &manifest.files {
-            if !(file.path == "mpv.exe" || file.path == "d3dcompiler_43.dll") {
-                continue;
-            }
-            crate::deploy::validate_relative(&file.path)?;
-            if crate::deploy::file_hash(&root.join(&file.path))?.as_deref() != Some(&file.sha256) {
-                return Err(AppError::new(
-                    "file_conflict",
-                    "受管理播放器或运行依赖缺失或已改变；已停止查询，请检查或恢复。",
-                    "inspect",
-                ));
-            }
-        }
-        crate::config::player_path(root)
-    };
-    #[cfg(target_os = "windows")]
-    executable_path(
-        player
-            .to_str()
-            .ok_or_else(|| AppError::new("invalid_path", "播放器路径不是有效文本。", "inspect"))?,
-    )
+    let player = crate::config::player_path(root)?;
+    inspect(&player)?;
+    Ok(player)
 }
 
 pub fn capture(executable: &Path, args: &[OsString], timeout: Duration) -> Result<String> {
@@ -115,7 +78,22 @@ pub fn capture(executable: &Path, args: &[OsString], timeout: Duration) -> Resul
     capture_command(command, timeout)
 }
 
-pub(crate) fn capture_command(mut command: Command, timeout: Duration) -> Result<String> {
+pub(crate) fn capture_command(command: Command, timeout: Duration) -> Result<String> {
+    let (status, output) = capture_status(command, timeout)?;
+    if !status.success() {
+        return Err(AppError::new(
+            "probe_failed",
+            "程序查询失败，请检查安装状态。",
+            "inspect",
+        ));
+    }
+    Ok(output)
+}
+
+pub(crate) fn capture_status(
+    mut command: Command,
+    timeout: Duration,
+) -> Result<(std::process::ExitStatus, String)> {
     let error = || {
         AppError::new(
             "probe_failed",
@@ -143,11 +121,10 @@ pub(crate) fn capture_command(mut command: Command, timeout: Duration) -> Result
             Ok(Some(status)) => {
                 if platform::drain_pipe(&mut stdout, &mut output).is_err()
                     || platform::drain_pipe(&mut stderr, &mut errors).is_err()
-                    || !status.success()
                 {
                     break Err(error());
                 }
-                break Ok(String::from_utf8_lossy(&output).into_owned());
+                break Ok((status, String::from_utf8_lossy(&output).into_owned()));
             }
             Ok(None) => {}
             Err(_) => break Err(error()),
@@ -173,6 +150,36 @@ pub(crate) fn capture_command(mut command: Command, timeout: Duration) -> Result
 pub struct MpvInfo {
     pub executable: PathBuf,
     pub version: String,
+}
+
+#[cfg(all(test, target_os = "windows"))]
+pub fn fixture_player(root: &Path) -> PathBuf {
+    static BINARY: std::sync::OnceLock<Vec<u8>> = std::sync::OnceLock::new();
+    let bytes = BINARY.get_or_init(|| {
+        let dir = std::env::temp_dir().join(format!(
+            "mpvkit-probe-fixture-{}",
+            crate::deploy::operation_id()
+        ));
+        fs::create_dir_all(&dir).unwrap();
+        let source = dir.join("fixture.rs");
+        let target = dir.join("mpv.exe");
+        fs::write(&source, include_str!("../tests/fixtures/mpv.rs")).unwrap();
+        let status = Command::new("rustc")
+            .args(["--edition=2024", "--crate-name=mpv_fixture"])
+            .arg(&source)
+            .arg("-o")
+            .arg(&target)
+            .status()
+            .unwrap();
+        assert!(status.success());
+        let bytes = fs::read(target).unwrap();
+        fs::remove_dir_all(dir).unwrap();
+        bytes
+    });
+    fs::create_dir_all(root).unwrap();
+    let player = root.join("mpv.exe");
+    fs::write(&player, bytes).unwrap();
+    player
 }
 
 pub fn inspect(executable: &Path) -> Result<MpvInfo> {
@@ -254,18 +261,25 @@ pub fn ensure_managed_options(executable: &Path) -> Result<()> {
         "sub-font-size",
         "osd-font-size",
         "volume",
+        "sub-fonts-dir",
+        "osd-fonts-dir",
         "osc",
         "input-builtin-bindings",
         "video-sync",
         "interpolation",
+        "autofit",
+        "auto-window-resize",
         "sub-font",
         "save-position-on-quit",
         "watch-later-options",
         "watch-later-directory",
         "resume-playback",
         "keep-open",
-        "screenshot-directory",
-        "screenshot-format",
+        "autocreate-playlist",
+        "directory-filter-types",
+        "directory-mode",
+        "sub-file-paths",
+        "sub-auto",
         "target-colorspace-hint",
         "target-trc",
         "target-prim",
@@ -301,7 +315,7 @@ pub fn ensure_managed_options(executable: &Path) -> Result<()> {
         if !available.contains(format!("--{key}").as_str()) {
             return Err(AppError::new(
                 "managed_mpv_unsupported",
-                "此MPV缺少受管理配置所需参数。请使用固定清单播放器；仍可按原生默认值手动启动外部MPV。",
+                "此MPV缺少受管理配置所需参数。请使用系统包管理器更新 MPV。",
                 "inspect",
             ));
         }

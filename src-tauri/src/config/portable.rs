@@ -42,17 +42,15 @@ pub fn read_state(root: &Path) -> Result<State> {
     state.settings.validate()?;
     Ok(state)
 }
-pub fn player_path(root: &Path) -> PathBuf {
+pub fn player_path(root: &Path) -> Result<PathBuf> {
+    #[cfg(target_os = "windows")]
     {
-        #[cfg(target_os = "windows")]
-        {
-            root.join("mpv.exe")
-        }
-        #[cfg(target_os = "linux")]
-        {
-            let _ = root;
-            PathBuf::from("/usr/bin/mpv")
-        }
+        crate::platform::windows_mpv::player_path(root)
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let _ = root;
+        Ok(PathBuf::from("/usr/bin/mpv"))
     }
 }
 pub fn helper_path(root: &Path) -> PathBuf {
@@ -65,10 +63,11 @@ pub fn editable(path: &str) -> bool {
                 || name.starts_with("script-opts/") && name.ends_with(".conf")
         })
 }
-const PREVIEW_FILES: [&str; 3] = [
+const PREVIEW_FILES: [&str; 4] = [
     crate::config::relative!("mpv.conf"),
     crate::config::relative!("input.conf"),
     crate::config::relative!("script-opts/thumbfast.conf"),
+    crate::config::relative!("script-opts/uosc.conf"),
 ];
 
 #[derive(Serialize)]
@@ -111,7 +110,7 @@ pub fn fingerprint(root: &Path) -> Result<String> {
 // Read-only rendering uses exactly the same merger as the deployment plan.
 pub fn preview(root: &Path, settings: &Settings, replace: bool) -> Result<ConfigurationPreview> {
     let fingerprint = fingerprint(root)?;
-    let payloads = generate_inner(root, &player_path(root), settings, replace, false)?;
+    let payloads = generate_inner(root, &player_path(root)?, settings, replace, false)?;
     let manifest = deploy::status(root)?.manifest;
     let mut files = Vec::new();
     for name in PREVIEW_FILES {
@@ -159,8 +158,7 @@ fn gui_line(line: &str) -> bool {
     let key = line.split('=').next().unwrap_or("");
     [
         "keep-open",
-        "screenshot-directory",
-        "screenshot-format",
+        "autocreate-playlist",
         "hwdec",
         "target-colorspace-hint",
         "target-trc",
@@ -185,13 +183,8 @@ fn block(raw: &str, settings: &Settings) -> String {
         out.push('\n');
     }
     out.push_str(&format!(
-        "script-opts-append=mpvkit-profile={}\nscript-opts-append=mpvkit-screenshot_subtitles={}\n",
-        settings.profile.id(),
-        if settings.playback.screenshot_subtitles {
-            "yes"
-        } else {
-            "no"
-        }
+        "script-opts-append=mpvkit-profile={}\n",
+        settings.profile.id()
     ));
     out.push_str(END);
     out
@@ -325,6 +318,7 @@ pub fn ready(root: &Path) -> Result<bool> {
         crate::config::relative!("mpv.conf"),
         crate::config::relative!("input.conf"),
         crate::config::relative!("script-opts/thumbfast.conf"),
+        crate::config::relative!("script-opts/uosc.conf"),
         ".mpvkit/settings.json",
     ] {
         if !m.files.iter().any(|f| f.path == name) || deploy::file_hash(&root.join(name))?.is_none()
@@ -413,11 +407,13 @@ fn prepare_portable_mode(
     ];
     // Protect retained components and configuration too, including unchanged files.
     watched.extend(m.files.iter().map(|f| root.join(&f.path)));
+    // Observe, but never own or roll back, files maintained by the package manager.
+    watched.push(player_path(root)?);
     let hashes = watched
         .iter()
         .map(|p| deploy::file_hash(p))
         .collect::<Result<Vec<_>>>()?;
-    let mut files = generate_inner(root, &player_path(root), &settings, replace, reset)?;
+    let mut files = generate_inner(root, &player_path(root)?, &settings, replace, reset)?;
     if let Some(enabled) = integration_enabled {
         let payload = files
             .iter_mut()
@@ -486,15 +482,12 @@ pub fn prepare_remove_player(root: &Path) -> Result<deploy::DeploymentPlan> {
 mod tests {
     use super::*;
     fn install(root: &Path) {
-        let mut files = generate(root, &player_path(root), &Settings::default()).unwrap();
-        files.push(Payload {
-            path: "mpv.exe".into(),
-            bytes: b"fixture".to_vec(),
-        });
+        let mut files = generate(root, &player_path(root).unwrap(), &Settings::default()).unwrap();
+        #[cfg(target_os = "windows")]
+        crate::mpv::fixture_player(root);
         for p in crate::components::ASSETS
             .iter()
             .flat_map(|a| crate::components::required_paths(a.id))
-            .filter(|p| **p != "mpv.exe")
         {
             files.push(Payload {
                 path: (*p).into(),
@@ -516,7 +509,7 @@ mod tests {
     fn portable_configuration_preserves_edits_and_previews_only_explicit_replacement() {
         let root = std::env::temp_dir().join(format!("mpvkit-portable-{}", deploy::operation_id()));
         install(&root);
-        assert!(player_path(&root).exists());
+        assert!(player_path(&root).unwrap().exists());
         assert!(!root.join("state").exists());
         assert!(
             !root
@@ -527,6 +520,13 @@ mod tests {
         let before = std::fs::read_to_string(&path).unwrap();
         assert!(before.contains("[mpvkit-balanced]"));
         let manual = before
+            .replace("autofit=75%x75%", "autofit=60%x60%")
+            .replace("auto-window-resize=no", "auto-window-resize=yes")
+            .replace(
+                "sub-file-paths-append=subtitles",
+                "sub-file-paths-append=custom-subs",
+            )
+            .replace("directory-mode=ignore", "directory-mode=recursive")
             .replace("save-position-on-quit=yes", "save-position-on-quit=no")
             .replace(&format!("alang={DEFAULT_LANGUAGES}"), "alang=ja")
             .replace(&format!("slang={DEFAULT_LANGUAGES}\n"), "")
@@ -545,6 +545,10 @@ mod tests {
         deploy::execute(plan).unwrap();
         let after = std::fs::read_to_string(&path).unwrap();
         assert!(after.contains("save-position-on-quit=no"));
+        assert!(after.contains("autofit=60%x60%\n"));
+        assert!(after.contains("auto-window-resize=yes\n"));
+        assert!(after.contains("sub-file-paths-append=custom-subs\n"));
+        assert!(after.contains("directory-mode=recursive\n"));
         assert!(after.ends_with("# custom\nvolume=23\n"));
         assert!(after.contains("alang=ja"));
         assert!(!after.contains("slang="));
@@ -581,6 +585,29 @@ mod tests {
             std::fs::read_to_string(&path).unwrap(),
             "changed after preview"
         );
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn uosc_configuration_is_previewed_guarded_and_preserved() {
+        let root = std::env::temp_dir().join(format!("mpvkit-uosc-{}", deploy::operation_id()));
+        install(&root);
+        let name = crate::config::relative!("script-opts/uosc.conf");
+        let path = root.join(name);
+        let settings = Settings::default();
+        let original = preview(&root, &settings, false).unwrap();
+        let pending = prepare_portable(&root, settings.clone(), false).unwrap();
+        let edited = "# My control layout\ncontrols=menu,space,play-pause,space,fullscreen\n";
+        std::fs::write(&path, edited).unwrap();
+        assert_ne!(original.fingerprint, fingerprint(&root).unwrap());
+        assert_eq!(deploy::execute(pending).unwrap_err().code, "stale_preview");
+        let retained = preview(&root, &settings, false).unwrap();
+        let file = retained.files.iter().find(|f| f.path == name).unwrap();
+        assert!(file.exists && file.retained);
+        assert_eq!(file.after, edited);
+        deploy::execute(prepare_portable(&root, settings, false).unwrap()).unwrap();
+        assert_eq!(std::fs::read_to_string(&path).unwrap(), edited);
+        std::fs::remove_file(path).unwrap();
+        assert!(!ready(&root).unwrap());
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]

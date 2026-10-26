@@ -8,12 +8,12 @@ local function read_json(path)
     if not content or #content > 65536 then return nil end
     return utils.parse_json(content)
 end
-local options = {profile='balanced', screenshot_subtitles=false}
+local options = {profile='balanced'}
 require('mp.options').read_options(options, 'mpvkit')
 local config_file = mp.find_config_file('mpv.conf')
 if not config_file then return end
 local config_dir = utils.split_path(config_file)
-local root = utils.split_path(config_dir:gsub('[/\\]+$', ''))
+local root = config_dir:gsub('[/\\]+$', '')
 local helper = utils.join_path(root, '.mpvkit/launcher/mpvkit.exe')
 local order = {'power-saving', 'balanced', 'high-quality'}
 local labels = {['power-saving']='省电', balanced='均衡', ['high-quality']='高画质'}
@@ -77,15 +77,77 @@ local function menu()
     items[#items + 1] = {title='保存当前档位为全局默认', hint='', value={'script-message-to', 'mpvkit', 'save'}}
     mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json({type='mpvkit-profiles', title='MpvKit 画质档位', items=items}))
 end
-mp.register_script_message('screenshot', function()
-    mp.command_native_async({name='screenshot', flags=options.screenshot_subtitles and 'subtitles' or 'video'}, function(success, result, err)
-        if not success then mp.osd_message('截图失败 / Screenshot failed'); msg.error(tostring(err)) end
-    end)
-end)
 mp.register_script_message('profile', apply)
 mp.register_script_message('save', save)
 mp.register_script_message('menu', menu)
 mp.add_timeout(0, publish)
+
+-- Playback modes use the bridge's real uosc state and MPV's loop properties.
+-- No mode is persisted; external loop combinations remain visible as custom.
+local modes = {
+    {id='sequential', label='顺序播放 / Sequential', icon='arrow_forward', loop_file='no', loop_playlist='no', shuffle=false},
+    {id='playlist', label='列表循环 / Loop playlist', icon='repeat', loop_file='no', loop_playlist='inf', shuffle=false},
+    {id='file', label='单集循环 / Loop file', icon='repeat_one', loop_file='inf', loop_playlist='no', shuffle=false},
+    {id='shuffle', label='随机播放 / Shuffle', icon='shuffle', loop_file='no', loop_playlist='no', shuffle=true},
+}
+local function playback_mode()
+    local actual = mp.get_property_native('user-data/mpvkit-uosc')
+    if type(actual) ~= 'table' or type(actual.shuffle) ~= 'boolean' then return nil end
+    local file = mp.get_property('loop-file', 'no')
+    local playlist = mp.get_property('loop-playlist', 'no')
+    for _, mode in ipairs(modes) do
+        if actual.shuffle == mode.shuffle and file == mode.loop_file and playlist == mode.loop_playlist then return mode end
+    end
+    return {id='custom', label='自定义 / Custom', icon='tune'}
+end
+local function playback_menu_data()
+    local current_mode = playback_mode()
+    local items = {}
+    for _, mode in ipairs(modes) do
+        items[#items + 1] = {title=mode.label, hint=current_mode and current_mode.id == mode.id and '当前 / Current' or '',
+            value={'script-message-to', 'mpvkit', 'playback-mode', mode.id}}
+    end
+    return {type='mpvkit-playback', title='播放模式 / Playback mode',
+        footnote=current_mode and current_mode.id == 'custom' and current_mode.label or nil, items=items}
+end
+local function update_playback_mode()
+    local mode = playback_mode()
+    mp.set_property_native('user-data/mpvkit-playback-mode', mode and mode.id or 'unavailable')
+    mp.commandv('script-message-to', 'uosc', 'set-button', 'mpvkit-mode', utils.format_json({
+        icon=mode and mode.icon or 'help_outline', active=mode and mode.id ~= 'sequential' or false,
+        tooltip='播放模式 / Playback mode' .. (mode and ' · ' .. mode.label or ''),
+        command=mode and {'script-message-to', 'mpvkit', 'playback-menu'} or nil,
+    }))
+    mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(playback_menu_data()))
+end
+mp.register_script_message('playback-menu', function()
+    if not playback_mode() then mp.osd_message('uosc 尚未就绪 / uosc is not ready'); return end
+    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json(playback_menu_data()))
+end)
+mp.register_script_message('playback-mode', function(id)
+    if not playback_mode() then return end
+    for _, mode in ipairs(modes) do
+        if mode.id == id then
+            mp.set_property('loop-file', mode.loop_file)
+            mp.set_property('loop-playlist', mode.loop_playlist)
+            mp.commandv('script-message-to', 'uosc', 'mpvkit-set-shuffle', mode.shuffle and 'yes' or 'no')
+            return
+        end
+    end
+end)
+mp.register_script_message('speed-menu', function()
+    local items = {}
+    local current_speed = mp.get_property_number('speed', 1)
+    for _, speed in ipairs({0.5, 0.75, 1, 1.25, 1.5, 2}) do
+        items[#items + 1] = {title=tostring(speed) .. '×', hint=current_speed == speed and '当前 / Current' or '',
+            value={'set', 'speed', tostring(speed)}}
+    end
+    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json({type='mpvkit-speed', title='倍速 / Playback speed', items=items}))
+end)
+mp.observe_property('user-data/mpvkit-uosc', 'native', update_playback_mode)
+mp.observe_property('loop-file', 'string', update_playback_mode)
+mp.observe_property('loop-playlist', 'string', update_playback_mode)
+
 -- Temporary profile changes belong to this media file; preserve the actual initial configuration.
 local initial = {}
 for _, id in ipairs(order) do

@@ -1,11 +1,11 @@
-import { Alert, Button, Checkbox, MantineProvider, Modal, NativeSelect, Paper, AppShell, NavLink, Tooltip, Accordion, Group, Transition, Text, TextInput, Title, createTheme } from "@mantine/core";
+import { Alert, Button, Checkbox, Switch, MantineProvider, Modal, NativeSelect, Paper, AppShell, NavLink, Tooltip, Accordion, Group, Transition, Text, TextInput, Title, createTheme } from "@mantine/core";
 import { useMediaQuery } from "@mantine/hooks";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { errorKey, resolveLocale, translator, type Key } from "./i18n";
-import { defaultAppSettings, defaultSettings, type AppSettings, type Asset, type ConfigurationPreview, type DraftRequest, type Deployment, type Environment, type Preview, type Progress, type Registration, type Report, type Settings } from "./types";
+import { defaultAppSettings, defaultSettings, type AppSettings, type Asset, type ConfigurationPreview, type CorePreview, type DraftRequest, type Deployment, type Environment, type Preview, type Progress, type Registration, type Report, type Settings } from "./types";
 import logo from "./assets/mpv.svg";
 import "@mantine/core/styles.css";
 import "./style.css";
@@ -50,7 +50,7 @@ export function App() {
   const [savedIntent, setSavedIntent] = useState(true);
   const request = useRef<DraftRequest | null>(null);
   const [configuration, setConfiguration] = useState<ConfigurationPreview | null>(null);
-  const [selectedFile, setSelectedFile] = useState('portable_config/mpv.conf');
+  const [selectedFile, setSelectedFile] = useState('mpv.conf');
   const [exportPath, setExportPath] = useState("");
   const locale = resolveLocale(appSettings.language, environment.languages);
   const t = translator(locale);
@@ -121,9 +121,6 @@ export function App() {
     finally { busyRef.current = false; setBusy(false); }
   }
   function go(next: "management"|"settings") { setPage(next); if (next === "management" && desktop && !busyRef.current) void refresh().catch(setError); }
-  async function chooseFolder(setter: (path: string) => void) {
-    await run(async () => { const chosen = await invoke<string | null>("choose_path",{folder:true}); if (chosen) setter(chosen); });
-  }
   function changePlayback<K extends keyof Settings["playback"]>(key: K, value: Settings["playback"][K]) {
     setDraft(d => ({...d, playback:{...d.playback,[key]:value}}));
   }
@@ -153,7 +150,14 @@ export function App() {
   }
   function installOnly() { request.current = null; setConfiguration(null); setPreview({kind:"download",data:null}); }
   async function download() {
-    setPreview(null); setProgress({component:"mpv",phase:"download",received:0,total:0});
+    if (!linux && !report?.components.some(c=>c.id==="mpv"&&c.ready)) {
+      setPreview({kind:"core",data:await invoke<CorePreview>("preview_core",{action:"install"}),continueInstall:true});
+      return;
+    }
+    await downloadEnhancements();
+  }
+  async function downloadEnhancements() {
+    setPreview(null); setProgress({component:"uosc",phase:"download",received:0,total:0});
     const channel = new Channel<Progress>();
     channel.onmessage = p => setProgress(p);
     try {
@@ -171,6 +175,15 @@ export function App() {
   async function confirmPreview() {
     const pending = preview; if (!pending) return;
     await run(async () => {
+      if (pending.kind === "core") {
+        await invoke("apply_core",{previewId:pending.data.id});
+        const current = await refresh();
+        setPreview(null);
+        if (pending.continueInstall && current?.components.some(c=>c.id==="mpv"&&c.ready)) {
+          await downloadEnhancements();
+        } else setNotice("done");
+        return;
+      }
       if (pending.kind === "download" || pending.kind === "configuration") {
         await download(); return;
       }
@@ -198,11 +211,11 @@ export function App() {
   }
   const action = (label: Key, onClick: () => void, primary = false, disabled = blocked) =>
     <Button type="button" variant={primary ? "filled" : "default"} disabled={disabled} onClick={e=>{previewOrigin.current=e.currentTarget;onClick();}}>{t(label)}</Button>;
-  const row = (label: string, control: ReactNode, description?: string) =>
+  const row = (label: string, control: ReactNode, description?: ReactNode) =>
     <div className="setting-row"><div><Text fw={500}>{label}</Text>{description && <Text size="sm" c="dimmed">{description}</Text>}</div><div className="row-control">{control}</div></div>;
   function componentRow(id: string) {
     const component = report?.components.find(c=>c.id===id), asset = assets.find(a=>a.id===id);
-    return <div className="component-row" key={id}><div><Text fw={500}>{id === "mpv" ? "MPV" : id === "subtitle-font" ? t("subtitleFont") : id}</Text><Text size="sm" c="dimmed">{component?.version ?? asset?.version}</Text></div><Text size="sm">{progress?.component===id?t("downloadBusy"):component?.ready?t(linux&&id==="mpv"?"systemInstalled":"ready"):component?.version?t("missing"):t("waiting")}</Text></div>;
+    return <div className="component-row" key={id}><div><Text fw={500}>{id === "mpv" ? "MPV" : id === "subtitle-font" ? t("subtitleFont") : id}</Text><Text size="sm" c="dimmed">{component?.version ?? asset?.version}</Text></div><Text size="sm">{progress?.component===id?t("downloadBusy"):component?.ready?t(id==="mpv"?"systemInstalled":"ready"):component?.version?t("missing"):t("waiting")}</Text></div>;
   }
   async function changeIntegration(enabled: boolean) {
     if (!report?.generation) { setIntegrationEnabled(enabled); return; }
@@ -215,7 +228,7 @@ export function App() {
     return <>
       {report?.recoveryRequired && <Alert color="orange" mb="md">{t("recovery")}<div className="actions">{action("recover",()=>void (registration?.recoveryRequired?integration("recover"):maintenance("recover")))}</div></Alert>}
       <Paper withBorder className="section">
-        {linux&&row("MPV",<Text size="sm">{t(report?.components.some(c=>c.id==="mpv"&&c.ready)?"systemInstalled":"notInstalled")}</Text>,report?.components.find(c=>c.id==="mpv")?.version??t("systemMpvHint"))}
+        {row("MPV",<Text size="sm">{t(report?.components.some(c=>c.id==="mpv"&&c.ready)?"systemInstalled":"notInstalled")}</Text>,report?.components.find(c=>c.id==="mpv")?.version??t(linux?"systemMpvHint":"wingetHint"))}
         {row(t("components"),<Group gap={8}><Text size="sm">{t(report?.componentsReady?"ready":report?.generation?"missing":"notInstalled")}</Text>{!report?.componentsReady&&action(report?.generation?"repairOnly":"installOnly",installOnly,false,blocked||!!report?.recoveryRequired)}</Group>)}
         {row("mpv.conf",<Text size="sm">{t(!report?.configurationInstalled?"notInstalled":!report.settingsReady?"missing":report.configurationModified?"manuallyEdited":"saved")}</Text>,report?.configurationInstalled?t("modifiedAt")+" · "+time(report.configModifiedAt):undefined)}
         {linux&&row(t("detectedConfigDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists),[report?.configDirectory,report?.configDirectorySource,t("linuxPlaybackHint")].filter(Boolean).join(" · "))}
@@ -229,10 +242,11 @@ export function App() {
     const registration = report?.integration;
     const updateAvailable = assets.some(a=>report?.components.some(c=>c.id===a.id&&c.version&&c.version!==a.version));
     return <>
-      {!linux&&row(t("openInstallDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_player_directory");}),false,blocked||!report?.rootExists),report?.root)}
+      {!linux&&row(t("openInstallDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_player_directory");}),false,blocked||!report?.playerReady),report?.playerDirectory)}
       {!linux&&row(t("openConfigDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists),report?.configDirectory)}
       <Fold title={t("components")} opened={extrasOpen} onChange={setExtrasOpen}>
         {componentRow("mpv")}{componentRow("uosc")}{componentRow("thumbfast")}{componentRow("subtitle-font")}
+        {!linux&&<div className="actions">{action("upgradeCore",()=>void run(async()=>setPreview({kind:"core",data:await invoke<CorePreview>("preview_core",{action:report?.playerReady?"upgrade":"install"}),continueInstall:false})))}</div>}
         <div className="actions">{action("checkUpdates",()=>void run(async()=>{await refresh();setUpdatesChecked(true);}))}{updatesChecked&&updateAvailable&&action("updateComponents",installOnly)}</div>
         {updatesChecked&&<Text size="sm">{t(updateAvailable?"supportedUpdate":"supportedVersion")}</Text>}
       </Fold>
@@ -249,12 +263,10 @@ export function App() {
       <Paper withBorder className="section">
         {row(t("quality"),<NativeSelect aria-label={t("quality")} value={draft.profile} disabled={blocked} data={Object.entries(profileKey).map(([value,k])=>({value,label:t(k)}))} onChange={e=>{const profile=e.currentTarget.value;setDraft(d=>({...d,profile}));}}/>,hint)}
         {row(t("hdr"),<NativeSelect aria-label={t("hdr")} value={draft.playback.hdr} disabled={blocked} data={[{value:"auto",label:t("auto")},{value:"on",label:t("hdrOn")},{value:"off",label:t("hdrOff")}]} onChange={e=>changePlayback("hdr",e.currentTarget.value)}/>,draft.playback.hdr==="on"?t("hdrHint"):undefined)}
+        {row(t("autoPlaylist"),<Switch aria-label={t("autoPlaylist")} aria-describedby="auto-playlist-hint" checked={draft.playback.autoPlaylist} disabled={blocked} onChange={e=>changePlayback("autoPlaylist",e.currentTarget.checked)}/>,<span id="auto-playlist-hint">{t("autoPlaylistHint")}</span>)}
+        {row(t("endBehavior"),<NativeSelect aria-label={t("endBehavior")} value={draft.playback.keepOpen?"keep":"close"} disabled={blocked} data={[{value:"close",label:t("closePlayer")},{value:"keep",label:t("keepWindow")}]} onChange={e=>changePlayback("keepOpen",e.currentTarget.value==="keep")}/>)}
       </Paper>
       <Paper withBorder className="section"><Fold title={t("advanced")}>
-        {row(t("endBehavior"),<NativeSelect aria-label={t("endBehavior")} value={draft.playback.keepOpen?"keep":"close"} disabled={blocked} data={[{value:"close",label:t("closePlayer")},{value:"keep",label:t("keepWindow")}]} onChange={e=>changePlayback("keepOpen",e.currentTarget.value==="keep")}/>)}
-        {row(t("screenshotDirectory"),<Group gap={8}><TextInput aria-label={t("screenshotDirectory")} placeholder={t("picturesDefault")} value={draft.playback.screenshotDirectory??""} disabled={blocked} onChange={e=>changePlayback("screenshotDirectory",e.currentTarget.value||null)}/>{action("browse",()=>void chooseFolder(p=>changePlayback("screenshotDirectory",p)))}</Group>)}
-        {row(t("screenshotFormat"),<NativeSelect aria-label={t("screenshotFormat")} value={draft.playback.screenshotFormat} disabled={blocked} data={[{value:"png",label:"PNG"},{value:"jpeg",label:"JPEG"}]} onChange={e=>changePlayback("screenshotFormat",e.currentTarget.value as "png"|"jpeg")}/>)}
-        <Checkbox mt="md" label={t("screenshotSubtitles")} checked={draft.playback.screenshotSubtitles} disabled={blocked} onChange={e=>changePlayback("screenshotSubtitles",e.currentTarget.checked)}/>
         {report?.configurationModified&&<Checkbox mt="md" label={t("replaceManual")} description={t("replaceManualHint")} checked={replaceManual} disabled={blocked} onChange={e=>setReplaceManual(e.currentTarget.checked)}/>}
         {maintenanceControls()}
         <div className="actions">{action("resetConfig",()=>void maintenance("reset-config"),false,blocked||!report?.configurationInstalled)}</div>
@@ -279,10 +291,11 @@ export function App() {
   }
   function previewContent() {
     if (!preview) return null;
+    if(preview.kind==="core")return <><Text size="sm">{t("coreHint")}</Text><p>{preview.data.package} · {preview.data.source}</p><p className="path">{preview.data.executable}</p><p className="path">{preview.data.configDirectory}</p><Fold title={t("details")}><pre>{preview.data.details}</pre></Fold></>;
     if(preview.kind==="configuration")return !preview.readOnly && !report?.componentsReady ? <><Text size="sm">{t("downloadHint")}</Text><ul>{assets.map(a=><li key={a.id}>{a.id} · {a.version}</li>)}</ul></> : null;
     if(preview.kind==="download")return <><Text size="sm">{t("downloadHint")}</Text><p className="path">{report?.root}</p><ul>{assets.map(a=><li key={a.id}>{a.id} · {a.version} · {new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(a.size/1048576)} MiB</li>)}</ul></>;
     if(preview.kind==="install"||preview.kind==="playback"||preview.kind==="maintenance")return <>
-      <Text size="sm">{t(preview.kind==="maintenance"&&maintenanceAction==="uninstall"?(linux?"uninstallLinuxHint":"uninstallHint"):preview.kind==="maintenance"&&maintenanceAction==="reset-config"?"resetConfigHint":"writeHint")}</Text><p className="path">{preview.data.root}</p>
+      <Text size="sm">{t(preview.kind==="maintenance"&&maintenanceAction==="uninstall"?"uninstallHint":preview.kind==="maintenance"&&maintenanceAction==="reset-config"?"resetConfigHint":"writeHint")}</Text><p className="path">{preview.data.root}</p>
       {preview.data.integration&&<><Text size="sm">{t("integration")} · {t(preview.data.integration.action==="unregister"?"remove":"update")}</Text>{preview.data.integration.conflicts.length>0&&<Alert color="red">{t("conflict")}<pre>{preview.data.integration.conflicts.join("\n")}</pre></Alert>}<Fold title={t("registrationDetails")}><pre>{JSON.stringify(preview.data.integration,null,2)}</pre></Fold></>}
       {preview.data.retained.length>0&&<Fold title={t("retainedFiles")}><ul>{preview.data.retained.map(p=><li key={p}><code>{p}</code></li>)}</ul></Fold>}
       {preview.data.conflicts.length>0&&<Alert color="red">{t("conflict")}<ul>{preview.data.conflicts.map(x=><li key={x}>{x}</li>)}</ul></Alert>}
@@ -291,7 +304,7 @@ export function App() {
     return <><Text size="sm">{t(preview.kind==="diagnostics"?"exportHint":"dangerHint")}</Text><Fold title={t("details")}><pre className="diagnostic">{JSON.stringify(preview.data,null,2)}</pre></Fold></>;
   }
   const hasConflicts = preview && preview.kind!=="download" && "conflicts" in preview.data && Array.isArray(preview.data.conflicts) && (preview.data.conflicts.length>0 || ("integration" in preview.data && !!(preview.data.integration as Registration|null)?.conflicts.length));
-  const previewAction: Key = !preview ? "preview" : preview.kind==="configuration" ? (preview.readOnly?"previewConfig":saveLabel) : preview.kind==="download" ? "download" : preview.kind==="install" ? "install" : preview.kind==="playback" ? "saveConfig" : preview.kind==="diagnostics" ? "diagnostics" : preview.kind==="logs"||preview.kind==="assets" ? "cleanup" : preview.kind==="maintenance" ? ({uninstall:"uninstall", "reset-config":"resetConfig", restore:"restore",recover:"recover"} as Record<string,Key>)[maintenanceAction]??"applyChanges" : "applyChanges";
+  const previewAction: Key = !preview ? "preview" : preview.kind==="core" ? "applyCore" : preview.kind==="configuration" ? (preview.readOnly?"previewConfig":saveLabel) : preview.kind==="download" ? "download" : preview.kind==="install" ? "install" : preview.kind==="playback" ? "saveConfig" : preview.kind==="diagnostics" ? "diagnostics" : preview.kind==="logs"||preview.kind==="assets" ? "cleanup" : preview.kind==="maintenance" ? ({uninstall:"uninstall", "reset-config":"resetConfig", restore:"restore",recover:"recover"} as Record<string,Key>)[maintenanceAction]??"applyChanges" : "applyChanges";
   const navPaths = {management:"M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6",settings:"M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0"};
   const nav = (target: typeof page, glyph: string) => <Tooltip key={target} label={t(target)} disabled={!compact} position="right" events={{hover:true,focus:true,touch:false}}><NavLink component="button" type="button" ref={target==="management"?managementTab:undefined} aria-label={t(target)} aria-current={page===target?"page":undefined} active={page===target} label={compact?null:t(target)} leftSection={<span className="nav-icon" aria-hidden="true">{linux?<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={navPaths[target]}/></svg>:glyph}</span>} onClick={()=>go(target)}/></Tooltip>;
   return <MantineProvider theme={theme} forceColorScheme={dark?"dark":"light"}>
@@ -302,7 +315,7 @@ export function App() {
         <Group justify="space-between" className="page-heading"><Title order={1}>{t(page)}</Title>{desktop&&action("checkAgain",()=>void run(async()=>{if(!report)await boot();else await refresh();}))}</Group>
         {!desktop&&<Alert mb="md">{t("webOnly")}</Alert>}{busy&&!progress&&<Text role="status" mb="md">{t("working")}</Text>}
         {booting?<Text role="status">{t("loading")}</Text>:page==="management"?<>{components()}{playback()}</>:appPreferences()}
-        {error!=null&&<Alert color="red" mt="md" role="alert">{t(errorKey(error))}<Fold title={t("details")}><pre>{JSON.stringify(error,null,2)}</pre></Fold></Alert>}
+        {error!=null&&<Alert color="red" mt="md" role="alert">{t(errorKey(error))}<Fold title={t("details")}><pre>{JSON.stringify(error,null,2)}</pre></Fold>{!linux&&(error as {code?:string})?.code==="winget_missing"&&action("getWinget",()=>void run(async()=>{await invoke("open_app_installer");}))}</Alert>}
         {notice&&<Text mt="md" role="status" aria-live="polite">{t(notice)}</Text>}
       </div>{page==="management"&&<footer className="save-bar"><Text size="sm" c="dimmed">{t(dirty||!report?.settingsReady?"unsaved":"saved")}</Text><Group gap={8}>{action("previewConfig",()=>void prepareSettings(true))}{action(saveLabel,()=>void prepareSettings(),true,blocked||!!report?.recoveryRequired||(!dirty&&!!report?.componentsReady&&!!report?.settingsReady&&!replaceManual))}</Group></footer>}
       </PageEntrance></main></AppShell.Main>
@@ -311,12 +324,12 @@ export function App() {
     <Modal opened={preview!==null} onClose={()=>{if(!busy)setPreview(null);}} title={t(previewAction)} size={720} closeButtonProps={{"aria-label":t("close"),disabled:busy}} closeOnClickOutside={!busy} closeOnEscape={!busy}>
       {previewContent()}
       {configuration&&(preview?.kind==="configuration"||preview?.kind==="playback")&&<>
-        <NativeSelect label={t("configFile")} value={selectedFile} data={configuration.files.map(f=>({value:f.path,label:f.path.replace("portable_config/","")}))} onChange={e=>setSelectedFile(e.currentTarget.value)}/>
+        <NativeSelect label={t("configFile")} value={selectedFile} data={configuration.files.map(f=>({value:f.path,label:f.path}))} onChange={e=>setSelectedFile(e.currentTarget.value)}/>
         {configuration.files.filter(f=>f.path===selectedFile).map(f=><div key={f.path}><Text size="xs" c="dimmed" mt="sm">{t("modifiedAt")} · {!f.exists?t("notInstalled"):time(f.modifiedAt)}{f.retained?" · "+t("retainedFile"):""}</Text><pre className="configuration-text">{f.after}</pre>{f.before&&f.before!==f.after&&<Fold title={t("beforeConfig")}><pre>{f.before}</pre></Fold>}</div>)}
       </>}
       {preview?.kind==="maintenance"&&preview.data.configurationDiffs.map(diff=><Fold key={diff.path} title={diff.path}><Text>{t("beforeConfig")}</Text><pre>{diff.before}</pre><Text>{t("afterConfig")}</Text><pre>{diff.after}</pre></Fold>)}
 
-      {error!=null&&<Alert color="red" mt="md">{t(errorKey(error))}<Fold title={t("details")}><pre>{JSON.stringify(error,null,2)}</pre></Fold></Alert>}
+      {error!=null&&<Alert color="red" mt="md">{t(errorKey(error))}<Fold title={t("details")}><pre>{JSON.stringify(error,null,2)}</pre></Fold>{!linux&&(error as {code?:string})?.code==="winget_missing"&&action("getWinget",()=>void run(async()=>{await invoke("open_app_installer");}))}</Alert>}
       <div className="dialog-actions">{!(preview?.kind==="configuration"&&preview.readOnly)&&<Button disabled={busy||!!hasConflicts} onClick={()=>void confirmPreview()}>{t(previewAction)}</Button>}<Button variant="default" data-autofocus disabled={busy} onClick={()=>setPreview(null)}>{t("cancel")}</Button></div>
     </Modal>
   </MantineProvider>;

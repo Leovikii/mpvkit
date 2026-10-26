@@ -29,7 +29,6 @@ fn check_cancel(cancel: &AtomicBool) -> Result<()> {
 #[derive(Clone, Copy, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Format {
-    SevenZip,
     Zip,
     Raw,
 }
@@ -67,16 +66,6 @@ pub const SOURCE_MATERIALS: &str = include_str!("../../resources/source-material
 
 // A fixed research baseline, not a claim of release readiness. No remote catalog is loaded.
 pub const ASSETS: &[Asset] = &[
-    #[cfg(target_os = "windows")]
-    Asset {
-        id: "mpv",
-        version: "20261020-6a262d11f6",
-        project: "https://github.com/shinchiro/mpv-winbuild-cmake",
-        url: "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261020/mpv-x86_64-20261020-git-6a262d11f6.7z",
-        size: 34_014_613,
-        sha256: "cbeda25235a24e9145f6ab3e784052e437e6e5aac306b682afd2bbf0070ddea8",
-        format: Format::SevenZip,
-    },
     Asset {
         id: "uosc",
         version: "5.13.0",
@@ -287,8 +276,6 @@ impl Boundary {
 
 fn destination(id: &str, name: &str) -> Option<String> {
     match id {
-        "mpv" if matches!(name, "mpv.exe" | "d3dcompiler_43.dll") => Some(name.into()),
-        "mpv" if name == "mpv/fonts.conf" => Some(crate::config::relative!("fonts.conf").into()),
         "uosc"
             if name.starts_with("scripts/uosc/")
                 && (!name.starts_with("scripts/uosc/bin/")
@@ -381,49 +368,6 @@ pub fn unpack(asset: &Asset, bytes: &[u8], cancel: &AtomicBool) -> Result<Vec<Pa
                 }
             }
         }
-        Format::SevenZip => {
-            let mut archive = sevenz_rust2::ArchiveReader::new(
-                Cursor::new(bytes),
-                sevenz_rust2::Password::empty(),
-            )
-            .map_err(|_| error("archive_corrupt", "7z 归档无效。"))?;
-            for file in &archive.archive().files {
-                let attributes = file.windows_attributes;
-                let kind = (attributes >> 16) & 0o170000;
-                boundary.entry(
-                    &file.name,
-                    file.is_directory,
-                    file.size,
-                    file.is_anti_item
-                        || (file.has_windows_attributes
-                            && (attributes & 0x400 != 0
-                                || !matches!(kind, 0 | 0o100000 | 0o040000))),
-                )?;
-            }
-            let mut failure = None;
-            let decoded = archive.for_each_entries(|file, reader| {
-                // Solid archives must consume even unselected entries to reach later files.
-                let path = (!file.is_directory)
-                    .then(|| destination(asset.id, &file.name))
-                    .flatten();
-                match read_entry(reader, file.size, path.is_some(), cancel) {
-                    Ok(data) => {
-                        if let Some(path) = path {
-                            payloads.push(Payload { path, bytes: data });
-                        }
-                        Ok(true)
-                    }
-                    Err(e) => {
-                        failure = Some(e);
-                        Ok(false)
-                    }
-                }
-            });
-            if let Some(e) = failure {
-                return Err(e);
-            }
-            decoded.map_err(|_| error("archive_corrupt", "7z 解码或校验失败。"))?;
-        }
     }
     check_cancel(cancel)?;
     let required = required_paths(asset.id);
@@ -436,17 +380,19 @@ pub fn unpack(asset: &Asset, bytes: &[u8], cancel: &AtomicBool) -> Result<Vec<Pa
     {
         return Err(error("component_incomplete", "固定组件缺少必要文件。"));
     }
+    if asset.id == "uosc" {
+        let main = payloads
+            .iter_mut()
+            .find(|p| p.path == crate::config::relative!("scripts/uosc/main.lua"))
+            .expect("required uosc main checked above");
+        main.bytes
+            .extend_from_slice(include_bytes!("../../resources/scripts/uosc-bridge.lua"));
+    }
     Ok(payloads)
 }
 
 pub(crate) fn required_paths(id: &str) -> &'static [&'static str] {
     match id {
-        #[cfg(target_os = "windows")]
-        "mpv" => &[
-            "mpv.exe",
-            "d3dcompiler_43.dll",
-            crate::config::relative!("fonts.conf"),
-        ],
         "uosc" => &[
             crate::config::relative!("scripts/uosc/main.lua"),
             #[cfg(target_os = "windows")]
@@ -482,13 +428,14 @@ pub fn prepare_install(
     }
     let mut payloads = Vec::new();
     let mut versions = std::collections::BTreeMap::new();
-    #[cfg(target_os = "linux")]
+    let player = crate::config::player_path(root)?;
+    let player_hash = deploy::file_hash(&player)?;
     {
-        let player = crate::config::player_path(root);
+        let player = crate::config::player_path(root)?;
         let info = crate::mpv::inspect(&player).map_err(|_| {
             error(
                 "system_mpv_required",
-                "请先使用系统包管理器安装 mpv（sudo pacman -S mpv），再安装播放增强。",
+                "请先使用系统包管理器安装或修复 mpv，再安装播放增强。",
             )
         })?;
         crate::mpv::ensure_managed_options(&player)?;
@@ -540,6 +487,7 @@ pub fn prepare_install(
     }
     let mut plan = crate::deploy::prepare_install(root, payloads, replace_existing, versions)?;
     plan.guard(state_path, state_hash);
+    plan.guard(player, player_hash);
     Ok(plan)
 }
 
@@ -553,7 +501,6 @@ fn acquire(
         && let Some(directory) = std::env::var_os("MPVKIT_TEST_ASSETS")
     {
         let name = match asset.id {
-            "mpv" => "mpv-x86_64-20261020-git-6a262d11f6.7z",
             "uosc" => "uosc-5.13.0.zip",
             "thumbfast" => "thumbfast-thumbfast.lua",
             "subtitle-font" => "LXGWWenKaiScreen.ttf",
@@ -578,7 +525,7 @@ fn acquire(
 }
 
 fn license_materials() -> Vec<Payload> {
-    let mut files = vec![
+    let files = vec![
         ("LXGWWenKaiScreen-OFL.txt",include_bytes!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt").as_slice()),
         ("uosc-LGPL-2.1.txt",include_bytes!("../../resources/licenses/uosc-LGPL-2.1.txt").as_slice()),
         ("thumbfast-MPL-2.txt",include_bytes!("../../resources/licenses/thumbfast-MPL-2.txt").as_slice()),
@@ -591,30 +538,10 @@ fn license_materials() -> Vec<Payload> {
         ("uosc-go-NOTICES.txt",include_bytes!("../../resources/licenses/uosc-go-NOTICES.txt").as_slice()),
         ("source-materials.json",SOURCE_MATERIALS.as_bytes()),
         ("catalog.json",CATALOG.as_bytes()),
-        #[cfg(target_os = "windows")]
-        ("THIRD-PARTY.txt", "MpvKit 开发基线第三方材料\n\n这些文本保留固定组件已核对的上游许可与来源，不代表聚合分发材料齐备或发布已验收。\nMPV 核心 Copyright 声明 GPLv2 或以后；实际 FFmpeg 构建日志声明 GPLv3 或以后。\nuosc 上游附 LGPL2.1 文本，Go 辅助程序内嵌依赖版本及三份模块许可、Go1.23.1许可/PATENTS已保留；Go源码33份独立声明和14个已审阅版权/许可段落已保守保留；完整对应源码及链接适用仍需审阅。\nuosc_icons.otf 与 Google Material Icons Round 固定提交 1c575764826fa5752ddc2bdc6b31ef7cc3233371 原文件逐字节一致，未修改；Apache-2.0 许可原文已保留。Copyright 2019 Google LLC. All Rights Reserved. 纹理字体的完整许可映射仍未完成。\nthumbfast 固定源码及 MPL2 文本未修改。\n完整固定来源见 catalog.json / source-materials.json；releaseReady=false。\n".as_bytes()),
+        ("uosc-MpvKit-bridge.lua",include_bytes!("../../resources/scripts/uosc-bridge.lua").as_slice()),
+        ("uosc-MpvKit-modifications.txt", "MpvKit integration, 2026-10-26, GPL-3.0-or-later.\nThe verified uosc 5.13.0 main.lua is an unchanged prefix with the accompanying uosc-MpvKit-bridge.lua appended. This extension publishes the actual shuffle state and scaled layout flags. Other upstream Lua files, fonts, helpers and navigation are unchanged. Exact upstream, extension and deployed hashes are in source-materials.json / uoscIntegration. The MpvKit-managed script-opts/uosc.conf is an independent layout override, not the upstream example.\n".as_bytes()),
+        ("THIRD-PARTY.txt", "MpvKit 开发基线第三方材料\n\n这些文本保留固定组件已核对的上游许可与来源，不代表聚合分发材料齐备或发布已验收。\n系统 MPV 由包管理器维护，不随本应用分发。\nuosc 上游附 LGPL2.1 文本，Go 辅助程序内嵌依赖版本及三份模块许可、Go1.23.1许可/PATENTS已保留；Go源码33份独立声明和14个已审阅版权/许可段落已保守保留；完整对应源码及链接适用仍需审阅。\nuosc_icons.otf 与 Google Material Icons Round 固定提交 1c575764826fa5752ddc2bdc6b31ef7cc3233371 原文件逐字节一致，未修改；Apache-2.0 许可原文已保留。Copyright 2019 Google LLC. All Rights Reserved. 纹理字体的完整许可映射仍未完成。\nthumbfast 固定源码及 MPL2 文本未修改。\n完整固定来源见 catalog.json / source-materials.json；releaseReady=false。\n".as_bytes()),
     ];
-    #[cfg(target_os = "linux")]
-    files.push(("THIRD-PARTY.txt", "MpvKit Linux 开发基线第三方材料\n\n只部署固定 uosc、thumbfast 和文楷；系统 MPV 由包管理器维护，不随本应用分发。\nuosc 使用固定 ZIP 中未修改的 amd64 ziggy-linux，摘要和来源见 catalog.json；现有 Go/模块许可原文保守保留，不代表完整链接和对应源码审阅已完成。\nsource-materials.json 保留共享脚本/字体与 Linux helper 的固定版本来源证据。\n字体、Go、原生依赖及完整分发审阅仍有缺口，releaseReady=false。\n".as_bytes()));
-    #[cfg(target_os = "windows")]
-    files.extend([
-        (
-            "mpv-Copyright.txt",
-            include_bytes!("../../resources/licenses/mpv-Copyright.txt").as_slice(),
-        ),
-        (
-            "mpv-GPL-2.txt",
-            include_bytes!("../../resources/licenses/mpv-GPL-2.txt").as_slice(),
-        ),
-        (
-            "mpv-LGPL-2.1.txt",
-            include_bytes!("../../resources/licenses/mpv-LGPL-2.1.txt").as_slice(),
-        ),
-        (
-            "ffmpeg-GPL-3.txt",
-            include_bytes!("../../resources/licenses/ffmpeg-GPL-3.txt").as_slice(),
-        ),
-    ]);
     files
         .into_iter()
         .map(|(name, bytes)| Payload {

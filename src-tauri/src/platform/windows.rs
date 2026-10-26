@@ -16,12 +16,10 @@ use windows_sys::Win32::{
     Foundation::{ERROR_BROKEN_PIPE, HANDLE},
     Storage::FileSystem::GetDriveTypeW,
     System::{Com::CoTaskMemFree, Pipes::PeekNamedPipe},
-    UI::Shell::{
-        FOLDERID_LocalAppData, FOLDERID_Pictures, KF_FLAG_DONT_VERIFY, SHGetKnownFolderPath,
-    },
+    UI::Shell::{FOLDERID_LocalAppData, KF_FLAG_DONT_VERIFY, SHGetKnownFolderPath},
 };
 
-fn known_folder(id: &windows_sys::core::GUID) -> Result<PathBuf> {
+pub(super) fn known_folder(id: &windows_sys::core::GUID) -> Result<PathBuf> {
     let mut raw = std::ptr::null_mut();
     // SAFETY: Windows allocates a NUL-terminated UTF-16 string on success.
     let result = unsafe {
@@ -70,18 +68,8 @@ pub fn default_root() -> Result<PathBuf> {
     Ok(root)
 }
 
-pub fn pictures_directory() -> Result<PathBuf> {
-    #[cfg(debug_assertions)]
-    if std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
-        return Ok(default_root()?.join("pictures"));
-    }
-    Ok(known_folder(&FOLDERID_Pictures)?.join("MpvKit"))
-}
-
 pub fn app_root() -> Result<PathBuf> {
-    let root = default_root()?.join("player");
-    validate_local_path(&root)?;
-    Ok(root)
+    Ok(super::windows_mpv::config_location()?.directory)
 }
 
 // Check the drive before touching file metadata. Never enumerate mounted volumes.
@@ -300,9 +288,9 @@ impl Drop for TestPlayer {
 
 pub fn playback_config(hardware_decoding: bool) -> &'static str {
     if hardware_decoding {
-        "vo=gpu-next\ngpu-api=d3d11\nhwdec=auto-safe\n"
+        "vo=gpu-next\ngpu-api=d3d11\nhwdec=auto-safe\nsub-fonts-dir=~~/fonts\nosd-fonts-dir=~~/fonts\n"
     } else {
-        "vo=gpu-next\ngpu-api=d3d11\nhwdec=no\n"
+        "vo=gpu-next\ngpu-api=d3d11\nhwdec=no\nsub-fonts-dir=~~/fonts\nosd-fonts-dir=~~/fonts\n"
     }
 }
 
@@ -320,15 +308,20 @@ pub fn show_error(message: &str) {
 }
 
 pub fn open_default_apps() -> Result<()> {
+    open_system_uri("ms-settings:defaultapps")
+}
+
+pub fn open_app_installer() -> Result<()> {
+    open_system_uri("ms-windows-store://pdp/?ProductId=9NBLGGH4NNS1")
+}
+
+fn open_system_uri(target: &str) -> Result<()> {
     #[cfg(debug_assertions)]
     if std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
         return Ok(());
     }
     let verb: Vec<u16> = "open".encode_utf16().chain(Some(0)).collect();
-    let target: Vec<u16> = "ms-settings:defaultapps"
-        .encode_utf16()
-        .chain(Some(0))
-        .collect();
+    let target: Vec<u16> = target.encode_utf16().chain(Some(0)).collect();
     let result = unsafe {
         windows_sys::Win32::UI::Shell::ShellExecuteW(
             std::ptr::null_mut(),

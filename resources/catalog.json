@@ -1,48 +1,12 @@
 {
   "schemaVersion": 1,
-  "id": "windows-x64-20261020",
+  "id": "windows-x64-winget-20261026",
   "releaseReady": false,
   "releaseBlockers": [
-    "MPV 聚合构建完整依赖/源码/许可材料尚待齐备",
     "uosc 字体与 Go 辅助程序依赖的分发材料尚待齐备",
     "目标设备矩阵、HDR、干净系统与安装包验收未完成"
   ],
   "components": [
-    {
-      "id": "mpv",
-      "version": "20261020-6a262d11f6",
-      "project": "https://github.com/mpv-player/mpv",
-      "distributor": "https://github.com/shinchiro/mpv-winbuild-cmake",
-      "commit": "6a262d11f63733d37e3ee6d5fafcb1be1ef83952",
-      "platform": "windows-x64",
-      "url": "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20261020/mpv-x86_64-20261020-git-6a262d11f6.7z",
-      "size": 34014613,
-      "sha256": "cbeda25235a24e9145f6ab3e784052e437e6e5aac306b682afd2bbf0070ddea8",
-      "checksumSource": "GitHub fixed release asset digest",
-      "license": {
-        "identifier": null,
-        "status": "review-required",
-        "materials": [
-          "https://github.com/mpv-player/mpv/blob/6a262d11f63733d37e3ee6d5fafcb1be1ef83952/Copyright",
-          "https://github.com/shinchiro/mpv-winbuild-cmake/actions/runs/39344977314"
-        ],
-        "note": "实测 GPL feature enabled，FFmpeg 构建启用 GPL/version3；聚合依赖和完整分发材料未完成。"
-      },
-      "dependencies": [],
-      "conflicts": [
-        "existing same-name runtime files"
-      ],
-      "modified": false,
-      "minimumCapabilities": [
-        "config-dir",
-        "load-scripts",
-        "gpu-next",
-        "d3d11"
-      ],
-      "validation": [
-        "Windows 11 x64 MPV v0.41.0-1224-g6a262d11f; D3D11VA 720p H.264 SDR; three profiles and thumbnails"
-      ]
-    },
     {
       "id": "uosc",
       "version": "5.13.0",
@@ -70,7 +34,7 @@
         "native OSC",
         "other OSC scripts"
       ],
-      "modified": false,
+      "modified": true,
       "minimumCapabilities": [
         "Lua",
         "ASS overlays"
@@ -81,7 +45,8 @@
       "excludedAssets": [
         "ziggy-linux",
         "ziggy-macos"
-      ]
+      ],
+      "modification": "MpvKit appends resources/scripts/uosc-bridge.lua to fixed main.lua; the unchanged upstream prefix and resulting hashes are recorded in source-materials.json. Other upstream files are unchanged."
     },
     {
       "id": "thumbfast",
@@ -151,5 +116,15 @@
         "Fixed MPV: missing ASS family and plain SRT select LXGW WenKai Screen; present Arial remains Arial."
       ]
     }
-  ]
+  ],
+  "systemMpv": {
+    "manager": "winget",
+    "packageId": "shinchiro.mpv",
+    "source": "winget",
+    "project": "https://github.com/mpv-player/mpv",
+    "packageManifest": "https://github.com/microsoft/winget-pkgs/tree/master/manifests/s/shinchiro/mpv",
+    "ownership": "external",
+    "updatePolicy": "User-initiated WinGet upgrades; follow package versions, never daily Git builds. Recheck the actual executable and capabilities.",
+    "note": "WinGet package version labels do not prove an exact upstream stable commit. MpvKit does not download or redistribute the core."
+  }
 }

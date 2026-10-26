@@ -10,9 +10,9 @@
     "随受管理启动入口保留原文；无安装包，完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "bd381b3c8606970dd9f39242a418d2556198d3ab9bea0e80f361d9ca452b231a",
-    "src-tauri/Cargo.lock": "f172f891e526c7daae3b76c6202501f7bc83a1cc0cf84c841f2ce062887a74e3",
-    "package.json": "4bfc5c80fdb124dc3e65d187c3f8ef097a2f83ad4bfd7f996bce23bbc5d7f7a9",
+    "src-tauri/Cargo.toml": "097916f237f39e633eb8bbbfccdb012a692e6824be762d65a6e45ef9be138b7f",
+    "src-tauri/Cargo.lock": "d1967a6cd316cc9c013691014beb50b715761f11fafbc8e4b73839496a461fa9",
+    "package.json": "a1e25a9201f149d5496f90f14ed71e6f52d0784f8d1f99f164b464aca1ae445c",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
     "resources/app-license-supplements.json": "3dc313feb68a0b7b667eee062f337d25560317087bed4d4e1d096259ec00c7fe"
   },
@@ -2632,19 +2632,6 @@
       ]
     },
     {
-      "id": "cargo:lzma-rust2@0.23.0",
-      "declaredLicense": "Apache-2.0",
-      "repository": "https://github.com/hasenbanck/lzma-rust2/",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "materials": [
-        {
-          "file": "LICENSE",
-          "size": 11356,
-          "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1"
-        }
-      ]
-    },
-    {
       "id": "cargo:markup5ever@0.39.0",
       "declaredLicense": "MIT OR Apache-2.0",
       "repository": "https://github.com/servo/html5ever",
@@ -4115,19 +4102,6 @@
           "file": "LICENSE-MIT",
           "size": 1023,
           "sha256": "23f18e03dc49df91622fe2a76176497404e46ced8a715d9d2b67a7446571cca3"
-        }
-      ]
-    },
-    {
-      "id": "cargo:sevenz-rust2@0.24.1",
-      "declaredLicense": "Apache-2.0",
-      "repository": "https://github.com/hasenbanck/sevenz-rust",
-      "source": "registry+https://github.com/rust-lang/crates.io-index",
-      "materials": [
-        {
-          "file": "LICENSE",
-          "size": 11356,
-          "sha256": "43070e2d4e532684de521b885f385d0841030efa2b1a20bafb76133a5e1379c1"
         }
       ]
     },

@@ -1,5 +1,7 @@
 # v0.1.7：Arch Linux x86_64 / Wayland
 
+2026-10-26 接续：已 fetch 确认最新 main 为本版提交 `e41cfda`。用户已批准 v0.1.8 uosc 布局方案及实现测试，Windows 优先，本机无 Linux 环境。共享经典控制栏、信息按钮和四模式菜单已实现，源码递增为 v0.1.8；当前交接与实际验证边界见 [v0.1.8 计划](../v0.1.8/plan.md) / [证据](../v0.1.8/evidence.md)。本页其余内容保留 v0.1.7 历史事实，不作为本轮 Linux 实测记录。
+
 2026-10-25。用户授权开发下一版本，并进一步明确：只适配本机这类 x86_64 Arch Linux（当前 CachyOS）与 Wayland；配置按 Linux 实际能力生成，不照搬 Windows。保留 Windows x64 分支，不扩展 ARM、X11、其他发行版、包管理器或后台服务。无 CI/CD、历史开发版迁移或安装包。用户随后明确授权将本批更新提交并推送 GitHub；这不代表正式发布。
 
 ## 最新源码基线
@@ -88,3 +90,7 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked \
 用户授权将 i / Shift+i 加入 Windows 和 Linux 共同预设。resources/input.conf 增加 `i script-binding stats/display-stats`（短暂显示）与 `I script-binding stats/display-stats-toggle`（持续显示/关闭）。两平台配置生成器均直接嵌入这一份文件，独立预览也直接导入，不另建副本。已存在 input.conf 保留手改保护，不做自动追加或开发版迁移。
 
 本轮相关 5 项配置测试、实际系统 MPV 绑定读取、TypeScript/Vite 与单 ELF 重建通过。Windows 原生按键交互未在本机验收，详见 [证据](evidence.md)。
+
+2026-10-26 补充：当前 v0.1.8 已实施 Windows WinGet 核心/原生配置根与双端控制台，现行路径和测试结果见 [v0.1.8](../v0.1.8/plan.md)；本版历史 portable_config 等记录不作为现行 Windows 路径。
+
+2026-10-26 后续：自动连播开关、整个队列结束行为及字幕相对目录/语种后缀规则同步实现，仍使用 MPV 原生参数。Linux 生成器和专用断言已同步，当前 Windows 实测与 Linux 待测边界记入 [v0.1.8 证据](../v0.1.8/evidence.md)，不沿用本版历史 ELF 作为新行为的验收。

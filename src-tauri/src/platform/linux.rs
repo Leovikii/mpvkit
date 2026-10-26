@@ -106,21 +106,6 @@ pub fn mpv_config_location() -> Result<ConfigLocation> {
         std::env::var_os("XDG_CONFIG_HOME").as_deref(),
     )
 }
-pub fn pictures_directory() -> Result<PathBuf> {
-    #[cfg(debug_assertions)]
-    if std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
-        return Ok(default_root()?.join("pictures"));
-    }
-    // xdg-user-dir resolves user-dirs.dirs without executing it as a shell script.
-    let text = crate::mpv::capture(
-        Path::new("/usr/bin/xdg-user-dir"),
-        &["PICTURES".into()],
-        std::time::Duration::from_secs(3),
-    )?;
-    let path = PathBuf::from(text.trim_end()).join("MpvKit");
-    validate_local_path(&path)?;
-    Ok(path)
-}
 pub fn validate_local_path(path: &Path) -> Result<()> {
     let invalid = || {
         AppError::new(

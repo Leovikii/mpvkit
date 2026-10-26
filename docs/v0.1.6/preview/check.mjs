@@ -17,12 +17,16 @@ try {
   const dialog=page.getByRole('dialog');
   const screenshot=name=>page.screenshot({path:path.join(output,name+'.png'),animations:'disabled'});
   await quality().waitFor();assert(await quality().isEnabled());
+  const end=page.getByLabel('全部播放结束后',{exact:true});assert(await end.isVisible());await end.selectOption('keep');
+  const auto=page.getByLabel('自动连播',{exact:true});assert(await auto.isChecked());await auto.focus();await page.keyboard.press('Space');assert(!await auto.isChecked());
   assert.equal(await page.locator('.sidebar button').count(),2);
   await screenshot('fresh');
   await quality().selectOption('high-quality');await page.getByLabel('HDR 输出',{exact:true}).selectOption('on');
   await button('预览配置').click();await dialog.waitFor();
   assert.match(await dialog.locator('pre').innerText(),/profile=mpvkit-high-quality/);
   assert.match(await dialog.locator('pre').innerText(),/target-trc=pq/);
+  assert.match(await dialog.locator('pre').innerText(),/^keep-open=yes$/m);
+  assert.match(await dialog.locator('pre').innerText(),/^autocreate-playlist=no$/m);
   await page.getByLabel('配置文件',{exact:true}).selectOption('input.conf');
   assert.match(await dialog.locator('pre').innerText(),/UP add volume 10/);
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});

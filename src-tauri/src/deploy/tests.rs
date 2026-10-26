@@ -450,7 +450,7 @@ fn junction_target_cannot_redirect_deployment() {
     let outside = sandbox.0.join("outside");
     fs::create_dir_all(&root).unwrap();
     fs::create_dir(&outside).unwrap();
-    let link = root.join("portable_config");
+    let link = root.join("scripts");
     let mut command = platform::command(Path::new("powershell.exe"));
     command.args(["-NoProfile","-NonInteractive","-Command",
         "New-Item -ItemType Junction -Path $env:MPVKIT_TEST_LINK -Target $env:MPVKIT_TEST_OUTSIDE -ErrorAction Stop | Out-Null"])
@@ -459,7 +459,7 @@ fn junction_target_cannot_redirect_deployment() {
     assert_eq!(
         prepare_install(
             &root,
-            vec![payload(crate::config::relative!("mpv.conf"), "never")],
+            vec![payload("scripts/witness.lua", "never")],
             false,
             BTreeMap::new()
         )

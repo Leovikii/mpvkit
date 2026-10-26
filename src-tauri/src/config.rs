@@ -6,13 +6,6 @@ use crate::{
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
-#[cfg(target_os = "windows")]
-macro_rules! relative {
-    ($name:literal) => {
-        concat!("portable_config/", $name)
-    };
-}
-#[cfg(target_os = "linux")]
 macro_rules! relative {
     ($name:literal) => {
         $name
@@ -49,21 +42,21 @@ pub struct Overrides {
     pub volume: Option<u16>,
     pub hardware_decoding: Option<bool>,
 }
-#[derive(Clone, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Playback {
     pub hdr: Hdr,
     pub keep_open: bool,
-    pub screenshot_directory: Option<String>,
-    pub screenshot_format: ScreenshotFormat,
-    pub screenshot_subtitles: bool,
+    pub auto_playlist: bool,
 }
-#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "lowercase")]
-pub enum ScreenshotFormat {
-    #[default]
-    Png,
-    Jpeg,
+impl Default for Playback {
+    fn default() -> Self {
+        Self {
+            hdr: Hdr::Auto,
+            keep_open: false,
+            auto_playlist: true,
+        }
+    }
 }
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
@@ -117,16 +110,6 @@ impl Settings {
                 "字幕/界面大小需为 12–72，音量需为 0–100。",
             ));
         }
-        let p = &self.playback;
-        if let Some(directory) = &p.screenshot_directory {
-            if directory.is_empty()
-                || directory.len() > 4096
-                || directory.chars().any(char::is_control)
-            {
-                return Err(error("screenshot_path", "截图目录无效。"));
-            }
-            crate::platform::validate_local_path(Path::new(directory))?;
-        }
         Ok(())
     }
 }
@@ -156,36 +139,41 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
         .to_str()
         .filter(|p| !p.chars().any(char::is_control))
         .ok_or_else(|| error("config_path", "路径无法用于组件配置。"))?;
-    let mut conf = String::from("osc=no\nload-scripts=yes\n");
+    let mut conf =
+        String::from("osc=no\nload-scripts=yes\nautofit=75%x75%\nauto-window-resize=no\n");
     for (key, value) in &profiles()[settings.profile.id()] {
         conf.push_str(&format!("{key}={value}\n"));
     }
     conf.push_str("input-builtin-bindings=no\nvideo-sync=audio\ninterpolation=no\nsub-font=LXGW WenKai Screen\nsave-position-on-quit=yes\nwatch-later-options=start\nresume-playback=yes\nwatch-later-directory=~~/watch_later\n");
+    conf.push_str("directory-filter-types=video,audio\ndirectory-mode=ignore\nsub-auto=exact\n");
+    // Append individual paths so the same config works with Windows and Unix separators.
+    for directory in ["sub", "subs", "subtitle", "subtitles"] {
+        conf.push_str(&format!("sub-file-paths-append={directory}\n"));
+    }
+    // Windows resolves these case-insensitively; do not scan the same folder repeatedly.
+    #[cfg(target_os = "linux")]
+    for directory in [
+        "Sub",
+        "Subs",
+        "Subtitle",
+        "Subtitles",
+        "SUB",
+        "SUBS",
+        "SUBTITLE",
+        "SUBTITLES",
+    ] {
+        conf.push_str(&format!("sub-file-paths-append={directory}\n"));
+    }
+    conf.push_str(if settings.playback.auto_playlist {
+        "autocreate-playlist=filter\n"
+    } else {
+        "autocreate-playlist=no\n"
+    });
     conf.push_str(if settings.playback.keep_open {
         "keep-open=yes\n"
     } else {
         "keep-open=no\n"
     });
-    let screenshots = settings
-        .playback
-        .screenshot_directory
-        .as_ref()
-        .map(std::path::PathBuf::from)
-        .map(Ok)
-        .unwrap_or_else(crate::platform::pictures_directory)?;
-    crate::platform::validate_local_path(&screenshots)?;
-    let screenshots = screenshots
-        .to_str()
-        .ok_or_else(|| error("screenshot_path", "截图目录无效。"))?;
-    conf.push_str(&format!(
-        "screenshot-directory=%{}%{}\nscreenshot-format={}\n",
-        screenshots.len(),
-        screenshots,
-        match settings.playback.screenshot_format {
-            ScreenshotFormat::Png => "png",
-            ScreenshotFormat::Jpeg => "jpg",
-        }
-    ));
     let overrides = &settings.overrides;
     conf.push_str(&format!(
         "sub-font-size={}\nosd-font-size={}\nvolume={}\n",
@@ -218,6 +206,10 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
             .into_bytes(),
         },
         Payload {
+            path: crate::config::relative!("script-opts/uosc.conf").into(),
+            bytes: include_bytes!("../../resources/uosc.conf").to_vec(),
+        },
+        Payload {
             path: ".mpvkit/settings.json".into(),
             bytes: Vec::new(),
         },
@@ -231,14 +223,6 @@ pub fn runtime_files() -> Result<Vec<Payload>> {
         path: crate::config::relative!("scripts/mpvkit.lua").into(),
         bytes: include_str!("../../resources/scripts/mpvkit.lua")
             .replace(".mpvkit/launcher/mpvkit.exe", crate::platform::HELPER)
-            .replace(
-                "local root = utils.split_path(config_dir:gsub('[/\\\\]+$', ''))",
-                if cfg!(target_os = "linux") {
-                    "local root = config_dir:gsub('[/\\\\]+$', '')"
-                } else {
-                    "local root = utils.split_path(config_dir:gsub('[/\\\\]+$', ''))"
-                },
-            )
             .into_bytes(),
     }];
     let executable =
@@ -299,9 +283,6 @@ pub fn runtime_files() -> Result<Vec<Payload>> {
 }
 
 pub fn directory(root: &Path) -> Result<std::path::PathBuf> {
-    #[cfg(target_os = "windows")]
-    return Ok(root.join("portable_config"));
-    #[cfg(target_os = "linux")]
     Ok(root.into())
 }
 pub fn read(root: &Path) -> Result<Settings> {
@@ -376,11 +357,9 @@ mod tests {
         );
     }
     #[test]
-    fn playback_defaults_and_screenshot_paths_cannot_inject_options() {
+    fn native_playback_defaults_are_generated() {
         let root = std::env::temp_dir().join(format!("mpvkit-defaults-{}", deploy::operation_id()));
-        let mut settings = Settings::default();
-        settings.playback.screenshot_directory =
-            Some(root.join("截图 # 空格").to_string_lossy().into_owned());
+        let settings = Settings::default();
         let files = generate(&root, &root.join("mpv.exe"), &settings).unwrap();
         let conf = String::from_utf8(
             files
@@ -398,14 +377,33 @@ mod tests {
             "interpolation=no\n",
             "input-builtin-bindings=no\n",
             "sub-font=LXGW WenKai Screen\n",
+            "autofit=75%x75%\n",
+            "auto-window-resize=no\n",
+            "autocreate-playlist=filter\n",
+            "directory-filter-types=video,audio\n",
+            "directory-mode=ignore\n",
+            "sub-auto=exact\n",
+            "sub-file-paths-append=sub\n",
+            "sub-file-paths-append=subs\n",
+            "sub-file-paths-append=subtitle\n",
+            "sub-file-paths-append=subtitles\n",
         ] {
             assert!(conf.contains(expected), "{expected}");
         }
+        for file in &files {
+            if file.path.ends_with(".conf") || file.path.ends_with(".lua") {
+                assert!(!String::from_utf8_lossy(&file.bytes).contains("screenshot"));
+            }
+        }
         assert!(!root.exists());
-        settings.playback.screenshot_directory = Some("C:/pictures\nvolume=0".into());
-        assert!(settings.validate().is_err());
-        settings.playback.screenshot_directory = Some("../pictures".into());
-        assert!(settings.validate().is_err());
+        let mut settings = settings;
+        settings.playback.auto_playlist = false;
+        settings.playback.keep_open = true;
+        let files = generate(&root, &root.join("mpv.exe"), &settings).unwrap();
+        let conf = &files.iter().find(|f| f.path == "mpv.conf").unwrap().bytes;
+        let conf = String::from_utf8_lossy(conf);
+        assert!(conf.contains("autocreate-playlist=no\n"));
+        assert!(conf.contains("keep-open=yes\n"));
     }
     #[test]
     fn fixed_languages_and_hdr_parameters_are_generated() {

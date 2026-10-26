@@ -1,4 +1,11 @@
 export const messages = {
+  getWinget: ["获取应用安装程序", "Get App Installer"],
+  upgradeCore: ["安装 / 更新 MPV 核心", "Install / update MPV core"],
+  applyCore: ["通过 WinGet 安装 / 更新", "Install / update with WinGet"],
+  wingetHint: ["使用 WinGet 安装和管理 MPV。", "Install and manage MPV with WinGet."],
+  coreHint: ["使用 WinGet 源中的 shinchiro.mpv，接受该包及源的协议。安装可能请求管理员授权并添加 MPV 的系统打开方式；不会设为默认播放器。核心安装和增强配置分开执行，失败时请检查系统安装状态后重试。", "Use shinchiro.mpv from the winget source and accept its package and source agreements. Installation may request administrator approval and add MPV to Open with; it does not set your default player. Core installation and enhancement configuration run separately. On failure, check system installation status before retrying."],
+  wingetMissing: ["未找到 WinGet，请安装或更新 Microsoft 应用安装程序后重试。", "WinGet is unavailable. Install or update Microsoft App Installer, then retry."],
+  wingetFailure: ["WinGet 操作未完成，请检查系统授权、源、网络和安装状态后重试。", "WinGet did not complete. Check administrator approval, sources, network and installation status, then retry."],
   discardDraft: ["放弃未保存的配置？", "Discard unsaved configuration?"],
   discardAndClose: ["放弃并退出", "Discard and exit"],
   components: ["播放器组件", "Player components"],
@@ -30,7 +37,7 @@ export const messages = {
   systemMpvHint: ["使用系统 MPV。请先安装 mpv 和 Vulkan 驱动；核心更新由系统包管理器负责。", "Uses system MPV. Install mpv and a Vulkan driver first; update the player with your package manager."],
   systemInstalled: ["已安装（系统）", "Installed (system)"],
   systemMpvUpdates: ["系统 MPV 由包管理器更新。", "Update system MPV with your package manager."],
-  uninstallLinuxHint: ["移除播放增强和打开方式，保留配置、播放位置及系统 MPV。", "Remove enhancements and Open with; keep configuration, playback positions and system MPV."],
+  uninstallHint: ["移除播放增强和打开方式，保留配置、播放位置及系统 MPV。", "Remove enhancements and Open with; keep configuration, playback positions and system MPV."],
   installPlayer: ["安装播放器", "Install player"],
   repairPlayer: ["修复组件", "Repair components"],
   generateConfig: ["生成配置", "Generate configuration"],
@@ -52,7 +59,6 @@ export const messages = {
   supportedVersion: ["已是当前支持版本", "Current supported version"],
   supportedUpdate: ["可安装当前支持版本", "Supported version available"],
   retainedFiles: ["保留的数据", "Retained data"],
-  uninstallHint: ["移除播放器和组件，保留配置、播放位置和用户文件。", "Remove the player and components; keep configuration, playback positions and user files."],
   configUnavailable: ["播放器不可用，已返回管理页。未保存的设置仍保留。", "Player unavailable. Returned to management; your unsaved settings are retained."],
   returnManagement: ["返回播放器","Back to player"],
 
@@ -65,13 +71,11 @@ export const messages = {
   afterConfig: ["修改后", "After"],
   subtitleFont: ["霞鹜文楷屏幕阅读版", "LXGW WenKai Screen"],
 
-  endBehavior: ["播放结束后", "When playback ends"],
+  autoPlaylist: ["自动连播", "Auto continue"],
+  autoPlaylistHint: ["按文件名顺序载入同文件夹的音视频并连播。", "Load audio and video from the same folder in filename order."],
+  endBehavior: ["全部播放结束后", "After all playback ends"],
   closePlayer: ["关闭播放器", "Close player"],
   keepWindow: ["保留窗口", "Keep window open"],
-  screenshotDirectory: ["截图目录", "Screenshot folder"],
-  picturesDefault: ["默认：图片 / MpvKit", "Default: Pictures / MpvKit"],
-  screenshotFormat: ["图片格式", "Image format"],
-  screenshotSubtitles: ["截图包含字幕", "Include subtitles in screenshots"],
 
   working: ["处理中…","Working…"],
   status: ["状态", "Status"],
@@ -81,7 +85,6 @@ export const messages = {
   maintenance: ["维护", "Maintenance"],
   settings: ["应用设置","App settings"],
 
-  browse: ["浏览…", "Browse…"],
 
   advanced: ["高级选项", "Advanced options"],
 
@@ -131,7 +134,7 @@ export const messages = {
   checkAgain: ["刷新","Refresh"],
   environment: ["播放环境", "Player environment"],
   restore: ["撤销上次更改","Undo last change"],
-  uninstall: ["卸载播放器", "Uninstall player"],
+  uninstall: ["移除播放增强", "Remove enhancements"],
   cleanup: ["清理缓存","Clean cache"],
   cleanLogs: ["清理旧日志", "Clean old logs"],
   diagnostics: ["导出诊断", "Export diagnostics"],
@@ -177,6 +180,8 @@ export function translator(locale: Locale) {
 }
 export function errorKey(error: unknown): Key {
   const code = (error as {code?: string})?.code ?? "";
+  if (code === "winget_missing") return "wingetMissing";
+  if (code.startsWith("winget_") || code === "mpv_install_incomplete") return "wingetFailure";
   if (code === "integration_incomplete") return "integrationIncomplete";
   if (code === "cancelled") return "downloadCancelled";
   if (code.includes("stale") || code.includes("changed")) return "stale";

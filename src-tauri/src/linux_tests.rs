@@ -23,10 +23,23 @@ fn linux_configuration_has_no_windows_runtime_paths() {
         "hwdec=auto-safe\n",
         "sub-fonts-dir=~~/fonts\n",
         "osd-fonts-dir=~~/fonts\n",
+        "autofit=75%x75%\n",
+        "auto-window-resize=no\n",
+        "autocreate-playlist=filter\n",
+        "directory-filter-types=video,audio\n",
+        "directory-mode=ignore\n",
+        "sub-auto=exact\n",
+        "sub-file-paths-append=sub\n",
+        "sub-file-paths-append=Subtitles\n",
+        "sub-file-paths-append=SUBS\n",
     ] {
         assert!(conf.contains(line), "{line}");
     }
     assert!(!conf.contains("d3d") && !conf.contains("C:\\"));
+    assert_eq!(
+        content("script-opts/uosc.conf"),
+        include_str!("../../resources/uosc.conf")
+    );
     assert!(
         content(crate::config::relative!("script-opts/thumbfast.conf"))
             .contains("mpv_path=/usr/bin/mpv\n")
@@ -99,10 +112,10 @@ fn arch_wayland_install_playback_and_uninstall() {
             .unwrap()
             .starts_with("mpv ")
     );
-    assert!(!initial.player_ready && !initial.components_ready && initial.generation.is_none());
+    assert!(initial.player_ready && !initial.components_ready && initial.generation.is_none());
     let draft = config::Settings::default();
     let preview = config::portable::preview(&root, &draft, false).unwrap();
-    assert_eq!(preview.files.len(), 3);
+    assert_eq!(preview.files.len(), 4);
     assert!(preview.files[0].after.contains("gpu-context=waylandvk"));
     assert_eq!(
         setup::prepare_draft(&root, draft.clone(), false, true, &preview.fingerprint)
@@ -202,12 +215,6 @@ fn arch_wayland_install_playback_and_uninstall() {
     wait(|| config::read(&root).is_ok_and(|s| s.profile == config::Profile::HighQuality));
     request(
         &socket,
-        serde_json::json!(["script-message-to", "mpvkit", "screenshot"]),
-    );
-    let shots = platform::pictures_directory().unwrap();
-    wait(|| shots.is_dir() && fs::read_dir(&shots).unwrap().next().is_some());
-    request(
-        &socket,
         serde_json::json!(["script-message-to", "thumbfast", "thumb", "2", "20", "20"]),
     );
     let thumbnail = PathBuf::from(format!("/tmp/thumbfast.out{}.bgra", pid.as_u64().unwrap()));
@@ -303,7 +310,7 @@ fn arch_wayland_install_playback_and_uninstall() {
     setup::execute(setup::prepare_uninstall(&root).unwrap()).unwrap();
     assert_eq!(fs::read(config_file).unwrap(), keep);
     let removed = setup::status(&root).unwrap();
-    assert!(!removed.player_ready && !removed.components_ready);
+    assert!(removed.player_ready && !removed.components_ready);
     let system_player_after = removed.components.iter().find(|c| c.id == "mpv").unwrap();
     assert!(system_player_after.ready);
     assert_eq!(system_player.version, system_player_after.version);

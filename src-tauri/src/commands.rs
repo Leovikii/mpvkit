@@ -411,6 +411,11 @@ pub async fn apply_integration(
 pub fn open_default_apps() -> Result<()> {
     platform::open_default_apps()
 }
+#[cfg(target_os = "windows")]
+#[tauri::command]
+pub fn open_app_installer() -> Result<()> {
+    platform::open_app_installer()
+}
 
 #[tauri::command]
 pub fn component_catalog() -> serde_json::Value {
@@ -529,23 +534,6 @@ pub fn apply_appearance(window: tauri::WebviewWindow) -> Result<bool> {
     Ok(platform::appearance::apply(&window))
 }
 #[tauri::command]
-pub async fn choose_path(
-    folder: bool,
-    window: tauri::WebviewWindow,
-) -> Result<Option<std::path::PathBuf>> {
-    #[cfg(target_os = "windows")]
-    let owner = window
-        .hwnd()
-        .map_err(|_| AppError::new("window_unavailable", "窗口不可用。", "paths"))?
-        .0 as isize;
-    #[cfg(target_os = "linux")]
-    return platform::desktop::choose_path(folder, window).await;
-    #[cfg(target_os = "windows")]
-    tauri::async_runtime::spawn_blocking(move || platform::desktop::choose_path(folder, owner))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "选择器异常结束。", "paths"))?
-}
-#[tauri::command]
 pub async fn open_config_directory() -> Result<()> {
     tauri::async_runtime::spawn_blocking(|| {
         let root = platform::app_root()?;
@@ -609,8 +597,65 @@ pub async fn preview_integration_intent(
 #[tauri::command]
 pub async fn open_player_directory() -> Result<()> {
     tauri::async_runtime::spawn_blocking(|| {
-        platform::desktop::open_directory(&platform::app_root()?)
+        let player = crate::config::player_path(&platform::app_root()?)?;
+        platform::desktop::open_directory(
+            player
+                .parent()
+                .ok_or_else(|| AppError::new("invalid_path", "无法获取播放器目录。", "paths"))?,
+        )
     })
     .await
     .map_err(|_| AppError::new("worker_failed", "无法打开目录。", "paths"))?
+}
+
+#[cfg(target_os = "windows")]
+#[derive(Default)]
+pub struct PendingCore(Mutex<Option<platform::windows_mpv::CorePlan>>);
+#[cfg(target_os = "windows")]
+#[tauri::command]
+pub async fn preview_core(
+    action: String,
+    state: State<'_, PendingCore>,
+) -> Result<platform::windows_mpv::CorePreview> {
+    let plan =
+        tauri::async_runtime::spawn_blocking(move || platform::windows_mpv::prepare(&action))
+            .await
+            .map_err(|_| AppError::new("worker_failed", "核心预览异常。", "system-mpv"))??;
+    let preview = plan.preview.clone();
+    *state
+        .0
+        .lock()
+        .map_err(|_| AppError::new("state_unavailable", "核心状态不可用。", "system-mpv"))? =
+        Some(plan);
+    Ok(preview)
+}
+#[cfg(target_os = "windows")]
+#[tauri::command]
+pub async fn apply_core(
+    preview_id: String,
+    state: State<'_, PendingCore>,
+) -> Result<crate::mpv::MpvInfo> {
+    let plan = {
+        let mut pending = state
+            .0
+            .lock()
+            .map_err(|_| AppError::new("state_unavailable", "核心状态不可用。", "system-mpv"))?;
+        if pending.as_ref().is_none_or(|p| p.preview.id != preview_id) {
+            return Err(AppError::new(
+                "stale_preview",
+                "没有匹配的核心预览。",
+                "system-mpv",
+            ));
+        }
+        pending.take().expect("matched core plan")
+    };
+    tauri::async_runtime::spawn_blocking(move || platform::windows_mpv::execute(plan))
+        .await
+        .map_err(|_| {
+            AppError::new(
+                "worker_failed",
+                "核心任务异常，请检查系统安装状态。",
+                "system-mpv",
+            )
+        })?
 }

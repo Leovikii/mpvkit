@@ -44,7 +44,10 @@ fn main() {
         }
         return;
     }
-    tauri::Builder::default()
+    let builder = tauri::Builder::default();
+    #[cfg(target_os = "windows")]
+    let builder = builder.manage(commands::PendingCore::default());
+    builder
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
                 platform::appearance::apply(&window);
@@ -70,11 +73,14 @@ fn main() {
         .manage(commands::PendingLogCleanup::default())
         .invoke_handler(tauri::generate_handler![
             commands::setup_status,
+            #[cfg(target_os = "windows")]
+            commands::preview_core,
+            #[cfg(target_os = "windows")]
+            commands::apply_core,
             commands::read_app_settings,
             commands::save_app_settings,
             commands::desktop_environment,
             commands::apply_appearance,
-            commands::choose_path,
             commands::open_config_directory,
             commands::open_player_directory,
             commands::preview_integration_intent,
@@ -88,6 +94,8 @@ fn main() {
             commands::preview_integration,
             commands::apply_integration,
             commands::open_default_apps,
+            #[cfg(target_os = "windows")]
+            commands::open_app_installer,
             commands::preview_diagnostics,
             commands::export_diagnostics,
             commands::read_settings,

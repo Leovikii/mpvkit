@@ -34,7 +34,7 @@
         "native OSC",
         "other OSC scripts"
       ],
-      "modified": false,
+      "modified": true,
       "minimumCapabilities": [
         "Lua",
         "ASS overlays"
@@ -43,7 +43,8 @@
       "excludedAssets": [
         "ziggy-windows.exe",
         "ziggy-macos"
-      ]
+      ],
+      "modification": "MpvKit appends resources/scripts/uosc-bridge.lua to fixed main.lua; the unchanged upstream prefix and resulting hashes are recorded in source-materials.json. Other upstream files are unchanged."
     },
     {
       "id": "thumbfast",

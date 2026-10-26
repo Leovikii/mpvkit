@@ -193,7 +193,6 @@ fn fixed_archives_extract_and_deploy() {
     let directory = std::path::PathBuf::from(directory);
     crate::platform::validate_local_path(&directory).unwrap();
     let names = [
-        "mpv-x86_64-20261020-git-6a262d11f6.7z",
         "uosc-5.13.0.zip",
         "thumbfast-thumbfast.lua",
         "LXGWWenKaiScreen.ttf",
@@ -313,7 +312,6 @@ fn exercise_graphics(
     let root = base.join(format!("components-video-{}", deploy::operation_id()));
     let mut files = Vec::new();
     for (asset, name) in ASSETS.iter().zip([
-        "mpv-x86_64-20261020-git-6a262d11f6.7z",
         "uosc-5.13.0.zip",
         "thumbfast-thumbfast.lua",
         "LXGWWenKaiScreen.ttf",
@@ -327,7 +325,9 @@ fn exercise_graphics(
             .unwrap(),
         );
     }
-    let player = root.join("mpv.exe");
+    let player = std::path::PathBuf::from(
+        std::env::var_os("MPVKIT_REAL_MPV").expect("explicit system MPV test executable"),
+    );
     files.extend(
         crate::config::generate(&root, &player, &crate::config::Settings::default()).unwrap(),
     );
@@ -459,6 +459,15 @@ mp.add_timeout(12, report)
 #[test]
 fn embedded_provenance_matches_actual_download_contract_and_has_honest_release_gate() {
     let catalog: serde_json::Value = serde_json::from_str(CATALOG).unwrap();
+    let source: serde_json::Value = serde_json::from_str(SOURCE_MATERIALS).unwrap();
+    assert_eq!(
+        source["uoscIntegration"]["sha256"],
+        deploy::hash_bytes(include_bytes!("../../../resources/scripts/uosc-bridge.lua"))
+    );
+    assert_eq!(
+        source["uoscConfig"]["managedOverride"]["sha256"],
+        deploy::hash_bytes(include_bytes!("../../../resources/uosc.conf"))
+    );
     assert_eq!(catalog["schemaVersion"], 1);
     assert_eq!(catalog["releaseReady"], false);
     for asset in ASSETS {

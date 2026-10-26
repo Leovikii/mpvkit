@@ -1,8 +1,12 @@
-# 当前开发基线：v0.1.7
+# 当前开发基线：v0.1.8
 
-实施与验证见 [v0.1.7 计划](v0.1.7/plan.md)。未正式发布；继续遵守无 CI/CD、无历史开发版兼容、只构建单程序（Windows EXE / Linux ELF） 的约束。
+2026-10-26 已 fetch 确认 HEAD 与 origin/main 为 `e41cfda`（v0.1.7），基于此实施已批准的 [v0.1.8 经典控制栏](v0.1.8/plan.md)。始终同时维护 Windows x64 与已支持的 Linux x86_64 / Wayland；本轮 Windows 优先实测，Linux 原生构建与 Wayland 实播待有环境后补测。
 
-基于远端最新 v0.1.6 提交 `13939c1`。新增范围仅本机 Arch/CachyOS x86_64、KDE Wayland/Vulkan；Windows x64 分支保留。
+实施与验证见 [v0.1.8 计划](v0.1.8/plan.md) / [证据](v0.1.8/evidence.md)。未正式发布；继续遵守无 CI/CD、无历史开发版兼容、只构建单程序（Windows EXE / Linux ELF） 的约束。
+
+继承 v0.1.7 的原生 Linux 配置检测、系统 MPV 与 Wayland/Vulkan，Windows 改为 WinGet 系统核心及 MPV 原生配置目录。新增共享 script-opts/uosc.conf 和 uosc 状态桥接；main.lua 原版前缀保留，扩展源码、修改说明及两平台摘要随部署保存。播放模式仅当前进程生效，外部非标准组合显示自定义。
+
+已实施（2026-10-26）：Windows 用 WinGet 源中的 `shinchiro.mpv` 安装和主动更新核心；无后台更新、每日核心下载或自下载回退。缺少 WinGet 时提供 App Installer 入口。先预览包元数据、核心/配置位置，再调用固定包安装或升级，最后复核实际核心能力，配置与增强另行执行。取消、失败、超时不写配置，已安装核心保留；增强卸载不卸载系统核心。本版保留 Linux 已有的系统核心检测，未新增 pacman 调用。详细结果与安装器/UAC 未测边界见 [当前计划](v0.1.8/plan.md)。
 
 ## 当前界面与操作
 
@@ -10,55 +14,53 @@
 
 底部固定“预览配置”和“保存配置 / 安装并保存配置 / 修复并保存配置”。未变化且配置健康时禁用保存；预览始终可用。主状态显示 mpv.conf 的真实修改时间，预览显示对应文件自己的 mtime，到秒；未变更文件不重写。
 
-高级选项保留系统打开方式意图、播放结束与截图偏好、组件明细和维护。安装/配置目录使用同一个设置行：左侧“打开安装目录 / 打开配置目录”，副标题实际路径，右侧“打开”；无自定义路径。应用设置包含双语、主题、强调色、关于和诊断。遵守 [界面规范](design/ui-guidelines.md)。
+主配置区依次为画质、HDR 输出、自动连播、全部播放结束后；高级选项保留系统打开方式意图、组件明细和维护。自动连播默认开启，用 MPV 原生 autocreate-playlist=filter 按文件名自然顺序载入同文件夹音视频，从所选文件开始连续播放，不进入子目录。关闭后不自动扩展文件夹，用户明确提供的播放列表仍正常连播。keep-open=yes/no 只决定队列最终结束时保留窗口或关闭，不阻止中间切集。安装/配置目录使用同一个设置行：左侧“打开安装目录 / 打开配置目录”，副标题实际路径，右侧“打开”；无自定义路径。应用设置包含双语、主题、强调色、关于和诊断。遵守 [界面规范](design/ui-guidelines.md)。
+
+字幕保留 MPV 原生 sub-auto=exact：匹配媒体主文件名，允许 MPV 识别的语种及 forced/SDH 等后缀。除媒体同目录外，追加 sub、subs、subtitle、subtitles；Linux 另外追加首字母大写和全大写形式，Windows 使用原生不区分大小写规则。逐项 sub-file-paths-append 避免两端路径分隔符差异，不递归扫描。字幕规则与目录过滤放在 mpv.conf 可手改区，保存 GUI 设置时保留用户修改。
+
+截图功能已完整删除：无设置字段、菜单、快捷键、Lua 动作、配置参数或图片目录查询；thumbfast 进度条缩略图继续保留。不保留旧字段兼容，也不清理用户已有图片。
 
 ## 当前目录
 
 单程序由用户放置；下列为 Windows 布局。不规定管理器安装目录，不生成安装包。
 
 ~~~text
+%ProgramFiles%/MPV Player/          WinGet 包的默认核心位置；以精确登记为准
+├── mpv.exe / mpv.com              系统包管理，不归 MpvKit 所有
+└── ...                            由包维护；MpvKit 不覆盖或卸载
 %LOCALAPPDATA%/MpvKit/
-├── mpvkit.json                     应用语言、主题、强调色；无 target 字段
-├── .mpvkit/
-│   ├── owner.json                  软件目录归属
-│   └── operation.lock             软件偏好跨进程写入锁
-└── player/                         唯一播放器根
-    ├── mpv.exe
-    ├── d3dcompiler_43.dll          固定 MPV 构建所附运行依赖
-    ├── portable_config/
-    │   ├── mpv.conf                用户明确安装配置后生成
-    │   ├── input.conf              用户明确安装配置后生成
-    │   ├── script-opts/thumbfast.conf
-    │   ├── fonts.conf              核心归档附带
-    │   ├── fonts/                  文楷与 uosc 字体
-    │   ├── scripts/                mpvkit.lua、thumbfast.lua、uosc/
-    │   └── watch_later/            MPV 按需生成，仅保存位置
-    ├── licenses/                   固定上游许可和来源
-    └── .mpvkit/
-        ├── settings.json          GUI 设置、修订、手改标记、集成意图
-        ├── owner.json             播放器目录归属
-        ├── install.json           文件摘要、组件版本、安装代际
-        ├── operation.lock         部署/启动/登记短时互斥
-        ├── associations.json      登记及原值；登记后生成
-        ├── association-pending.json 登记事务进行中或中断时存在
-        ├── pending.json           文件事务进行中或中断时存在
-        ├── previous.json          最近一次可恢复文件事务
-        ├── backups/               恢复需要的内容
-        ├── staging/               暂存
-        ├── receipts/              备份/暂存归属
-        ├── cache/sessions/         受管理启动的有界日志
-        └── launcher/              稳定 helper 及应用许可
+├── mpvkit.json                    应用语言、主题、强调色
+└── .mpvkit/                       应用偏好归属及写入锁
+%APPDATA%/mpv/                     常规配置根；MPV_HOME/相邻 portable_config 优先
+├── mpv.conf / input.conf
+├── script-opts/                   thumbfast.conf、uosc.conf
+├── fonts/                         文楷与 uosc 字体
+├── scripts/                       mpvkit.lua、thumbfast.lua、uosc/
+├── watch_later/                   MPV 按需生成，仅保存位置
+├── licenses/                      增强及应用许可/来源
+└── .mpvkit/
+    ├── settings.json              GUI 设置、修订、手改标记、集成意图
+    ├── owner.json / install.json  配置根归属、增强摘要/版本/安装代际
+    ├── operation.lock             配置、部署、启动、登记短时互斥
+    ├── associations.json          MpvKit 登记及原值
+    ├── association-pending.json   登记事务中断恢复
+    ├── pending.json / previous.json  文件事务与最近可恢复事务
+    ├── backups/ / staging/ / receipts/  备份、暂存、归属记录
+    ├── cache/sessions/            受管理启动的有界日志
+    └── launcher/                  稳定 helper 及应用许可
 ~~~
 
-不强制创建空目录。截图默认 Pictures/MpvKit，实际截图时才创建；thumbfast 临时图像按上游实现存于系统临时目录。Debug 隔离根需显式设置 MPVKIT_TEST_MODE=1 与合法绝对 MPVKIT_TEST_ROOT，登记使用私有文件后端；Release 忽略测试覆写。测试记录不属于正式数据结构。
+不强制创建空目录。thumbfast 临时图像按上游实现存于系统临时目录。Debug 隔离根需显式设置 MPVKIT_TEST_MODE=1 与合法绝对 MPVKIT_TEST_ROOT，登记使用私有文件后端；Release 忽略测试覆写。测试记录不属于正式数据结构。
 
 Linux 应用偏好仍在 `$XDG_DATA_HOME/mpvkit/mpvkit.json`（回退 `~/.local/share/mpvkit`）。增强与配置根由 `platform/linux.rs` 检测：非空绝对 MPV_HOME 优先；否则使用绝对 XDG_CONFIG_HOME/mpv 或 ~/.config/mpv；标准目录不存在时，按 MPV 原生规则识别现有 ~/.mpv。检测只检查已知用户位置，不扫描磁盘。相对路径/符号链接阻断；标准目录与 ~/.mpv 同时存在实际配置时报告歧义，不合并。
 
-检测根中直接放置 mpv.conf、input.conf、scripts/、script-opts/、fonts/、licenses/；.mpvkit/ 内保留本环境的归属、设置、摘要、锁、备份、恢复与 launcher/mpvkit，继续使用单目录事务。普通系统 MPV 默认读取，稳定 helper 也可显式启动同一目录；Linux 启动不再重设 MPV_HOME 为日志目录。Lua 根据原生配置根查找保存记录/helper，Windows 仍按 portable_config 的父级查找。不部署 DLL、Windows helper 或 fonts.conf。
+检测根中直接放置 mpv.conf、input.conf、scripts/、script-opts/、fonts/、licenses/；.mpvkit/ 内保留本环境的归属、设置、摘要、锁、备份、恢复与 launcher/mpvkit，继续使用单目录事务。普通系统 MPV 默认读取，稳定 helper 也可显式启动同一目录；Linux 启动不再重设 MPV_HOME 为日志目录。Lua 在两端均直接根据原生配置根查找保存记录/helper。不部署 DLL、Windows helper 或 fonts.conf。
 
 Linux 首屏显示检测路径和来源，可打开目录；两个路径相同，不重复显示安装目录行。Linux 默认不额外登记打开方式，普通 MPV 已可读配置；用户仍可在高级项中启用可选登记。不迁移此前开发版数据，不清理此前实际目录。隔离测试根使用 MPVKIT_TEST_ROOT/config/mpv，真实配置不参与测试。完整实现与证据见 [v0.1.7](v0.1.7/plan.md)。
 
-Linux 系统 MPV 安装状态与版本独立于增强归属记录，首次和卸载后仍显示。系统语言优先 KDE 显式配置，明暗优先 portal Settings，GTK 回退；前端和原生背景同源，保留手动设置。Linux 系统强调色暂固定蓝色。
+两端系统 MPV 安装状态与实际版本均独立于增强归属记录，首次和卸载后仍显示。Windows 安装路径只读固定包的精确卸载登记与已知 Program Files 位置；多处核心阻断，不扫盘。MPV_HOME 必须为绝对本地路径；没有 MPV_HOME/portable_config 时，安装目录直接配置或其 mpv/ 子目录的实际配置与用户目录并存会阻断，避免混合加载（包附 fonts.conf 例外）。系统核心不进入文件归属/备份恢复，但其文件状态作为配置和启动预览的过期保护。Debug 隔离核心位于 MPVKIT_TEST_ROOT/system-mpv，WinGet 只能来自 test-tools/winget.exe；不得回退调用本机包管理器。
+
+Linux 系统语言优先 KDE 显式配置，明暗优先 portal Settings，GTK 回退；前端和原生背景同源，保留手动设置。Linux 系统强调色暂固定蓝色。
 
 ## 模块与保护
 
@@ -66,8 +68,12 @@ commands 只派生固定根、存放预览并调用业务；setup 汇总状态�
 
 全局偏好不再依赖目标选择锁，直接使用全局目录的部署互斥。受管理 helper 校验固定根；原程序移动或 GUI 关闭不影响稳定入口。文件/注册表分别有事务，不宣称跨资源原子性；所有相关状态在执行前校验。无文件变更时使用实际保留的安装记录摘要，登记预览同时保护已有且无需改写的注册值。
 
-两平台共用预设新增 i 短暂显示播放信息、Shift+i 持续显示/关闭；资源由同一 input.conf 生成。现有文件保留手改保护，不自动追加。
+两平台共用预设新增 i 短暂显示播放信息、Shift+i 持续显示/关闭；资源由同一 input.conf 生成。反引号 ` 绑定原生 commands/open，右键菜单加入“控制台”；Esc 关闭，输入时控制台接管空格/方向键/Enter。现有文件保留手改保护，不自动追加。
+
+视频背景单击忽略，双击切换全屏；播放/暂停使用中央按钮或空格，避免双击全屏时触发暂停。此规则为两平台共用 input.conf，uosc 控件继续使用各自鼠标绑定。
+
+新配置默认 autofit=75%x75%、auto-window-resize=no：启动时在屏幕宽高 75% 范围内按视频比例适配，切集保留当前窗口尺寸；手动缩放与全屏可用。由共用 Rust 生成器写入 mpv.conf 的可手改默认区，GUI 保存不覆盖用户修改；不新增尺寸设置页、持久窗口记忆或 Lua 窗口调度。Linux Wayland 的位置由桌面管理器决定，不强制跨平台居中。
 
 ## 验证边界
 
-本版证据在 [v0.1.7 记录](v0.1.7/evidence.md) 更新；历史结果不等于本版验收。实体高刷/HDR/功耗、不同 DPI/系统策略、干净系统及完整来源仍有缺口，参见[验收台账](v0.1.0/acceptance.md)。[来源政策](v0.1.0/sources.md)、第三方许可证和历史证据继续保留。不得执行历史安装器测试。
+本版证据在 [v0.1.8 记录](v0.1.8/evidence.md) 更新；历史结果不等于本版验收。Windows 已覆盖本版共享播放逻辑，Linux 原生构建与 Wayland 实播待测。实体高刷/HDR/功耗、不同系统策略、干净系统及完整来源仍有缺口，参见[验收台账](v0.1.0/acceptance.md)。[来源政策](v0.1.0/sources.md)、第三方许可证和历史证据继续保留。不得执行历史安装器测试。

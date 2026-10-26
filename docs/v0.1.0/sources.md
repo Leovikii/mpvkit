@@ -6,6 +6,8 @@
 
 ## 信息来源的职责
 
+2026-10-26 v0.1.8 集成补充：uosc 仍固定 5.13.0 / d124c2c930d69446448022851373e00ae592390d，下载 ZIP 未改。该版没有公开的随机状态 getter；为准确同步外部状态并按真实缩放收起可选按钮，在部署的 main.lua 原版前缀后追加 MpvKit 自有 uosc-bridge.lua，GPL-3.0-or-later，注明日期和修改内容。两平台 catalog 标记 modified=true，source-materials 的 uoscIntegration 分别记录原版、扩展、合并结果摘要，部署附源码和修改说明。其余上游脚本、字体、helper 和导航算法不改。MpvKit 自有 script-opts/uosc.conf 与未部署的上游示例分开记录。实现依据、验证及 Linux 待测边界见 [v0.1.8](../v0.1.8/plan.md)。
+
 | 信息 | 首要依据 | 补充依据 |
 | --- | --- | --- |
 | MPV 参数、配置加载、Lua/IPC 语义 | 目标版本官方手册及对应实现 | 官方变更记录、问题讨论、实际构建 |
@@ -216,3 +218,8 @@ react-remove-scroll-bar2.3.8的npm gitHead不可访问，但已核对其与2.3.7
 ## M5 / 立方根实现SunSoft声明（当前）
 
 固定923个standard输入的头部/摘要核对发现cbrt.go署名为SunSoft，不与既有SunPro原文混同，已按310:684完整字节追加。16处相同数学授权和fiat README对应不重复追加；现47条/90968字节。范围和验证见[本轮证据](evidence/2026-10-20-go-sunsoft-notice.md)，生成来源/完整适用与原始构建、MPV/uosc其余材料及W/P继续未完成。
+
+
+## 当前 v0.1.8 系统核心边界（2026-10-26）
+
+Windows 不再分发或解包固定 shinchiro 每日核心，改为 WinGet 的 shinchiro.mpv 包；Linux 保留系统 /usr/bin/mpv。MpvKit 仅分发固定增强、字体与自身程序，原核心/FFmpeg 材料保留作历史证据，不再随增强部署。WinGet 的来源、实际包哈希、提取后二进制版本及测试限制见 [v0.1.8 证据](../v0.1.8/evidence.md)。包管理器校验安装器，不保证包标注版本对应上游稳定标签的精确提交；运行能力另行复核。uosc/thumbfast/字体仍需按固定来源与摘要校验，不放宽来源政策。
