@@ -50,7 +50,8 @@ cargo fmt --manifest-path src-tauri/Cargo.toml --check
 cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 node scripts/collect-app-notices.mjs --check
-node --test scripts/nsis-directory.test.mjs
+# 历史命令：nsis-directory.test.mjs 已在 v0.1.8 接手清理中删除，不再执行
+# node --test scripts/nsis-directory.test.mjs
 pnpm tauri build --debug --no-bundle
 # MPVKIT_TEST_ASSETS 指向固定四组件；MPVKIT_FFMPEG 指向测试内核对摘要的媒体生成器
 pnpm test:e2e

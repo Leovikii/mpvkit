@@ -1,6 +1,8 @@
 # v0.1.8 验证记录
 
-2026-10-26。用户批准经典 uosc 布局方案及开发测试；实施前 fetch，HEAD 与 origin/main 均为 v0.1.7 `e41cfda94081cf34508fe0c4f66c9f9e4188ac5d`。本轮仅本地实现、隔离测试与单 EXE 构建，没有提交、推送、CI、安装包或历史开发版迁移。
+以下为各批次原始验证记录，保留当时命令/产物/限制；当前结果与下一任务统一见 [交接](plan.md)和[测试入口](../testing.md)。旧批次的“本轮/最新/无 Linux 环境”只指当时状态。
+
+2026-10-26 首轮：用户批准经典 uosc 布局方案及开发测试；实施前 fetch，HEAD 与 origin/main 均为 v0.1.7 `e41cfda94081cf34508fe0c4f66c9f9e4188ac5d`。本轮仅本地实现、隔离测试与单 EXE 构建，没有提交、推送、CI、安装包或历史开发版迁移。
 
 以下至“WinGet 核心与控制台”章节前为早先自下载核心批次，保留作追溯；当前代码、产物及验证以末尾新批次为准。2026-10-26 最新 Linux 原生测试见末尾“本机 Linux 原生验证”；前文“无 Linux 环境”仅描述先前 Windows 批次。
 
@@ -206,7 +208,7 @@ Linux 无原生测试环境，`rustup target list --installed` 仅 Windows x64�
 
 ## 组件管理与自动清理（2026-10-26，本批）
 
-基线为已推送的 eb8425005e9b182e31858c50d694ab4954ccb6f0。实现范围见[维护方案](maintenance.md)及[最新交接](plan.md#组件管理与自动清理2026-10-26本批交接)。实现与验证完成后，用户已追加授权将本批提交并推送至 origin/main；没有 CI、安装包、真实系统包安装/卸载或开发者配置变更。
+基线为已推送的 eb8425005e9b182e31858c50d694ab4954ccb6f0。实现范围见[维护方案](maintenance.md)及[最新交接](plan.md#已完成与证据)。实现与验证完成后，用户已追加授权将本批提交并推送至 origin/main；没有 CI、安装包、真实系统包安装/卸载或开发者配置变更。
 
 - Rust 62 通过 / 6 默认忽略；fmt、clippy all-targets -D warnings 通过。覆盖成功/失败/中断清理、当前事务恢复副本被改、未知暂存项保留、空目录边界、手改卸载保留、完整默认重置、日志活动/归属/预览过期保护，以及卸载后未受管理配置的明确覆盖预览和执行前复核。
 - pnpm build / test:frontend 2 项、离线独立预览检查通过；含顶部组件管理、卸载取消、重置提示、无历史备份勾选、双语/主题/640 宽/200% 文字和焦点锁。两平台依赖材料检查通过（Windows 319 包/565 材料，Linux 356 包/618 材料）。Node 24.22.1 与声明 24.19.0 的既有 engine 提示保留，未升级依赖要求。
@@ -461,3 +463,17 @@ arch_wayland_install_playback_and_uninstall -- --ignored --nocapture
 原生套件首次在 src/linux_tests/uosc.rs 的暂停按钮即时断言失败（pause 仍为 true），第二个全新隔离根完整通过；未修改产品 uosc 或放宽断言。此处时序波动仍存在。Windows 原生与已有固定面板入口未测；无包管理器写操作或默认应用变更。
 
 最终单 ELF：`src-tauri/target/debug/mpvkit`，**266315352 字节**，SHA-256 **c58bfd0e4c199cec83fa83761653bcdcf5e39bd9ba7ee91c4b474e39600d6cd5**；替代前批程序。bundle.active=false，无新依赖、安装包、CI、历史迁移、提交或推送。本机日志在 .local/linux-v018/manager-*.log。
+
+## 接手材料与无用文件清理（2026-10-26）
+
+基于已推送的 7fa64a2，用户要求更新文档并适度精简，方便后续 agent 测试/开发。本轮只整理接手材料、删除无调用的旧入口并搬移已有预览样式，不改变产品业务、Rust/Lua、依赖版本或实际用户配置。
+
+- AGENTS 合并重复/被覆盖的历史决定，保留当前硬性规则；current 统一产品/目录/模块导航；plan 从逐批长记录改为完成表、最新验证、下一任务。原始批次证据、来源/许可、待验收项保留。补 docs/testing.md 作为 Linux/Windows/预览/来源工具的统一索引；历史方案顶部明确适用范围，旧链接更新。
+- 删除 8 个文件：NSIS hooks、NSIS 目录选择测试、未引用的历史 logo、旧三页预览的 JSX/CSS/HTML/build/check。Tauri bundle 删除 targets/windows 安装器专属配置，active=false 保留；图标、许可资源映射保留。旧预览 README 保留历史跳转，旧测试命令标注不可执行。
+- 当前预览仍使用 docs/v0.1.6/preview；其依赖的旧基础 CSS 原样搬入该目录后再删除旧文件。构建前/后生成 CSS SHA-256 完全一致：242f419011243adcc718c0f752bdc059869ea028ee4caf6041f58fee804c51a1。当前预览完整交互检查通过，无运行时异常或网络请求。
+
+本轮验证：Rust 默认 **52 通过 / 3 忽略**（3.44 秒），fmt、clippy all-targets -D warnings、前端脚本、TypeScript/Vite、Windows 原生脚本语法及单 ELF --no-bundle 构建通过。两平台依赖材料只读 --check 通过，Windows 319 包/565 材料、Linux 356 包/618 材料，均无缺失；首次普通沙箱调用 cargo 子进程受限，获得运行权限后成功，未为通过而改脚本或材料。当前文档本地链接/锚点与 Git diff 检查通过，删除文件无现役调用残留。
+
+本轮 ELF 与前一功能批字节相同：**266315352 字节**，SHA-256 **c58bfd0e4c199cec83fa83761653bcdcf5e39bd9ba7ee91c4b474e39600d6cd5**。当前运行窗口、播放、事务代码未变，因此未重复完整 Wayland/Windows GUI 或真实包管理器/设备矩阵；已有功能实测与限制继续有效。不会把本轮文档/预览检查当作新增设备验收。
+
+日志在 .local/linux-v018/cleanup-*.log。保留本机工具链、研究资产、测试程序与历史 evidence；没有清理 .local/实际数据或启用 CI/安装包。用户随后明确要求提交并推送本批整理到 origin/main；下一任务仍按 [当前交接](plan.md#下一任务与未测边界)选择最小可验证项。

@@ -1,6 +1,6 @@
 # v0.1.0 前端开发规范
 
-后续界面布局与视觉工作同时遵循 [WinUI 3 / Mantine 界面规范](../design/ui-guidelines.md)；v0.1.5 已批准实施并恢复侧栏三页。本页的组件库与 API 约束继续有效。
+后续界面布局与视觉工作同时遵循 [WinUI 3 / Mantine 界面规范](../design/ui-guidelines.md)；当前为播放器设置/应用设置两页，行为与验证见 [当前交接](../v0.1.8/plan.md)和[测试入口](../testing.md)。本页的组件库与 API 约束继续有效。
 
 更新日期：2026-10-20。用户明确要求前端使用Mantine，替代原先普通表单/手写控件样式的方案；React、TypeScript、Vite、Tauri2和Rust职责保持现有边界。
 
@@ -27,6 +27,6 @@ core/hooks均固定9.7.3；升级时同步版本、锁文件、许可材料和�
 
 ## 验证与交接
 
-执行pnpm build、pnpm tauri build --debug --no-bundle及pnpm test:e2e；完整组件组设置MPVKIT_TEST_ASSETS为仓库固定且重新校验的研究资产目录。检查页面运行时异常、控件标签、键盘操作、禁用、必填、缩放，以及当前播放器/播放设置/应用设置三页及其预览和恢复流程（目标选择已在 v0.1.4 删除）。静态网页不能替代原生Tauri IPC。
+按影响面执行 pnpm build、pnpm tauri build --debug --no-bundle；pnpm test:e2e 仅在 Windows 运行，Linux 原生入口见 [测试索引](../testing.md)。完整组件组设置MPVKIT_TEST_ASSETS为仓库固定且重新校验的研究资产目录。检查页面运行时异常、控件标签、键盘操作、禁用、必填、缩放，以及当前播放器设置/应用设置两页及其预览和恢复流程（目标选择已在 v0.1.4 删除）。静态网页不能替代原生Tauri IPC。
 
 新增依赖重新运行node scripts/collect-app-notices.mjs及--check，核对缺失材料，不把自动收集完成等同全部发布审阅。当前完整业务测试与系统/设备边界见[验证要求](verification.md)及[验收台账](acceptance.md)；本轮验证结果见[迁移证据](evidence/2026-10-20-mantine.md)。

@@ -28,31 +28,11 @@
   },
   "bundle": {
     "active": false,
-    "targets": [
-      "nsis"
-    ],
     "icon": [
       "icons/icon.ico",
       "icons/icon.png"
     ],
     "shortDescription": "MPV 安装与配置管理器",
-    "windows": {
-      "allowDowngrades": false,
-      "webviewInstallMode": {
-        "type": "downloadBootstrapper",
-        "silent": true
-      },
-      "nsis": {
-        "installMode": "currentUser",
-        "languages": [
-          "SimpChinese"
-        ],
-        "displayLanguageSelector": false,
-        "installerHooks": "installer/hooks.nsh",
-        "installerIcon": "icons/icon.ico",
-        "uninstallerIcon": "icons/icon.ico"
-      }
-    },
     "resources": {
       "../resources/app-dependency-notices.txt": "third-party/APP-DEPENDENCY-NOTICES.txt",
       "../resources/app-dependency-inventory.json": "third-party/app-dependency-inventory.json",
