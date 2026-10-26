@@ -5,8 +5,9 @@ import { useMediaQuery } from '@mantine/hooks';
 import '@mantine/core/styles.css';
 import './preview.css';
 import logo from '../../../src/assets/mpv.svg?inline';
+import { brandTheme } from '../../../src/brand';
 
-const theme = createTheme({ respectReducedMotion: true, primaryColor: 'violet', defaultRadius: 4, fontFamily: '"Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", sans-serif', fontSizes: { xs: '0.75rem', sm: '0.875rem', md: '0.875rem' }, components: { Accordion: Accordion.extend({ defaultProps: { transitionDuration: 180 } }), Modal: Modal.extend({ defaultProps: { transitionProps: { transition: 'fade', duration: 160, exitDuration: 120 } } }), Tooltip: Tooltip.extend({ defaultProps: { transitionProps: { transition: 'fade', duration: 120, exitDuration: 90 } } }), Button: Button.extend({ defaultProps: { size: 'sm', fw: 400 } }), Paper: Paper.extend({ defaultProps: { withBorder: true, shadow: 'none' } }) } });
+const theme = createTheme({ ...brandTheme, respectReducedMotion: true, defaultRadius: 4, fontFamily: '"Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", sans-serif', fontSizes: { xs: '0.75rem', sm: '0.875rem', md: '0.875rem' }, components: { Accordion: Accordion.extend({ defaultProps: { transitionDuration: 180 } }), Modal: Modal.extend({ defaultProps: { transitionProps: { transition: 'fade', duration: 160, exitDuration: 120 } } }), Tooltip: Tooltip.extend({ defaultProps: { transitionProps: { transition: 'fade', duration: 120, exitDuration: 90 } } }), Button: Button.extend({ defaultProps: { size: 'sm', fw: 400 } }), Paper: Paper.extend({ defaultProps: { withBorder: true, shadow: 'none' } }) } });
 function Row({ title, description, children }) { return <div className="setting-row"><div className="row-copy"><Text fw={500}>{title}</Text>{description && <Text size="xs" c="dimmed" mt={4}>{description}</Text>}</div><div className="row-action">{children}</div></div>; }
 function Expand({ title, description, children }) { return <Accordion variant="default" order={3}><Accordion.Item value="details"><Accordion.Control><Text size="sm">{title}</Text>{description && <Text size="xs" c="dimmed" mt={4}>{description}</Text>}</Accordion.Control><Accordion.Panel>{children}</Accordion.Panel></Accordion.Item></Accordion>; }
 function PageEntrance({ children }) {
@@ -19,7 +20,6 @@ const initialDraft = { quality: 'balanced', hdr: 'auto', keepOpen: false, autoPl
 function App() {
   const [lang, setLang] = useState('zh');
   const [dark, setDark] = useState(false);
-  const [accent, setAccent] = useState('violet');
   const [page, setPage] = useState('player');
   const [scenario, setScenario] = useState('fresh');
   const [ready, setReady] = useState(false);
@@ -84,7 +84,7 @@ function App() {
     return () => clearTimeout(timer);
   }, [phase, operation, failure]);
   const hint = { 'power-saving': t('适合低性能设备。', 'For less powerful devices.'), balanced: t('推荐日常使用。', 'Recommended for everyday use.'), 'high-quality': t('推荐独立显卡使用。', 'A dedicated GPU is recommended.') }[draft.quality];
-  return <MantineProvider theme={{...theme, primaryColor:accent}} forceColorScheme={dark?'dark':'light'}>
+  return <MantineProvider theme={theme} forceColorScheme={dark?'dark':'light'}>
     <AppShell header={{height:88}} navbar={{width:compact?64:216,breakpoint:0}} padding={0} withBorder={false}>
       <AppShell.Header className="shell-header">
         <Group className="preview-tools" justify="space-between" gap={8} wrap="nowrap">
@@ -121,7 +121,7 @@ function App() {
             {busy&&<div className="section-gap" role="status"><Text size="sm" mb={8}>{phase==='install'?t('正在安装组件…','Installing components…'):t('正在保存配置…','Saving configuration…')}</Text><progress className="stage-progress" aria-label={t('操作进度','Operation progress')}/></div>}
             {notice&&<Text role="status" mt={16} size="sm">{notice==='components'?t('组件已安装，草稿尚未保存。','Components installed. Draft not saved.'):notice==='saved'?t('配置已保存。','Configuration saved.'):notice}</Text>}
           </>:<>
-            <Paper><Row title={t('界面语言','App language')}><NativeSelect aria-label={t('界面语言','App language')} value={lang} onChange={e=>setLang(e.currentTarget.value)} data={[{value:'zh',label:'简体中文'},{value:'en',label:'English'}]}/></Row><Row title={t('主题','Theme')}><NativeSelect aria-label={t('主题','Theme')} value={dark?'dark':'light'} onChange={e=>setDark(e.currentTarget.value==='dark')} data={[{value:'light',label:t('浅色','Light')},{value:'dark',label:t('深色','Dark')}]}/></Row><Row title={t('强调色','Accent color')}><NativeSelect aria-label={t('强调色','Accent color')} value={accent} onChange={e=>setAccent(e.currentTarget.value)} data={[{value:'violet',label:t('紫色','Violet')},{value:'blue',label:t('蓝色','Blue')},{value:'teal',label:t('青色','Teal')}]}/></Row></Paper>
+            <Paper><Row title={t('界面语言','App language')}><NativeSelect aria-label={t('界面语言','App language')} value={lang} onChange={e=>setLang(e.currentTarget.value)} data={[{value:'zh',label:'简体中文'},{value:'en',label:'English'}]}/></Row><Row title={t('主题','Theme')}><NativeSelect aria-label={t('主题','Theme')} value={dark?'dark':'light'} onChange={e=>setDark(e.currentTarget.value==='dark')} data={[{value:'light',label:t('浅色','Light')},{value:'dark',label:t('深色','Dark')}]}/></Row></Paper>
             <Title order={2} size="sm" mt={24} mb={8}>{t('关于','About')}</Title><Paper><Row title="MpvKit" description={t('0.1.8 设计预览','0.1.8 design preview')}><img src={logo} width={36} height={36} alt=""/></Row><Row title={t('项目仓库','Repository')}><a href="https://github.com/Leovikii/mpvkit" target="_blank" rel="noreferrer">GitHub ↗</a></Row><Row title={t('许可证','License')} description="GPL-3.0-or-later">{button('查看许可','View licenses',mock)}</Row></Paper>
             <Paper className="section-gap"><Expand title={t('高级选项','Advanced options')}><Group>{button('导出诊断','Export diagnostics',mock)}{button('清理日志','Clean logs',mock)}</Group></Expand></Paper>
             {notice&&<Text role="status" mt={16}>{notice==='components'?t('组件已安装，草稿尚未保存。','Components installed. Draft not saved.'):notice==='saved'?t('配置已保存。','Configuration saved.'):notice}</Text>}
@@ -139,7 +139,7 @@ function App() {
         <Text size="xs" c="dimmed" mt={8}>{t('示例文件；路径使用占位值。正式程序以实际文件预览为准。','Sample files with example paths. The app will preview actual files.')}</Text>
         {conflict&&<Alert color="yellow" mt={16}>{t('核对差异后保存将替换管理区域的手改内容，不保留历史备份。','Review differences. Saving replaces manual edits in the managed section without historical backups.')}</Alert>}
       </>}
-      <Group className="dialog-actions" justify="flex-end" gap={8}>{dialog!=='preview'&&<Button color={dialog==='uninstall'?'red':accent} onClick={begin}>{dialog==='uninstall-core'?t('卸载 MPV 核心','Uninstall MPV core'):dialog==='reset'?t('重置配置','Reset configuration'):dialog==='core'?(coreReady?t('更新','Update'):t('安装','Install')):dialog==='components'?(scenario==='update'?t('更新组件','Update components'):scenario==='broken'?t('修复组件','Repair components'):t('安装组件','Install components')):dialog==='uninstall'?t('卸载','Uninstall'):actionLabel}</Button>}<Button variant="default" data-autofocus onClick={()=>setDialog(null)}>{dialog==='preview'?t('关闭','Close'):t('取消','Cancel')}</Button></Group>
+      <Group className="dialog-actions" justify="flex-end" gap={8}>{dialog!=='preview'&&<Button color={dialog==='uninstall'?'red':undefined} onClick={begin}>{dialog==='uninstall-core'?t('卸载 MPV 核心','Uninstall MPV core'):dialog==='reset'?t('重置配置','Reset configuration'):dialog==='core'?(coreReady?t('更新','Update'):t('安装','Install')):dialog==='components'?(scenario==='update'?t('更新组件','Update components'):scenario==='broken'?t('修复组件','Repair components'):t('安装组件','Install components')):dialog==='uninstall'?t('卸载','Uninstall'):actionLabel}</Button>}<Button variant="default" data-autofocus onClick={()=>setDialog(null)}>{dialog==='preview'?t('关闭','Close'):t('取消','Cancel')}</Button></Group>
     </Modal>
   </MantineProvider>;
 }

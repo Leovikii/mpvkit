@@ -16,7 +16,7 @@ v0.1.8 最初基于远端 v0.1.7 `e41cfda`；本批维护精简继续基于此�
 
 底部固定“预览配置”和“保存配置 / 安装并保存配置 / 修复并保存配置”。未变化且配置健康时禁用保存；预览始终可用。主状态显示 mpv.conf 的真实修改时间，预览显示对应文件自己的 mtime，到秒；未变更文件不重写。
 
-主配置区依次为画质、HDR 输出、自动连播、全部播放结束后；组件明细、增强卸载、预设重置及核心安装/更新/卸载统一放在顶部组件区；高级选项保留目录、来源和系统打开方式意图。自动连播默认开启，用 MPV 原生 autocreate-playlist=filter 按文件名自然顺序载入同文件夹音视频，从所选文件开始连续播放，不进入子目录。关闭后不自动扩展文件夹，用户明确提供的播放列表仍正常连播。keep-open=yes/no 只决定队列最终结束时保留窗口或关闭，不阻止中间切集。安装/配置目录使用同一个设置行：左侧“打开安装目录 / 打开配置目录”，副标题实际路径，右侧“打开”；无自定义路径。应用设置包含双语、主题、强调色、关于和诊断。遵守 [界面规范](design/ui-guidelines.md)。
+主配置区依次为画质、HDR 输出、自动连播、全部播放结束后；组件明细、增强卸载、预设重置及核心安装/更新/卸载统一放在顶部组件区；高级选项保留目录、来源和系统打开方式意图。自动连播默认开启，用 MPV 原生 autocreate-playlist=filter 按文件名自然顺序载入同文件夹音视频，从所选文件开始连续播放，不进入子目录。关闭后不自动扩展文件夹，用户明确提供的播放列表仍正常连播。keep-open=yes/no 只决定队列最终结束时保留窗口或关闭，不阻止中间切集。安装/配置目录使用同一个设置行：左侧“打开安装目录 / 打开配置目录”，副标题实际路径，右侧“打开”；无自定义路径。应用设置包含双语、明暗主题、关于和诊断；固定紫色品牌色 #A84BD6。遵守 [界面规范](design/ui-guidelines.md)。
 
 字幕保留 MPV 原生 sub-auto=exact：匹配媒体主文件名，允许 MPV 识别的语种及 forced/SDH 等后缀。除媒体同目录外，追加 sub、subs、subtitle、subtitles；Linux 另外追加首字母大写和全大写形式，Windows 使用原生不区分大小写规则。逐项 sub-file-paths-append 避免两端路径分隔符差异，不递归扫描。字幕规则与目录过滤放在 mpv.conf 可手改区，保存 GUI 设置时保留用户修改。
 
@@ -31,7 +31,7 @@ v0.1.8 最初基于远端 v0.1.7 `e41cfda`；本批维护精简继续基于此�
 ├── mpv.exe / mpv.com              系统包管理，不归 MpvKit 所有
 └── ...                            由包维护；MpvKit 不覆盖或卸载
 %LOCALAPPDATA%/MpvKit/
-├── mpvkit.json                    应用语言、主题、强调色
+├── mpvkit.json                    应用语言、明暗主题
 └── .mpvkit/                       应用偏好归属及写入锁
 %APPDATA%/mpv/                     常规配置根；MPV_HOME/相邻 portable_config 优先
 ├── mpv.conf / input.conf
@@ -58,11 +58,11 @@ Linux 应用偏好仍在 `$XDG_DATA_HOME/mpvkit/mpvkit.json`（回退 `~/.local/
 
 检测根中直接放置 mpv.conf、input.conf、scripts/、script-opts/、fonts/、licenses/；.mpvkit/ 内保留本环境的归属、设置、摘要、锁、当前失败恢复与 launcher/mpvkit，继续使用单目录事务。普通系统 MPV 默认读取，稳定 helper 也可显式启动同一目录；Linux 启动不再重设 MPV_HOME 为日志目录。Lua 在两端均直接根据原生配置根查找保存记录/helper。不部署 DLL、Windows helper 或 fonts.conf。
 
-Linux 首屏显示检测路径和来源，可打开目录；两个路径相同，不重复显示安装目录行。Linux 默认不额外登记打开方式，普通 MPV 已可读配置；用户仍可在高级项中启用可选登记。不迁移此前开发版数据，不清理此前实际目录。隔离测试根使用 MPVKIT_TEST_ROOT/config/mpv，真实配置不参与测试。完整实现与证据见 [v0.1.7](v0.1.7/plan.md)。
+Linux 首屏显示检测路径和来源，可打开目录；两个路径相同，不重复显示安装目录行。Linux 默认不额外登记打开方式，普通 MPV 已可读配置；用户仍可在高级项中启用可选登记。可选媒体入口为 io.github.mpvkit.player.desktop（MPV (MpvKit)，NoDisplay=true），使用配置根内受归属管理的 .mpvkit/launcher/mpvkit.png，图标随播放增强部署及卸载。管理器启动时另行维护 io.github.mpvkit.desktop（MpvKit），仅打开管理界面，无 --open 或 MIME 关联；GTK 原生程序名为 io.github.mpvkit。管理器 desktop 文件及同源 PNG 位于 $XDG_DATA_HOME/mpvkit/desktop，由应用数据根的部署清单管理；applications 中只创建指向该 desktop 文件的固定自有符号链接，这是桌面入口的限定例外，父目录和资产仍拒绝符号链接。同名未知入口或手改资产阻断并保留；更新复用归属、过期保护和当前事务恢复，程序移动后下次启动更新 Exec。新增/更新后按可用性刷新 KDE 派生缓存，隔离模式不刷新实际 KDE 缓存。不修改主题图标库、默认应用或现有媒体配置，管理器入口不随播放增强移除。不迁移此前开发版数据，不清理此前实际目录。隔离测试根使用 MPVKIT_TEST_ROOT/config/mpv，真实配置不参与测试。完整实现与证据见 [v0.1.7](v0.1.7/plan.md)。
 
 两端系统 MPV 安装状态与实际版本均独立于增强归属记录，首次和卸载后仍显示。Windows 安装路径只读固定包的精确卸载登记与已知 Program Files 位置；多处核心阻断，不扫盘。MPV_HOME 必须为绝对本地路径；没有 MPV_HOME/portable_config 时，安装目录直接配置或其 mpv/ 子目录的实际配置与用户目录并存会阻断，避免混合加载（包附 fonts.conf 例外）。系统核心不进入文件归属/失败恢复，但其文件状态作为配置和启动预览的过期保护。Debug 隔离核心位于 MPVKIT_TEST_ROOT/system-mpv，WinGet 只能来自 test-tools/winget.exe；不得回退调用本机包管理器。
 
-Linux 系统语言优先 KDE 显式配置，明暗优先 portal Settings，GTK 回退；前端和原生背景同源，保留手动设置。Linux 系统强调色暂固定蓝色。
+Linux 系统语言优先 KDE 显式配置，明暗优先 portal Settings，GTK 回退；前端和原生背景同源，保留手动设置。应用强调色固定使用图标的紫色 #A84BD6，不再读取系统强调色或保存颜色偏好。
 
 ## 模块与保护
 

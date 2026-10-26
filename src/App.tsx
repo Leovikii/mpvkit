@@ -8,6 +8,7 @@ import { errorKey, resolveLocale, translator, type Key } from "./i18n";
 import { defaultAppSettings, defaultSettings, type AppSettings, type Asset, type ConfigurationPreview, type CorePreview, type DraftRequest, type Deployment, type Environment, type Preview, type Progress, type Registration, type Report, type Settings } from "./types";
 import logo from "./assets/mpv.svg";
 import { enhancementAction } from "./component-actions";
+import { brandTheme } from "./brand";
 import "@mantine/core/styles.css";
 import "./style.css";
 const profileKey: Record<string, Key> = { "power-saving": "powerSaving", balanced: "balanced", "high-quality": "highQuality" };
@@ -22,7 +23,7 @@ function PageEntrance({ children }: { children: ReactNode }) {
 }
 export function App() {
   const [appSettings, setAppSettings] = useState(defaultAppSettings);
-  const [environment, setEnvironment] = useState<Environment>({languages: [...navigator.languages], dark: matchMedia("(prefers-color-scheme: dark)").matches, accent:"blue", highContrast:false, materialAllowed:false});
+  const [environment, setEnvironment] = useState<Environment>({languages: [...navigator.languages], dark: matchMedia("(prefers-color-scheme: dark)").matches, highContrast:false, materialAllowed:false});
   const [material, setMaterial] = useState(false);
   const [appSaving, setAppSaving] = useState(false);
   const [info, setInfo] = useState({version:"", license:"GPL-3.0-or-later", repository:null as string | null, platform:""});
@@ -58,7 +59,7 @@ export function App() {
   const linux = info.platform === "linux";
   const fontFamily = linux ? 'system-ui, "Noto Sans CJK SC", sans-serif' : '"Segoe UI", "Microsoft YaHei UI", sans-serif';
   const compact = useMediaQuery("(max-width: 899px)");
-  const theme = createTheme({ respectReducedMotion: true, components: { Accordion: Accordion.extend({defaultProps:{transitionDuration:180}}), Modal: Modal.extend({defaultProps:{transitionProps:{transition:"fade",duration:160,exitDuration:120}}}), Tooltip: Tooltip.extend({defaultProps:{transitionProps:{transition:"fade",duration:120,exitDuration:90}}}), Button: Button.extend({defaultProps:{fw:400,size:"sm"}}) }, primaryColor: appSettings.accent === "system" ? environment.accent : appSettings.accent, defaultRadius: 4, fontFamily, headings:{fontFamily,sizes:{h1:{fontSize:"1.65rem"},h2:{fontSize:"1.15rem"},h3:{fontSize:"1rem"}}}});
+  const theme = createTheme({ ...brandTheme, respectReducedMotion: true, components: { Accordion: Accordion.extend({defaultProps:{transitionDuration:180}}), Modal: Modal.extend({defaultProps:{transitionProps:{transition:"fade",duration:160,exitDuration:120}}}), Tooltip: Tooltip.extend({defaultProps:{transitionProps:{transition:"fade",duration:120,exitDuration:90}}}), Button: Button.extend({defaultProps:{fw:400,size:"sm"}}) }, defaultRadius: 4, fontFamily, headings:{fontFamily,sizes:{h1:{fontSize:"1.65rem"},h2:{fontSize:"1.15rem"},h3:{fontSize:"1rem"}}}});
   const blocked = !desktop || busy || booting;
   const [integrationEnabled, setIntegrationEnabled] = useState(true);
   const managementTab = useRef<HTMLButtonElement>(null);
@@ -281,12 +282,9 @@ export function App() {
     </>;
   }
   function appPreferences() {
-    const options = (values: [string,Key][]) => values.map(([value,key])=>({value,label:t(key)}));
-    const picker = (key: "theme"|"accent", data: {value:string;label:string}[]) => <NativeSelect aria-label={t(key)} value={appSettings[key]} data={data} disabled={!desktop||appSaving} onChange={e=>void saveApp({...appSettings,[key]:e.currentTarget.value})}/>;
     return <><Paper withBorder className="section">
       {row(t("uiLanguage"),<NativeSelect aria-label={t("uiLanguage")} value={appSettings.language} data={[{value:"system",label:t("system")},{value:"zh-Hans",label:"简体中文"},{value:"en",label:"English"}]} disabled={!desktop||appSaving} onChange={e=>void saveApp({...appSettings,language:e.currentTarget.value})}/>)}
-      {row(t("theme"),picker("theme",options([["system","system"],["light","light"],["dark","dark"]])))}
-      {row(t("accent"),picker("accent",options([["system","system"],["blue","blue"],["teal","teal"],["violet","violet"],["orange","orange"]])))}
+      {row(t("theme"),<NativeSelect aria-label={t("theme")} value={appSettings.theme} data={[{value:"system",label:t("system")},{value:"light",label:t("light")},{value:"dark",label:t("dark")}]} disabled={!desktop||appSaving} onChange={e=>void saveApp({...appSettings,theme:e.currentTarget.value})}/>)}
       </Paper><Title order={2} className="section-title">{t("about")}</Title><Paper withBorder className="section">
       <div className="about-brand"><img src={logo} alt="" width={40} height={40}/><div><Text fw={500}>MpvKit</Text><Text size="sm" c="dimmed">{info.version || "—"} · {t("releaseStatus")}</Text></div></div>
       {row(t("repository"),<a href="https://github.com/Leovikii/mpvkit" target="_blank" rel="noreferrer">github.com/Leovikii/mpvkit</a>)}

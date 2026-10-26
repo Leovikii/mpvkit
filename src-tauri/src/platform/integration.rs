@@ -187,7 +187,7 @@ fn desired(root: &Path) -> Result<Vec<(String, String, RegistryData)>> {
 #[cfg(target_os = "linux")]
 fn desired(root: &Path) -> Result<Vec<(String, String, RegistryData)>> {
     Ok(vec![(
-        "io.github.mpvkit.desktop".into(),
+        crate::platform::desktop_entry::ENTRY.into(),
         String::new(),
         RegistryData::string(&crate::platform::desktop_entry::content(root)?),
     )])
@@ -205,10 +205,14 @@ pub fn prepare(root: &Path, action: &str) -> Result<Plan> {
         let manifest = deploy::status(root)?
             .manifest
             .ok_or_else(|| error("not_installed", "请先安装播放器。"))?;
-        if !manifest
-            .files
+        let required = &[
+            crate::platform::HELPER,
+            #[cfg(target_os = "linux")]
+            crate::platform::DESKTOP_ICON,
+        ];
+        if required
             .iter()
-            .any(|f| f.path == crate::platform::HELPER)
+            .any(|required| !manifest.files.iter().any(|f| f.path == *required))
         {
             return Err(error(
                 "helper_missing",
@@ -218,7 +222,7 @@ pub fn prepare(root: &Path, action: &str) -> Result<Plan> {
         for file in &manifest.files {
             let path = root.join(&file.path);
             let hash = deploy::file_hash(&path)?;
-            if file.path == crate::platform::HELPER && hash.as_deref() != Some(&file.sha256) {
+            if required.contains(&file.path.as_str()) && hash.as_deref() != Some(&file.sha256) {
                 return Err(error("helper_changed", "启动入口已改变，请先修复组件。"));
             }
             plan.guarded_files.push((path, hash));

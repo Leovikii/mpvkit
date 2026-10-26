@@ -44,6 +44,13 @@ fn main() {
         }
         return;
     }
+    #[cfg(target_os = "linux")]
+    {
+        platform::desktop::initialize_identity();
+        if let Err(error) = platform::manager_entry::ensure() {
+            platform::show_error(error.message);
+        }
+    }
     let builder = tauri::Builder::default();
     let builder = builder.manage(commands::PendingCore::default());
     builder

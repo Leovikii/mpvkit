@@ -1,0 +1,66 @@
+{
+  "date": "2026-10-26",
+  "platform": "CachyOS x86_64 / KDE Wayland",
+  "scope": "Manager desktop identity and independent user launcher",
+  "rust": {
+    "passed": 52,
+    "ignored": 3
+  },
+  "fmt": "passed",
+  "clippy": "passed --all-targets -- -D warnings",
+  "frontend": "passed pnpm test:frontend (one script)",
+  "build": {
+    "command": "pnpm tauri build --debug --no-bundle",
+    "bundleActive": false,
+    "bytes": 266315352,
+    "sha256": "c58bfd0e4c199cec83fa83761653bcdcf5e39bd9ba7ee91c4b474e39600d6cd5"
+  },
+  "nativeRegression": {
+    "root": "/tmp/mpvkit-v018-manager-regression2-20261026",
+    "passed": true,
+    "seconds": 45.66,
+    "firstAttempt": "Existing uosc.rs pause assertion failed; passed once retried in a fresh root; product uosc unchanged"
+  },
+  "manager": {
+    "directLaunch": {
+      "pid": 124412,
+      "caption": "MpvKit",
+      "uuid": "{7be12b05-cd19-46d0-bd17-d60146b8f190}",
+      "desktopFileName": "io.github.mpvkit",
+      "resourceClass": "io.github.mpvkit",
+      "active": true,
+      "activeCaption": "MpvKit",
+      "desktops": [
+        "桌面 1"
+      ],
+      "currentDesktop": "桌面 1"
+    },
+    "desktopLaunch": {
+      "pid": 124617,
+      "caption": "MpvKit",
+      "uuid": "{e398afb3-aa68-42cd-8bf6-1e951b3af2ef}",
+      "desktopFileName": "io.github.mpvkit",
+      "resourceClass": "io.github.mpvkit",
+      "active": true,
+      "activeCaption": "MpvKit",
+      "desktops": [
+        "桌面 1"
+      ],
+      "currentDesktop": "桌面 1"
+    },
+    "desktopFileValidated": true,
+    "iconBytesMatch": true,
+    "titlebarVisuallyConfirmed": true,
+    "taskbarVisuallyConfirmed": true,
+    "protectedPathsUnchanged": 87,
+    "mimeAssociationsChanged": false,
+    "registeredActualUserEntry": "$XDG_DATA_HOME/applications/io.github.mpvkit.desktop",
+    "ownedAssets": "$XDG_DATA_HOME/mpvkit/desktop",
+    "repeatedLaunch": "No duplicate launcher, same owned assets"
+  },
+  "limitations": [
+    "Windows native tests not run",
+    "KDE existing pinned entries not tested",
+    "No installer or CI"
+  ]
+}

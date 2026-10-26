@@ -235,6 +235,11 @@ pub fn runtime_files() -> Result<Vec<Payload>> {
         path: crate::platform::HELPER.into(),
         bytes: deploy::read_bytes(&executable)?,
     });
+    #[cfg(target_os = "linux")]
+    files.push(Payload {
+        path: crate::platform::DESKTOP_ICON.into(),
+        bytes: include_bytes!("../icons/icon.png").to_vec(),
+    });
     for (name, bytes) in [
         ("LICENSE.txt", include_bytes!("../../LICENSE").as_slice()),
         (

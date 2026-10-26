@@ -9,9 +9,12 @@ use std::time::Duration;
 pub struct Environment {
     pub languages: Vec<String>,
     pub dark: bool,
-    pub accent: String,
     pub high_contrast: bool,
     pub material_allowed: bool,
+}
+pub fn initialize_identity() {
+    // GTK's Wayland fallback uses the program name; set it before GTK initializes.
+    gtk::glib::set_prgname(Some(super::manager_entry::APP_ID));
 }
 fn locale_languages<'a>(preferences: impl IntoIterator<Item = &'a str>) -> Vec<String> {
     for value in preferences {
@@ -105,7 +108,6 @@ pub fn environment() -> Environment {
     Environment {
         languages: system_languages(),
         dark: system_dark(),
-        accent: "blue".into(),
         high_contrast: theme.to_lowercase().contains("highcontrast"),
         material_allowed: false,
     }

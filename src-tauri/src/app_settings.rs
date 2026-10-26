@@ -11,7 +11,6 @@ pub struct AppSettings {
     pub schema_version: u32,
     pub language: String,
     pub theme: String,
-    pub accent: String,
 }
 impl Default for AppSettings {
     fn default() -> Self {
@@ -19,7 +18,6 @@ impl Default for AppSettings {
             schema_version: 1,
             language: "system".into(),
             theme: "system".into(),
-            accent: "system".into(),
         }
     }
 }
@@ -28,7 +26,6 @@ impl AppSettings {
         if self.schema_version != 1
             || !["system", "zh-Hans", "en"].contains(&self.language.as_str())
             || !["system", "light", "dark"].contains(&self.theme.as_str())
-            || !["system", "blue", "teal", "violet", "orange"].contains(&self.accent.as_str())
         {
             return Err(AppError::new(
                 "app_settings_invalid",

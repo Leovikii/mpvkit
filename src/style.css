@@ -28,7 +28,7 @@ body { margin: 0; overflow: hidden; }
 .page-actions { border-top: 1px solid #00000012; padding-top: 20px; }
 .dialog-actions { position: sticky; bottom: 0; margin: 20px -24px 0; padding: 16px 24px; border-top: 1px solid #00000012; background: #f3f3f3; }
 pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: 12px; padding: 12px; background: #00000005; }
-a { color: var(--mantine-primary-color-filled); }
+a { color: var(--mantine-color-anchor); }
 [data-mantine-color-scheme='dark'] .app-header,[data-mantine-color-scheme='dark'] .sidebar,[data-mantine-color-scheme='dark'] .mantine-AppShell-root { background: #202020; }
 [data-mantine-color-scheme='dark'] .page-surface { background: #272727; border-color: #ffffff0a; }
 [data-mantine-color-scheme='dark'] .mantine-Paper-root { background: #2d2d2d; border-color: #ffffff0c; }

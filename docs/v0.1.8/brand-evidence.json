@@ -1,0 +1,65 @@
+{
+  "date": "2026-10-26",
+  "brandColor": "#A84BD6",
+  "nativeWindow": {
+    "appIdLines": [
+      "[14:28:52.851992] {Default Queue}  -> xdg_toplevel#44.set_app_id(\"io.github.mpvkit\")"
+    ],
+    "desktopEntryValidated": true,
+    "iconBytesMatch": true,
+    "windowAlive": true
+  },
+  "ui": {
+    "results": [
+      {
+        "mode": "light",
+        "primary": "#A84BD6",
+        "widths": [
+          640,
+          900,
+          1200
+        ],
+        "preferences": {
+          "schemaVersion": 1,
+          "language": "en",
+          "theme": "light"
+        }
+      },
+      {
+        "mode": "dark",
+        "primary": "#A84BD6",
+        "widths": [
+          640,
+          900,
+          1200
+        ],
+        "preferences": {
+          "schemaVersion": 1,
+          "language": "en",
+          "theme": "dark"
+        }
+      }
+    ],
+    "errors": []
+  },
+  "cleanup": {
+    "removedPreferenceField": "settings.accent",
+    "removedObsoleteDesktop": true,
+    "removedEmptyDirectories": 10,
+    "protectedFilesUnchanged": 84,
+    "currentManifestFilesPreserved": 73,
+    "languageAndThemePreserved": true
+  },
+  "binary": {
+    "file": "src-tauri/target/debug/mpvkit",
+    "bytes": 266392272,
+    "sha256": "5e5bf9b0f72fed210f7ad01fb2682e32a930d425a4c90871a0189dd23f973963"
+  },
+  "nativeSuiteSeconds": 45.37,
+  "limits": [
+    "Windows native unavailable",
+    "UI screenshots and interactions use isolated Tauri mocks; not native WebKit acceptance",
+    "Wayland app ID verified from protocol; compositor panel icon cache not visually accepted",
+    "Existing compatible player configuration retained; new optional desktop entry requires normal preview and registration"
+  ]
+}

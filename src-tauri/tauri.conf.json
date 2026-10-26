@@ -32,7 +32,8 @@
       "nsis"
     ],
     "icon": [
-      "icons/icon.ico"
+      "icons/icon.ico",
+      "icons/icon.png"
     ],
     "shortDescription": "MPV 安装与配置管理器",
     "windows": {

@@ -34,7 +34,6 @@ fn dword(key: &str, name: &str) -> Option<u32> {
 pub struct Environment {
     pub languages: Vec<String>,
     pub dark: bool,
-    pub accent: String,
     pub high_contrast: bool,
     pub material_allowed: bool,
 }
@@ -82,24 +81,6 @@ pub fn environment() -> Environment {
     let high_contrast = contrast.dwFlags & HCF_HIGHCONTRASTON != 0;
     let personalize = r"Software\Microsoft\Windows\CurrentVersion\Themes\Personalize";
     let dark = dword(personalize, "AppsUseLightTheme") == Some(0);
-    let color = dword(r"Software\Microsoft\Windows\DWM", "ColorizationColor").unwrap_or(0xff0078d4);
-    let rgb = [
-        ((color >> 16) & 255) as i32,
-        ((color >> 8) & 255) as i32,
-        (color & 255) as i32,
-    ];
-    let palette = [
-        ("blue", [34, 139, 230]),
-        ("teal", [18, 184, 134]),
-        ("violet", [121, 80, 242]),
-        ("orange", [253, 126, 20]),
-    ];
-    let accent = palette
-        .iter()
-        .min_by_key(|(_, c)| c.iter().zip(rgb).map(|(a, b)| (a - b).pow(2)).sum::<i32>())
-        .unwrap()
-        .0
-        .into();
     let mut power = windows_sys::Win32::System::Power::SYSTEM_POWER_STATUS::default();
     let power_ok =
         unsafe { windows_sys::Win32::System::Power::GetSystemPowerStatus(&mut power) } != 0;
@@ -120,7 +101,6 @@ pub fn environment() -> Environment {
     Environment {
         languages,
         dark,
-        accent,
         high_contrast,
         material_allowed: supported_build
             && !high_contrast

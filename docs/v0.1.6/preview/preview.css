@@ -1,5 +1,6 @@
 @import '../../v0.1.5/preview/preview.css';
 
+a { color: var(--mantine-color-anchor); }
 .page-content { display: flex; flex-direction: column; overflow: hidden; padding: 0; }
 .page-scroll { flex: 1; min-height: 0; overflow: auto; padding: 24px; }
 .save-bar { flex-shrink: 0; display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 8px; padding: 16px 24px; border-top: 1px solid var(--mantine-color-default-border); background: var(--mantine-color-body); }

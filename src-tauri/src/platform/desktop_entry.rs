@@ -9,7 +9,7 @@ use std::{
     path::{Path, PathBuf},
     time::Duration,
 };
-const ENTRY: &str = "io.github.mpvkit.desktop";
+pub const ENTRY: &str = "io.github.mpvkit.player.desktop";
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Data {
@@ -91,7 +91,7 @@ impl Store {
         Ok(())
     }
 }
-fn exec_argument(value: &str) -> Result<String> {
+pub(super) fn exec_argument(value: &str) -> Result<String> {
     if value.chars().any(char::is_control) {
         return Err(error());
     }
@@ -114,8 +114,14 @@ pub fn content(root: &Path) -> Result<String> {
     let helper = crate::config::helper_path(root);
     super::validate_local_path(&helper)?;
     let executable = exec_argument(helper.to_str().ok_or_else(error)?)?;
+    let icon = root.join(super::DESKTOP_ICON);
+    super::validate_local_path(&icon)?;
+    let icon = icon.to_str().ok_or_else(error)?.replace('\\', "\\\\");
+    if icon.chars().any(char::is_control) {
+        return Err(error());
+    }
     Ok(format!(
-        "[Desktop Entry]\nType=Application\nName=MpvKit\nComment=Play media with MpvKit\nExec={executable} --open %f\nIcon=multimedia-video-player\nTerminal=false\nCategories=AudioVideo;Player;\nMimeType=video/x-matroska;video/mp4;video/webm;video/x-msvideo;video/quicktime;audio/mpeg;audio/flac;audio/x-wav;video/mp2t;\n"
+        "[Desktop Entry]\nType=Application\nName=MPV (MpvKit)\nComment=Play media with MpvKit\nExec={executable} --open %f\nIcon={icon}\nTerminal=false\nNoDisplay=true\nCategories=AudioVideo;Player;\nMimeType=video/x-matroska;video/mp4;video/webm;video/x-msvideo;video/quicktime;audio/mpeg;audio/flac;audio/x-wav;video/mp2t;\n"
     ))
 }
 #[cfg(test)]
@@ -133,7 +139,7 @@ mod tests {
     }
     #[test]
     fn registration_stale_preview_external_edits_and_recovery_are_isolated() {
-        let root = std::env::temp_dir().join(format!("mpvkit-desktop-{}", deploy::operation_id()));
+        let root = std::env::temp_dir().join(format!("mpvkit 桌面-%f-{}", deploy::operation_id()));
         let mut payloads = crate::config::runtime_files().unwrap();
         payloads.extend(
             crate::config::generate(&root, Path::new("/usr/bin/mpv"), &Default::default())
@@ -156,6 +162,22 @@ mod tests {
         assert!(store.read(ENTRY, "").unwrap().is_none());
         integration::execute(plan).unwrap();
         assert!(integration::status(&root).unwrap().valid);
+        let icon = root.join(crate::platform::DESKTOP_ICON);
+        assert_eq!(
+            fs::read(&icon).unwrap(),
+            include_bytes!("../../icons/icon.png")
+        );
+        assert!(
+            store
+                .read(ENTRY, "")
+                .unwrap()
+                .unwrap()
+                .text
+                .contains(&format!("\nIcon={}\n", icon.display()))
+        );
+        fs::write(&icon, b"external edit").unwrap();
+        assert!(integration::prepare(&root, "register").is_err());
+        fs::write(&icon, include_bytes!("../../icons/icon.png")).unwrap();
         assert_eq!(
             fs::metadata(crate::config::helper_path(&root))
                 .unwrap()

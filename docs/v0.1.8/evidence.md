@@ -388,3 +388,76 @@ uosc 调查使用固定 5.13.0 ZIP、当前配置与脚本的临时副本及只�
 ```
 
 本次构建使用 `pnpm tauri build --debug --no-bundle`，`bundle.active=false`。最终 Linux 单 ELF：**265918880 字节**，SHA-256 **f2743d00520576c4630910c623b94e09ad7c2b12e51ca518397d536e3ce723a8**，位置 `src-tauri/target/debug/mpvkit`；替代前节组件按钮批次程序摘要。本轮未修改真实配置或系统核心，无安装包、CI、兼容迁移、提交/推送。Windows 运行环境不可用，其共享代码已同步但不冒称原生验证完成。
+
+
+## 品牌色与 Linux 图标及授权清理（2026-10-26）
+
+用户要求 Linux 图标统一，并完整删除颜色偏好，采用现有图标 #A84BD6。产品/预览共用品牌色阶；颜色 UI、序列化字段及 Windows 系统强调色读取已删除，明暗和语言保留。Rust 严格格式不接受旧字段，不增加历史配置兼容。
+
+| 检查 | 最终结果 |
+| --- | --- |
+| 默认 Rust / fmt / clippy | 50 通过、3 默认忽略；格式与 all-targets -D warnings 通过 |
+| 前端 / TypeScript / Vite | 通过；Windows 原生脚本语法通过 |
+| 实际 React 页面，隔离 Tauri 模拟数据 | 无颜色控件或提交字段；简中/英文、浅色/深色/系统跟随、640/900/1200 布局通过，无运行异常 |
+| 品牌与对比度 | 主色 #A84BD6；白字对比度约 4.524；链接使用 Mantine anchor 变量，两种主题均检查达到 4.5 |
+| 独立离线预览 | 完整 check.mjs 通过，包括草稿、确认、焦点、双语主题、200% 文字、动效及组件状态 |
+| Linux 桌面注册 | 含空格/中文/%f 的根路径通过现有隔离注册测试；PNG 字节与仓库素材一致；图标被改后拒绝登记；新入口通过 desktop-file-validate |
+| 最终原生 Wayland 回归 | 新根 /tmp/mpvkit-v018-brand-final2-20261026，45.37 秒，播放/配置/卸载及图标移除通过 |
+| 最终 ELF 窗口身份 | 新 XDG 根启动实际程序，Wayland 协议为 xdg_toplevel.set_app_id("io.github.mpvkit")，窗口正常存活 |
+
+原生续播复验曾在 IPC 接通后立即读取 time-pos，文件尚未就绪时返回 property unavailable；测试补充 MPV 原生 expand-text 缺省值的就绪等待，原有续播位置 >=4 秒断言保留，最终新根通过。产品播放逻辑未因此改变。GTK 初始化前以 GLib 原生程序名关联桌面身份，不新增会话总线单实例注册。
+
+用户进一步明确授权“帮我直接清理所有不兼容旧配置”。本机检查范围仅为已知 MpvKit 应用目录、当前 MPV 配置根、此前已知旧私有根和固定 desktop 文件；当前 MPV 清单 73 文件均匹配，无需删除。清理具体预览保存在本机忽略目录 .local/linux-v018/brand-cleanup-plan.json，执行时持有应用数据根与配置根的现有操作锁并重新校验：
+
+- 仅移除 $HOME/.local/share/mpvkit/mpvkit.json 的 settings.accent，保留 language=system、theme=system 和其他结构；新文件 SHA-256 为 7e1b09b1c63882ff4d977d3a4340006901dfabe7a934018076c21f14d8ed7d0a。
+- 删除 $HOME/.local/share/applications/io.github.mpvkit.desktop：内容完整匹配旧生成模板，指向 $HOME/.local/share/mpvkit/player/.mpvkit/launcher/mpvkit，目标已不存在；当前配置的可选登记关闭。删除前摘要为 81407d98ce9bc2ba2b8ade6db65089cef5a9bf0014e6f0763d8d8ed127e9cd0c。
+- 仅用 rmdir 移除 10 个确认为空的 backups/staging 目录；没有清空任何有内容的历史目录。当前配置/资源、续播、结构化设置及归属等共 84 个保护文件，执行后摘要全部不变。系统核心与默认应用未变，派生 desktop 索引已刷新。
+
+这是用户授权的一次性本机清理，脚本与完整预览仅留在忽略目录；没有把旧目录、旧字段解析或迁移逻辑加入程序。当前兼容的播放器配置未覆盖，新可选桌面入口须经现有预览/登记流程应用。
+
+最终单 ELF：src-tauri/target/debug/mpvkit，**266392272 字节**，SHA-256 **5e5bf9b0f72fed210f7ad01fb2682e32a930d425a4c90871a0189dd23f973963**。通过 pnpm tauri build --debug --no-bundle 生成，bundle.active=false；前节 uosc 摘要属于其当批程序。[机器证据](brand-evidence.json)。本机日志位于 .local/linux-v018/brand-*.log，无新依赖、CI、安装包、自动提交或推送。
+
+Windows 原生不可用；浏览器模拟不能替代原生 WebKit/辅助技术验收。Wayland 应用身份已取证，KDE 任务栏图标缓存和固定入口未目视确认；本轮未自动创建新的真实桌面入口或更改当前可选登记意图。已有 HDR/功耗/混合缩放等边界继续保留。
+
+## Wayland 管理器原生图标修复（2026-10-26）
+
+前批只验证 app_id，真实管理器缺少同名桌面入口，不能据此认定图标正常。本轮补齐独立管理器入口，在实际 KDE 会话中完成查找与截图验收。用户明确授权本机登记；其余写操作和播放测试均隔离。
+
+| 检查 | 结果 |
+| --- | --- |
+| Rust 默认套件 | 52 通过，3 默认忽略；包括独立入口更新、空格/%f 转义、未知入口/链接、手改资产与过期计划保护 |
+| fmt / clippy / 前端 | 全部通过；clippy --all-targets -- -D warnings；前端检查；构建含 TypeScript/Vite |
+| 完整原生回归 | 新根 /tmp/mpvkit-v018-manager-regression2-20261026，45.66 秒通过；媒体注册、播放、保存、续播、uosc、窗口及卸载保留管理器资产 |
+| 实际桌面入口 | desktop-file-validate 通过；固定链接指向应用数据根 desktop/io.github.mpvkit.desktop；Icon PNG 与仓库字节一致 |
+| 直接执行 / 桌面启动 | 实际 ELF 和 gio launch 均正常显示管理界面，无媒体缺失错误；KWin resourceClass、desktopFileName 均为 io.github.mpvkit |
+| 原生图标 | 标题栏和 KDE 任务栏均确认显示品牌紫色图标；不是前端模拟或仅协议断言 |
+| 实际数据保护 | 87 个 MPV 配置/应用偏好/默认应用相关路径快照不变；媒体登记意图未更改；仅结束自行创建的窗口 |
+
+![管理器原生标题栏](linux-manager-titlebar.png)
+
+![KDE 任务栏中的管理器](linux-manager-taskbar.png)
+
+本机隔离复验入口：
+
+```bash
+source .local/linux-v018/env.sh
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline
+cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+cargo clippy --manifest-path src-tauri/Cargo.toml --locked --offline --all-targets -- -D warnings
+pnpm test:frontend
+pnpm tauri build --debug --no-bundle
+# MPVKIT_TEST_ROOT 必须换成尚不存在的新绝对目录。
+GDK_BACKEND=wayland MPVKIT_TEST_MODE=1 \
+MPVKIT_TEST_ROOT=/tmp/mpvkit-manager-fresh-test \
+MPVKIT_TEST_ASSETS="$PWD/.local/linux-v018/assets" \
+MPVKIT_TEST_EXECUTABLE="$PWD/src-tauri/target/debug/mpvkit" \
+MPVKIT_TEST_VIDEO="$PWD/.local/linux-v018/synthetic.mp4" \
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline \
+arch_wayland_install_playback_and_uninstall -- --ignored --nocapture
+```
+
+真实 KDE 验证须让桌面会话能搜索到实际用户级入口，不能用子进程私有 XDG 目录冒充。已生成 `$XDG_DATA_HOME/applications/io.github.mpvkit.desktop` 及应用数据根的两个自有资产和归属清单。重复启动正常，不改 MIME 默认值。KWin 临时取证脚本执行后卸载；标题栏/任务栏截图只保留目标局部。最初两次活动窗口截图抓到了其他窗口，未作为通过证据；最终按本轮 PID 定位并核对 active=true 后截图。实际原生截图/窗口信息来自 /tmp/mpvkit-manager-icon-native4-20261026，[机器记录](manager-icon-evidence.json) 已摘要化。
+
+原生套件首次在 src/linux_tests/uosc.rs 的暂停按钮即时断言失败（pause 仍为 true），第二个全新隔离根完整通过；未修改产品 uosc 或放宽断言。此处时序波动仍存在。Windows 原生与已有固定面板入口未测；无包管理器写操作或默认应用变更。
+
+最终单 ELF：`src-tauri/target/debug/mpvkit`，**266315352 字节**，SHA-256 **c58bfd0e4c199cec83fa83761653bcdcf5e39bd9ba7ee91c4b474e39600d6cd5**；替代前批程序。bundle.active=false，无新依赖、安装包、CI、历史迁移、提交或推送。本机日志在 .local/linux-v018/manager-*.log。

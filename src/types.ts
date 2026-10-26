@@ -1,5 +1,5 @@
-export type AppSettings = { schemaVersion: number; language: string; theme: string; accent: string };
-export type Environment = { languages: string[]; dark: boolean; accent: string; highContrast: boolean; materialAllowed: boolean };
+export type AppSettings = { schemaVersion: number; language: string; theme: string };
+export type Environment = { languages: string[]; dark: boolean; highContrast: boolean; materialAllowed: boolean };
 export type IntegrationState = { registered: boolean; valid: boolean; recoveryRequired: boolean; issue: string | null };
 export type Report = { root: string; playerDirectory: string; configDirectory: string; configDirectorySource?: string; generation: string | null; components: { id: string; version: string | null; ready: boolean; issues: string[] }[]; playerReady: boolean; playerInstalled: boolean; componentsReady: boolean; settingsReady: boolean; configurationModified: boolean; rootExists: boolean; configDirectoryExists: boolean; configurationInstalled: boolean; configModifiedAt: number | null; integrationEnabled: boolean; recoveryRequired: boolean; integration: IntegrationState; issues: string[] };
 export type Settings = { schemaVersion: number; profile: string; overrides: { subtitleSize?: number | null; osdSize?: number | null; volume?: number | null; hardwareDecoding?: boolean | null }; playback: { hdr: string; keepOpen:boolean; autoPlaylist:boolean } };
@@ -12,4 +12,4 @@ export type DraftRequest = {settings:Settings;replaceManual:boolean;integrationE
 export type CorePreview = {id:string;action:string;package:string;source:string;executable:string;configDirectory:string;details:string};
 export type Preview = {kind:"core";data:CorePreview;continueInstall:boolean} | { kind: "install" | "playback" | "maintenance"; data: Deployment } | {kind:"configuration";data:ConfigurationPreview;readOnly:boolean} | { kind: "integration"; data: Registration } | { kind: "download"; data: null } | {kind: "logs" | "diagnostics"; data: {id: string; [key: string]: unknown}};
 export const defaultSettings: Settings = {schemaVersion: 3, profile: "balanced", overrides: {}, playback: {hdr:"auto",keepOpen:false,autoPlaylist:true}};
-export const defaultAppSettings: AppSettings = {schemaVersion:1,language:"system",theme:"system",accent:"system"};
+export const defaultAppSettings: AppSettings = {schemaVersion:1,language:"system",theme:"system"};
