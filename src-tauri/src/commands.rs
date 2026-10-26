@@ -565,6 +565,12 @@ pub async fn open_player_directory() -> Result<()> {
 #[derive(Default)]
 pub struct PendingCore(Mutex<Option<platform::core::CorePlan>>);
 #[tauri::command]
+pub async fn check_core_update() -> Result<bool> {
+    tauri::async_runtime::spawn_blocking(platform::core::check_update)
+        .await
+        .map_err(|_| AppError::new("worker_failed", "检查更新异常结束，请重试。", "system-mpv"))?
+}
+#[tauri::command]
 pub async fn preview_core(
     action: String,
     state: State<'_, PendingCore>,

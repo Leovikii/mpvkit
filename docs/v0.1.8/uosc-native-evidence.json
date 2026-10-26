@@ -1,0 +1,835 @@
+{
+  "layouts": [
+    {
+      "controls": {
+        "1": {
+          "ax": 18,
+          "ay": 866,
+          "bx": 84,
+          "by": 932,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_previous",
+          "kind": "command",
+          "visibility": 0
+        },
+        "10": {
+          "ax": 1471,
+          "ay": 866,
+          "bx": 1537.2,
+          "by": 932,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "list_alt",
+          "kind": "command",
+          "visibility": 0
+        },
+        "12": {
+          "ax": 1566,
+          "ay": 866,
+          "bx": 1632,
+          "by": 932,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "info",
+          "kind": "command",
+          "visibility": 0
+        },
+        "13": {
+          "ax": 1641,
+          "ay": 866,
+          "bx": 1707,
+          "by": 932,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "more_horiz",
+          "kind": "command",
+          "visibility": 0
+        },
+        "14": {
+          "ax": 1716,
+          "ay": 866,
+          "bx": 1782,
+          "by": 932,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "crop_free",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "2": {
+          "ax": 93,
+          "ay": 860,
+          "bx": 165,
+          "by": 932,
+          "enabled": true,
+          "font": 50,
+          "hidden": false,
+          "icon": "play_arrow",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "3": {
+          "ax": 174,
+          "ay": 866,
+          "bx": 240,
+          "by": 932,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_next",
+          "kind": "command",
+          "visibility": 0
+        },
+        "5": {
+          "ax": 0,
+          "ay": 0,
+          "bx": 0,
+          "by": 0,
+          "enabled": false,
+          "icon": "graphic_eq",
+          "kind": "command",
+          "visibility": 0
+        },
+        "6": {
+          "ax": 1193,
+          "ay": 866,
+          "bx": 1259.4,
+          "by": 932,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "subtitles",
+          "kind": "command",
+          "visibility": 0
+        },
+        "8": {
+          "ax": 1288,
+          "ay": 866,
+          "bx": 1387.2,
+          "by": 932,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "speed",
+          "kind": "button",
+          "name": "mpvkit-speed",
+          "text": "1×",
+          "visibility": 0
+        },
+        "9": {
+          "ax": 1396,
+          "ay": 866,
+          "bx": 1462.2,
+          "by": 932,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "arrow_forward",
+          "kind": "button",
+          "name": "mpvkit-mode",
+          "visibility": 0
+        }
+      },
+      "curtain": 0,
+      "height": 1012,
+      "menu": false,
+      "scale": 1.5,
+      "width": 1800
+    },
+    {
+      "controls": {
+        "1": {
+          "ax": 18,
+          "ay": 613,
+          "bx": 84,
+          "by": 679,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_previous",
+          "kind": "command",
+          "visibility": 0
+        },
+        "10": {
+          "ax": 1021,
+          "ay": 613,
+          "bx": 1087.2,
+          "by": 679,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "list_alt",
+          "kind": "command",
+          "visibility": 0
+        },
+        "12": {
+          "ax": 1116,
+          "ay": 613,
+          "bx": 1182.0,
+          "by": 679,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "info",
+          "kind": "command",
+          "visibility": 0
+        },
+        "13": {
+          "ax": 1191,
+          "ay": 613,
+          "bx": 1257.0,
+          "by": 679,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "more_horiz",
+          "kind": "command",
+          "visibility": 0
+        },
+        "14": {
+          "ax": 1266,
+          "ay": 613,
+          "bx": 1332.0,
+          "by": 679,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "crop_free",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "2": {
+          "ax": 93,
+          "ay": 607,
+          "bx": 165,
+          "by": 679,
+          "enabled": true,
+          "font": 50,
+          "hidden": false,
+          "icon": "play_arrow",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "3": {
+          "ax": 174,
+          "ay": 613,
+          "bx": 240,
+          "by": 679,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_next",
+          "kind": "command",
+          "visibility": 0
+        },
+        "5": {
+          "ax": 0,
+          "ay": 0,
+          "bx": 0,
+          "by": 0,
+          "enabled": false,
+          "icon": "graphic_eq",
+          "kind": "command",
+          "visibility": 0
+        },
+        "6": {
+          "ax": 743,
+          "ay": 613,
+          "bx": 809.4,
+          "by": 679,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "subtitles",
+          "kind": "command",
+          "visibility": 0
+        },
+        "8": {
+          "ax": 838,
+          "ay": 613,
+          "bx": 937.2,
+          "by": 679,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "speed",
+          "kind": "button",
+          "name": "mpvkit-speed",
+          "text": "1×",
+          "visibility": 0
+        },
+        "9": {
+          "ax": 946,
+          "ay": 613,
+          "bx": 1012.2,
+          "by": 679,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "arrow_forward",
+          "kind": "button",
+          "name": "mpvkit-mode",
+          "visibility": 0
+        }
+      },
+      "curtain": 0,
+      "height": 759,
+      "menu": false,
+      "scale": 1.5,
+      "width": 1350
+    },
+    {
+      "controls": {
+        "1": {
+          "ax": 18,
+          "ay": 394,
+          "bx": 84,
+          "by": 460,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_previous",
+          "kind": "command",
+          "visibility": 0
+        },
+        "10": {
+          "ax": 706,
+          "ay": 394,
+          "bx": 772.2,
+          "by": 460,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "list_alt",
+          "kind": "command",
+          "visibility": 0
+        },
+        "12": {
+          "ax": 726,
+          "ay": 394,
+          "bx": 792,
+          "by": 460,
+          "enabled": false,
+          "font": 36,
+          "hidden": false,
+          "icon": "info",
+          "kind": "command",
+          "visibility": 0
+        },
+        "13": {
+          "ax": 801,
+          "ay": 394,
+          "bx": 867.0,
+          "by": 460,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "more_horiz",
+          "kind": "command",
+          "visibility": 0
+        },
+        "14": {
+          "ax": 876,
+          "ay": 394,
+          "bx": 942.0,
+          "by": 460,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "crop_free",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "2": {
+          "ax": 93,
+          "ay": 388,
+          "bx": 165,
+          "by": 460,
+          "enabled": true,
+          "font": 50,
+          "hidden": false,
+          "icon": "play_arrow",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "3": {
+          "ax": 174,
+          "ay": 394,
+          "bx": 240,
+          "by": 460,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_next",
+          "kind": "command",
+          "visibility": 0
+        },
+        "5": {
+          "ax": 0,
+          "ay": 0,
+          "bx": 0,
+          "by": 0,
+          "enabled": false,
+          "icon": "graphic_eq",
+          "kind": "command",
+          "visibility": 0
+        },
+        "6": {
+          "ax": 428,
+          "ay": 394,
+          "bx": 494.4,
+          "by": 460,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "subtitles",
+          "kind": "command",
+          "visibility": 0
+        },
+        "8": {
+          "ax": 523,
+          "ay": 394,
+          "bx": 622.2,
+          "by": 460,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "speed",
+          "kind": "button",
+          "name": "mpvkit-speed",
+          "text": "1×",
+          "visibility": 0
+        },
+        "9": {
+          "ax": 631,
+          "ay": 394,
+          "bx": 697.2,
+          "by": 460,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "arrow_forward",
+          "kind": "button",
+          "name": "mpvkit-mode",
+          "visibility": 0
+        }
+      },
+      "curtain": 0,
+      "height": 540,
+      "menu": false,
+      "scale": 1.5,
+      "width": 960
+    },
+    {
+      "controls": {
+        "1": {
+          "ax": 18,
+          "ay": 259,
+          "bx": 84,
+          "by": 325,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_previous",
+          "kind": "command",
+          "visibility": 0
+        },
+        "10": {
+          "ax": 466,
+          "ay": 259,
+          "bx": 532.2,
+          "by": 325,
+          "enabled": false,
+          "font": 36,
+          "hidden": false,
+          "icon": "list_alt",
+          "kind": "command",
+          "visibility": 0
+        },
+        "12": {
+          "ax": 726,
+          "ay": 394,
+          "bx": 792,
+          "by": 460,
+          "enabled": false,
+          "font": 36,
+          "hidden": false,
+          "icon": "info",
+          "kind": "command",
+          "visibility": 0
+        },
+        "13": {
+          "ax": 561,
+          "ay": 259,
+          "bx": 627,
+          "by": 325,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "more_horiz",
+          "kind": "command",
+          "visibility": 0
+        },
+        "14": {
+          "ax": 636,
+          "ay": 259,
+          "bx": 702,
+          "by": 325,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "crop_free",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "2": {
+          "ax": 93,
+          "ay": 253,
+          "bx": 165,
+          "by": 325,
+          "enabled": true,
+          "font": 50,
+          "hidden": false,
+          "icon": "play_arrow",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "3": {
+          "ax": 174,
+          "ay": 259,
+          "bx": 240,
+          "by": 325,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_next",
+          "kind": "command",
+          "visibility": 0
+        },
+        "5": {
+          "ax": 0,
+          "ay": 0,
+          "bx": 0,
+          "by": 0,
+          "enabled": false,
+          "icon": "graphic_eq",
+          "kind": "command",
+          "visibility": 0
+        },
+        "6": {
+          "ax": 296,
+          "ay": 259,
+          "bx": 362.4,
+          "by": 325,
+          "enabled": false,
+          "font": 36,
+          "hidden": false,
+          "icon": "subtitles",
+          "kind": "command",
+          "visibility": 0
+        },
+        "8": {
+          "ax": 433,
+          "ay": 259,
+          "bx": 532.2,
+          "by": 325,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "speed",
+          "kind": "button",
+          "name": "mpvkit-speed",
+          "text": "1×",
+          "visibility": 0
+        },
+        "9": {
+          "ax": 391,
+          "ay": 259,
+          "bx": 457.2,
+          "by": 325,
+          "enabled": false,
+          "font": 36,
+          "hidden": false,
+          "icon": "arrow_forward",
+          "kind": "button",
+          "name": "mpvkit-mode",
+          "visibility": 0
+        }
+      },
+      "curtain": 0,
+      "height": 405,
+      "menu": false,
+      "scale": 1.5,
+      "width": 720
+    },
+    {
+      "controls": {
+        "1": {
+          "ax": 18,
+          "ay": 124,
+          "bx": 84,
+          "by": 190,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_previous",
+          "kind": "command",
+          "visibility": 0
+        },
+        "10": {
+          "ax": 466,
+          "ay": 259,
+          "bx": 532.2,
+          "by": 325,
+          "enabled": false,
+          "font": 36,
+          "hidden": false,
+          "icon": "list_alt",
+          "kind": "command",
+          "visibility": 0
+        },
+        "12": {
+          "ax": 726,
+          "ay": 394,
+          "bx": 792,
+          "by": 460,
+          "enabled": false,
+          "font": 36,
+          "hidden": false,
+          "icon": "info",
+          "kind": "command",
+          "visibility": 0
+        },
+        "13": {
+          "ax": 321,
+          "ay": 124,
+          "bx": 387,
+          "by": 190,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "more_horiz",
+          "kind": "command",
+          "visibility": 0
+        },
+        "14": {
+          "ax": 396,
+          "ay": 124,
+          "bx": 462,
+          "by": 190,
+          "enabled": true,
+          "font": 36,
+          "hidden": false,
+          "icon": "crop_free",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "2": {
+          "ax": 93,
+          "ay": 118,
+          "bx": 165,
+          "by": 190,
+          "enabled": true,
+          "font": 50,
+          "hidden": false,
+          "icon": "play_arrow",
+          "kind": "cycle",
+          "visibility": 0
+        },
+        "3": {
+          "ax": 174,
+          "ay": 124,
+          "bx": 240,
+          "by": 190,
+          "enabled": true,
+          "font": 45,
+          "hidden": false,
+          "icon": "skip_next",
+          "kind": "command",
+          "visibility": 0
+        },
+        "5": {
+          "ax": 0,
+          "ay": 0,
+          "bx": 0,
+          "by": 0,
+          "enabled": false,
+          "icon": "graphic_eq",
+          "kind": "command",
+          "visibility": 0
+        },
+        "6": {
+          "ax": 296,
+          "ay": 259,
+          "bx": 362.4,
+          "by": 325,
+          "enabled": false,
+          "font": 36,
+          "hidden": false,
+          "icon": "subtitles",
+          "kind": "command",
+          "visibility": 0
+        },
+        "8": {
+          "ax": 433,
+          "ay": 259,
+          "bx": 532.2,
+          "by": 325,
+          "enabled": false,
+          "font": 36,
+          "hidden": true,
+          "icon": "speed",
+          "kind": "button",
+          "name": "mpvkit-speed",
+          "text": "1×",
+          "visibility": 0
+        },
+        "9": {
+          "ax": 391,
+          "ay": 259,
+          "bx": 457.2,
+          "by": 325,
+          "enabled": false,
+          "font": 36,
+          "hidden": false,
+          "icon": "arrow_forward",
+          "kind": "button",
+          "name": "mpvkit-mode",
+          "visibility": 0
+        }
+      },
+      "curtain": 0,
+      "height": 270,
+      "menu": false,
+      "scale": 1.5,
+      "width": 480
+    }
+  ],
+  "outputs": [
+    "DP-1"
+  ],
+  "reference": {
+    "aspect": 1.777778,
+    "h": 1620,
+    "mb": 0,
+    "ml": 0,
+    "mr": 0,
+    "mt": 0,
+    "par": 1.0,
+    "w": 2880
+  },
+  "startup": {
+    "aspect": 1.777778,
+    "h": 1620,
+    "mb": 0,
+    "ml": 0,
+    "mr": 0,
+    "mt": 0,
+    "par": 1.0,
+    "w": 2880
+  },
+  "startupCases": [
+    {
+      "case": "1080p",
+      "checked": true,
+      "dimensions": {
+        "aspect": 1.777778,
+        "h": 1620,
+        "mb": 0,
+        "ml": 0,
+        "mr": 0,
+        "mt": 0,
+        "par": 1.0,
+        "w": 2880
+      },
+      "outputs": [
+        "DP-1"
+      ]
+    },
+    {
+      "case": "4k",
+      "checked": true,
+      "dimensions": {
+        "aspect": 1.777778,
+        "h": 1620,
+        "mb": 0,
+        "ml": 0,
+        "mr": 0,
+        "mt": 0,
+        "par": 1.0,
+        "w": 2880
+      },
+      "outputs": [
+        "DP-1"
+      ]
+    },
+    {
+      "case": "portrait",
+      "checked": true,
+      "dimensions": {
+        "aspect": 0.562346,
+        "h": 1620,
+        "mb": 1,
+        "ml": 0,
+        "mr": 0,
+        "mt": 0,
+        "par": 1.0,
+        "w": 911
+      },
+      "outputs": [
+        "DP-1"
+      ]
+    },
+    {
+      "case": "ultrawide",
+      "checked": true,
+      "dimensions": {
+        "aspect": 2.37037,
+        "h": 1215,
+        "mb": 0,
+        "ml": 0,
+        "mr": 0,
+        "mt": 0,
+        "par": 1.0,
+        "w": 2880
+      },
+      "outputs": [
+        "DP-1"
+      ]
+    },
+    {
+      "case": "custom-fit",
+      "dimensions": {
+        "aspect": 1.777778,
+        "h": 1296,
+        "mb": 0,
+        "ml": 0,
+        "mr": 0,
+        "mt": 0,
+        "par": 1.0,
+        "w": 2304
+      }
+    }
+  ],
+  "date": "2026-10-26",
+  "platform": "CachyOS x86_64 / KDE Wayland, MPV v0.41.0",
+  "binary": {
+    "file": "src-tauri/target/debug/mpvkit",
+    "bytes": 265918880,
+    "sha256": "f2743d00520576c4630910c623b94e09ad7c2b12e51ca518397d536e3ce723a8"
+  },
+  "nativeSuiteSeconds": 46.91,
+  "inputMethod": "Private pointer driver + MPV IPC mouse/key down/up, native uosc hit testing and delayed dispatch; not physical mouse or native manager GUI acceptance.",
+  "limits": [
+    "Windows native unavailable",
+    "No guarantee for arbitrary positioned/bilingual subtitles",
+    "Startup spanning multiple outputs conservatively skipped; behavior self-check passed, native skip not deterministically forced",
+    "Mixed output scale, tiling and physical resize startup races unverified"
+  ]
+}

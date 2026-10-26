@@ -9,6 +9,9 @@ use std::{
     time::Duration,
 };
 
+mod playback;
+mod uosc;
+
 #[test]
 fn linux_configuration_has_no_windows_runtime_paths() {
     let root = std::env::temp_dir().join(format!("mpvkit-linux-config-{}", deploy::operation_id()));
@@ -92,7 +95,7 @@ fn wait(mut condition: impl FnMut() -> bool) {
     panic!("condition timed out")
 }
 #[test]
-#[ignore = "requires fixed local assets, built native executable, synthetic video and Wayland"]
+#[ignore = "requires fixed local assets, built native executable, synthetic video, ffmpeg and Wayland"]
 fn arch_wayland_install_playback_and_uninstall() {
     assert_eq!(std::env::var("MPVKIT_TEST_MODE").as_deref(), Ok("1"));
     let root = platform::app_root().unwrap();
@@ -113,6 +116,25 @@ fn arch_wayland_install_playback_and_uninstall() {
             .starts_with("mpv ")
     );
     assert!(initial.player_ready && !initial.components_ready && initial.generation.is_none());
+    assert!(initial.player_installed);
+    println!(
+        "system MPV update available: {}",
+        platform::core::check_update().unwrap()
+    );
+    assert!(platform::core::prepare("install").is_err());
+    for action in ["upgrade", "uninstall"] {
+        let plan = platform::core::prepare(action).unwrap();
+        assert_eq!(plan.preview.package, "mpv");
+        assert_eq!(plan.preview.config_directory, root);
+        assert_eq!(
+            platform::core::execute(plan).err().unwrap().code,
+            "package_failed"
+        );
+    }
+    assert!(
+        !root.exists(),
+        "isolated package operations must not write files"
+    );
     let draft = config::Settings::default();
     let preview = config::portable::preview(&root, &draft, false).unwrap();
     assert_eq!(preview.files.len(), 4);
@@ -189,10 +211,7 @@ fn arch_wayland_install_playback_and_uninstall() {
     );
     request(&socket, serde_json::json!(["set_property", "volume", 50]));
     request(&socket, serde_json::json!(["keypress", "UP"]));
-    assert_eq!(
-        request(&socket, serde_json::json!(["get_property", "volume"])).as_f64(),
-        Some(60.0)
-    );
+    wait(|| request(&socket, serde_json::json!(["get_property", "volume"])) == 60.0);
     let scripts = serde_json::json!({
         "uoscBindings":request(&socket,serde_json::json!(["get_property","input-bindings"])),
         "mpvkit":request(&socket,serde_json::json!(["get_property","user-data/mpvkit"]))
@@ -274,6 +293,8 @@ fn arch_wayland_install_playback_and_uninstall() {
     );
     request(&socket, serde_json::json!(["quit"]));
     wait(|| UnixStream::connect(&socket).is_err());
+    playback::verify(&root, &media);
+    uosc::verify(&root, &media);
     // All profile/HDR modes must parse in the actual target MPV; this does not certify HDR hardware output.
     for profile in [
         config::Profile::PowerSaving,

@@ -37,6 +37,32 @@ fn stamp() -> Result<Option<mpv::FileStamp>> {
         Ok(None)
     }
 }
+pub fn check_update() -> Result<bool> {
+    if stamp()?.is_none() {
+        return Err(error("MPV 核心未安装。"));
+    }
+    let mut command = super::command(std::path::Path::new("/usr/bin/pacman"));
+    command.args(["-Qu", "mpv"]);
+    let (status, output, errors) = mpv::capture_output(command, Duration::from_secs(15))?;
+    query_update(status.code(), &output, &errors)
+}
+fn query_update(code: Option<i32>, output: &str, errors: &str) -> Result<bool> {
+    if !errors.trim().is_empty() {
+        return Err(error("无法检查 MPV 更新，请检查系统包数据库后重试。"));
+    }
+    match code {
+        Some(1) if output.trim().is_empty() => Ok(false),
+        Some(0)
+            if output.lines().any(|line| {
+                let fields: Vec<_> = line.split_whitespace().collect();
+                fields.len() == 4 && fields[0] == "mpv" && fields[2] == "->"
+            }) =>
+        {
+            Ok(true)
+        }
+        _ => Err(error("无法检查 MPV 更新，请检查系统包数据库后重试。")),
+    }
+}
 pub fn prepare(action: &str) -> Result<CorePlan> {
     if !matches!(action, "install" | "upgrade" | "uninstall") {
         return Err(error("不支持此核心操作。"));
@@ -52,6 +78,9 @@ pub fn prepare(action: &str) -> Result<CorePlan> {
         }
     }
     let state = stamp()?;
+    if action == "install" && state.is_some() {
+        return Err(error("MPV 核心已安装，请检查更新。"));
+    }
     if action == "uninstall" && state.is_none() {
         return Err(error("MPV 核心未安装。"));
     }
@@ -103,14 +132,18 @@ fn supported_os(os: &str) -> bool {
             key == "ID" && matches!(value.trim().trim_matches('"'), "arch" | "cachyos")
         })
 }
-fn package_args(action: &str) -> [&'static str; 5] {
-    [
+fn package_args(action: &str) -> Vec<&'static str> {
+    let mut args = vec![
         "--disable-internal-agent",
         "/usr/bin/pacman",
         if action == "uninstall" { "-R" } else { "-S" },
         "--noconfirm",
         "mpv",
-    ]
+    ];
+    if action != "uninstall" {
+        args.push("--needed");
+    }
+    args
 }
 #[cfg(test)]
 mod tests {
@@ -135,8 +168,19 @@ mod tests {
         );
         assert_eq!(package_args("upgrade")[2], "-S");
         assert_eq!(package_args("install")[2], "-S");
+        assert!(package_args("install").contains(&"--needed"));
+        assert!(package_args("upgrade").contains(&"--needed"));
         // Compiling on Windows checks shared types and both implementations without executing pacman.
         let _prepare: fn(&str) -> Result<CorePlan> = prepare;
         let _execute: fn(CorePlan) -> Result<Option<mpv::MpvInfo>> = execute;
+    }
+    #[test]
+    fn updates_require_an_actual_package_candidate() {
+        assert!(!query_update(Some(1), "", "").unwrap());
+        assert!(query_update(Some(0), "mpv 1:0.41.0-1 -> 1:0.41.0-2\n", "").unwrap());
+        assert!(query_update(Some(1), "", "error: database missing").is_err());
+        assert!(query_update(Some(0), "", "").is_err());
+        assert!(query_update(Some(2), "", "").is_err());
+        assert!(query_update(None, "", "").is_err());
     }
 }

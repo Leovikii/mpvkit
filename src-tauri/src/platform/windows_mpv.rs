@@ -257,6 +257,12 @@ pub fn prepare(action: &str) -> Result<CorePlan> {
     } else {
         None
     };
+    if action == "install" && stamp.is_some() {
+        return Err(error(
+            "core_already_installed",
+            "MPV 核心已安装，请检查更新。",
+        ));
+    }
     if action == "uninstall" && stamp.is_none() {
         return Err(error("not_installed", "MPV 核心未安装。"));
     }
@@ -300,6 +306,40 @@ pub fn prepare(action: &str) -> Result<CorePlan> {
         stamp,
         created: Instant::now(),
     })
+}
+pub fn check_update() -> Result<bool> {
+    let player = player_path(&super::app_root()?)?;
+    if !player.is_file() {
+        return Err(error("not_installed", "MPV 核心未安装。"));
+    }
+    let (status, output) = run(
+        &winget_path()?,
+        &[
+            "list",
+            "--id",
+            PACKAGE,
+            "--exact",
+            "--source",
+            "winget",
+            "--upgrade-available",
+            "--disable-interactivity",
+            "--accept-source-agreements",
+        ],
+        Duration::from_secs(45),
+    )?;
+    query_update(status.code().map(|code| code as u32), &output)
+}
+fn query_update(code: Option<u32>, output: &str) -> Result<bool> {
+    match code {
+        Some(0) => Ok(output
+            .lines()
+            .any(|line| line.split_whitespace().any(|field| field == PACKAGE))),
+        Some(0x8A150014) => Ok(false), // Exact package has no matching upgrade row.
+        _ => Err(error(
+            "winget_source",
+            "WinGet 未能检查 MPV 更新，请检查源和网络后重试。",
+        )),
+    }
 }
 fn check_exit(code: u32) -> Result<()> {
     match code {
@@ -415,6 +455,10 @@ mod tests {
     }
     #[test]
     fn exact_package_arguments_and_exit_codes() {
+        assert!(query_update(Some(0), "mpv shinchiro.mpv 0.40 0.41 winget").unwrap());
+        assert!(!query_update(Some(0), "No installed package found.").unwrap());
+        assert!(!query_update(Some(0x8A150014), "").unwrap());
+        assert!(query_update(Some(1), "").is_err());
         assert_eq!(
             args("install")[..7],
             [

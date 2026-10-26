@@ -91,9 +91,16 @@ pub(crate) fn capture_command(command: Command, timeout: Duration) -> Result<Str
 }
 
 pub(crate) fn capture_status(
-    mut command: Command,
+    command: Command,
     timeout: Duration,
 ) -> Result<(std::process::ExitStatus, String)> {
+    capture_output(command, timeout).map(|(status, output, _)| (status, output))
+}
+
+pub(crate) fn capture_output(
+    mut command: Command,
+    timeout: Duration,
+) -> Result<(std::process::ExitStatus, String, String)> {
     let error = || {
         AppError::new(
             "probe_failed",
@@ -124,7 +131,11 @@ pub(crate) fn capture_status(
                 {
                     break Err(error());
                 }
-                break Ok((status, String::from_utf8_lossy(&output).into_owned()));
+                break Ok((
+                    status,
+                    String::from_utf8_lossy(&output).into_owned(),
+                    String::from_utf8_lossy(&errors).into_owned(),
+                ));
             }
             Ok(None) => {}
             Err(_) => break Err(error()),

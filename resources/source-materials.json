@@ -124,8 +124,8 @@
     "managedOverride": {
       "source": "resources/uosc.conf",
       "file": "script-opts/uosc.conf",
-      "size": 539,
-      "sha256": "02572c54431821065cc4a84825e3f9d6623c9d6eeec73c2c8d8600d0a98d2878",
+      "size": 855,
+      "sha256": "a24604c7c9ea58d43fa573582cad68c42e31b6d342180650632f4b27cc67c6ec",
       "owner": "MpvKit"
     }
   },
@@ -186,14 +186,14 @@
     "date": "2026-10-26",
     "source": "resources/scripts/uosc-bridge.lua",
     "license": "GPL-3.0-or-later",
-    "size": 1301,
-    "sha256": "cb9849fd346d16952ed836cbfe86780103c3dfa52f5c7f856d046cfe4505d023",
+    "size": 5742,
+    "sha256": "a284d90a963b2fa94bdf51f42fda59ca254a0b676d0644b5cad5d6ac8bc5479a",
     "upstreamFile": "scripts/uosc/main.lua",
     "upstreamSize": 43478,
     "upstreamSha256": "bf97dcde4f1b8bd74a5e1c672a436a5584b5db2dc9413ab5585745afd9e1dd8d",
-    "deployedSize": 44779,
-    "deployedSha256": "7d62cde2949232e35c01dbf51fa9be01fdbf46f94ff009f1128fe6520cf695cf",
-    "method": "Append the MpvKit bridge to the unchanged, verified uosc 5.13.0 main.lua prefix. Publish actual shuffle state and adapt optional controls to scaled width. Navigation, other upstream Lua, fonts and helpers are unchanged."
+    "deployedSize": 49220,
+    "deployedSha256": "a42c27df69535a7e837d4732be0c416586c541389bd2b59be11d23e9425598d0",
+    "method": "Append the MpvKit bridge to the unchanged, verified uosc 5.13.0 main.lua prefix. Publish actual shuffle and scaled width flags; style native controls with a shared fading underlay, larger transport and a text speed menu button. Native layout, hit testing, delayed click dispatch, badges and navigation remain upstream. Other upstream Lua files, fonts and helpers are unchanged."
   },
   "systemMpv": {
     "manager": "winget",

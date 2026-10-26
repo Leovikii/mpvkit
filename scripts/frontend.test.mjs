@@ -1,6 +1,18 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { messages, resolveLocale, translator } from "../src/i18n.ts";
+import { enhancementAction } from "../src/component-actions.ts";
+test("component actions follow installation, damage and supported version independently of the core", () => {
+  const assets = [{id:'uosc',version:'5.13.0'},{id:'thumbfast',version:'fixed'},{id:'subtitle-font',version:'1.530'}];
+  const healthy = assets.map(asset => ({...asset,ready:true,issues:[]}));
+  assert.equal(enhancementAction(null,assets),null);
+  assert.equal(enhancementAction({components:[]},assets),'installOnly');
+  assert.equal(enhancementAction({components:healthy},assets),null);
+  assert.equal(enhancementAction({components:[{id:'mpv',ready:false},...healthy]},assets),null);
+  assert.equal(enhancementAction({components:healthy.map(c=>({...c,ready:c.id!=='uosc'}))},assets),'repairOnly');
+  assert.equal(enhancementAction({components:healthy.filter(c=>c.id!=='uosc')},assets),'repairOnly');
+  assert.equal(enhancementAction({components:healthy.map(c=>({...c,version:c.id==='uosc'?'5.12.0':c.version}))},assets),'updateComponents');
+});
 test("locale follows the ordered system list; manual preference is independent",()=>{
   for(const language of ["zh-CN","zh-SG","zh-Hans","zh-Hans-CN","zh"]) assert.equal(resolveLocale("system",[language]),"zh-Hans");
   for(const language of ["zh-TW","zh-Hant","fr-FR","en-GB"]) assert.equal(resolveLocale("system",[language]),"en");

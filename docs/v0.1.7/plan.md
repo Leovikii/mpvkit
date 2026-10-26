@@ -94,3 +94,5 @@ cargo test --manifest-path src-tauri/Cargo.toml --locked \
 2026-10-26 补充：当前 v0.1.8 已实施 Windows WinGet 核心/原生配置根与双端控制台，现行路径和测试结果见 [v0.1.8](../v0.1.8/plan.md)；本版历史 portable_config 等记录不作为现行 Windows 路径。
 
 2026-10-26 后续：自动连播开关、整个队列结束行为及字幕相对目录/语种后缀规则同步实现，仍使用 MPV 原生参数。Linux 生成器和专用断言已同步，当前 Windows 实测与 Linux 待测边界记入 [v0.1.8 证据](../v0.1.8/evidence.md)，不沿用本版历史 ELF 作为新行为的验收。
+
+2026-10-26 本机续测：最新远端 f2b9880 的 v0.1.8 已完成 Linux 原生构建与隔离 Wayland 实播，当前测试入口、单 ELF 摘要和未测项见 [v0.1.8 最新交接](../v0.1.8/plan.md#本机-linux-实测与单-elf2026-10-26)；本页历史 v0.1.7 结果不代替本次验证。

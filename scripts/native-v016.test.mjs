@@ -48,17 +48,21 @@ test("native WinGet core install, failures, retry, upgrade and ownership boundar
       assert(!await exists(root));assert(!await exists(path.join(global,"system-mpv/mpv.exe")));
     }
     await fs.writeFile(mode,"");await p.getByRole("button",{name:"Install components only",exact:true}).click();await confirm(p);
-    await p.getByRole("dialog",{name:"Install / update with WinGet",exact:true}).waitFor();assert(!await exists(root));
+    await p.getByRole("dialog",{name:"Install",exact:true}).waitFor();assert(!await exists(root));
     await p.getByRole("dialog").getByRole("button",{name:"Cancel",exact:true}).click();assert(!await exists(root));
     await p.getByRole("button",{name:"Install components only",exact:true}).click();await confirm(p);await confirm(p);
     await p.getByRole("dialog").locator(".changes").waitFor({state:"attached"});await confirm(p);await settled(p);
     const core=path.join(global,"system-mpv/mpv.exe"),coreHash=hash(await fs.readFile(core));
     let report=await ipc(p,"setup_status");assert(report.playerReady&&report.componentsReady&&!report.settingsReady);
+    assert(report.playerInstalled);await assert.rejects(ipc(p,"preview_core",{action:"install"}),e=>e.code==="core_already_installed");
     const manifest=JSON.parse(await fs.readFile(path.join(root,".mpvkit/install.json")));assert(!manifest.files.some(f=>f.path.endsWith("mpv.exe")||f.path.endsWith("d3dcompiler_43.dll")));
     const plan=await ipc(p,"preview_core",{action:"upgrade"});await fs.appendFile(core,Buffer.from([0]));
     await assert.rejects(ipc(p,"apply_core",{previewId:plan.id}),e=>e.code==="stale_preview");
     await fs.copyFile(path.join(global,"test-tools/core-source/mpv.exe"),core);
-    await fs.writeFile(mode,"no-update");await p.getByRole("button",{name:"Install / update MPV core",exact:true}).click();await confirm(p);await settled(p);
+    await fs.writeFile(mode,"no-update");await p.getByRole("button",{name:"Check for updates",exact:true}).click();await settled(p);
+    assert.equal(await p.getByRole("button",{name:"Update",exact:true}).count(),0);
+    await fs.writeFile(mode,"");await p.getByRole("button",{name:"Check for updates",exact:true}).click();await settled(p);
+    await p.getByRole("button",{name:"Update",exact:true}).click();await confirm(p);await settled(p);
     assert.equal(hash(await fs.readFile(core)),coreHash);
     const before=await ipc(p,"preview_configuration",{settings:await ipc(p,"read_settings"),replaceManual:false});
     await ipc(p,"apply_deployment",{previewId:(await ipc(p,"preview_settings",{settings:await ipc(p,"read_settings"),integrationEnabled:false,expectedFingerprint:before.fingerprint})).id});
@@ -190,9 +194,9 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     const layouts=[];
     for(const width of [1200,900,640]){
       await call(["set_property","geometry",width+"x"+Math.round(width*0.5625)]);await sleep(500);const data=await inspect();layouts.push(data);
-      for(const id of ["1","7","8","9","15"])assert(data.controls[id].enabled,"essential control "+id+" at "+width);
-      const play=data.controls["8"];assert(Math.abs((play.ax+play.bx)/2-data.width/2)<2,"play centered at "+width);
-      assert(data.controls["7"].bx<=play.ax&&play.bx<=data.controls["9"].ax);assert(data.controls["15"].bx<=data.width);
+      for(const id of ["1","2","3","13","14"])assert(data.controls[id].enabled,"essential control "+id+" at "+width);
+      const play=data.controls["2"];assert(play.bx<data.width/2,"transport is left at "+width);
+      assert(data.controls["1"].bx<=play.ax&&play.bx<=data.controls["3"].ax);assert(data.controls["14"].bx<=data.width);
       await call(["mouse",Math.round(data.width/2),Math.round(play.ay+5)]);await sleep(300);await shot("layout-"+width);
     }
     await call(["script-binding","uosc/menu"]);let narrowMenu=await inspect();
@@ -213,8 +217,8 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
       assert.deepEqual((await inspect()).pause_events,before,"single and double click never toggled pause");
     }
     await call(["set_property","pause",true],["set_property","speed",1]);await sleep(200);data=await inspect();
-    await click(data.controls["8"]);assert.equal(await get("pause"),false);await call(["keypress","SPACE"]);assert.equal(await get("pause"),true);
-    await click(data.controls["11"]);data=await inspect();assert.equal(data.menu.type,"mpvkit-playback");assert.equal(data.menu.items.length,4);assert.match(data.menu.items[0].hint,/Current/);
+    await click(data.controls["2"]);assert.equal(await get("pause"),false);await call(["keypress","SPACE"]);assert.equal(await get("pause"),true);
+    await click(data.controls["9"]);data=await inspect();assert.equal(data.menu.type,"mpvkit-playback");assert.equal(data.menu.items.length,4);assert.match(data.menu.items[0].hint,/Current/);
     const pause=await get("pause");await call(["keypress","DOWN"],["keypress","ENTER"]);await wait(async()=>await get("user-data/mpvkit-playback-mode")==="playlist");assert.equal(await get("pause"),pause,"menu did not click through");
     for(const [mode,file,playlist,shuffle] of [["file","inf","no",false],["shuffle","no","no",true],["sequential","no","no",false],["playlist","no","inf",false]]){
       await call(["script-message-to","mpvkit","playback-mode",mode]);await wait(async()=>await get("user-data/mpvkit-playback-mode")===mode);
@@ -238,14 +242,14 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     await call(["script-message-to","mpvkit","playback-mode","playlist"],["seek",2.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")===0,"playlist wraps at EOF");await call(["set_property","pause",true]);
     await call(["script-message-to","mpvkit","playback-mode","file"],["seek",2.8,"absolute+exact"],["set_property","pause",false]);await sleep(700);assert.equal(await get("playlist-pos"),0);assert(await get("time-pos")<2);await call(["set_property","pause",true]);
     await call(["script-message-to","mpvkit","playback-mode","sequential"],["seek",1,"absolute+exact"]);
-    await call(["script-message-to","mpvkit","speed-menu"]);await wait(async()=>(await inspect()).menu?.type==="mpvkit-speed","speed menu opened");data=await inspect();assert.equal(data.menu.type,"mpvkit-speed");assert.equal(data.menu.items.length,6);assert.match(data.menu.items[2].hint,/Current/);
+    await click((await inspect()).controls["8"]);await wait(async()=>(await inspect()).menu?.type==="mpvkit-speed","speed button opened menu");data=await inspect();assert.equal(data.menu.type,"mpvkit-speed");assert.equal(data.menu.items.length,6);assert.match(data.menu.items[2].hint,/Current/);
     await call(["keypress","HOME"],["keypress","DOWN"],["keypress","ENTER"]);await wait(async()=>await get("speed")===0.75,"speed menu selection");await call(["set_property","speed",1]);
     // Stats button and Shift+i operate the same built-in overlay; screenshots include OSD.
     await call(["change-list","script-opts","append","uosc-scale=0.5"],["set_property","geometry","1200x680"]);await sleep(500);await shot("layout-full");
-    data=await inspect();await click(data.controls["2"]);await call(["mouse",1,1]);await sleep(1400);const stats=await shot("stats-button");
+    data=await inspect();await click(data.controls["12"]);await call(["mouse",1,1]);await sleep(1400);const stats=await shot("stats-button");
     await call(["keypress","I"]);await sleep(600);const plain=await shot("stats-closed");assert.notEqual(hash(stats),hash(plain));
-    await call(["keypress","I"]);await sleep(600);await shot("stats-keyboard");await click((await inspect()).controls["2"]);await sleep(300);
-    await call(["set_property","fullscreen",true]);await sleep(600);data=await inspect();assert(data.controls["8"].enabled);await call(["mouse",data.width/2,data.controls["8"].ay+5]);await sleep(300);await shot("fullscreen");await call(["set_property","fullscreen",false]);
+    await call(["keypress","I"]);await sleep(600);await shot("stats-keyboard");await click((await inspect()).controls["12"]);await sleep(300);
+    await call(["set_property","fullscreen",true]);await sleep(600);data=await inspect();assert(data.controls["2"].enabled);await call(["mouse",data.width/2,data.controls["2"].ay+5]);await sleep(300);await shot("fullscreen");await call(["set_property","fullscreen",false]);
     await call(["keypress","MBTN_RIGHT"]);await sleep(300);
     const consoleMenu=(await inspect()).menu;const consoleIndex=consoleMenu.items.findIndex(i=>/控制台|Console/.test(i.title));
     assert(consoleIndex>=0,"native right-click menu includes console");
@@ -255,7 +259,7 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     await shot("console-menu");await call(["keypress","ESC"]);await wait(async()=>await get("user-data/mpv/console/open")===false);
     // Options reload exercises the actual uosc scale path without changing system DPI.
     const normalScale=(await inspect()).scale;await call(["change-list","script-opts","append","uosc-scale=2"],["set_property","geometry","1200x675"]);await sleep(700);data=await inspect();layouts.push(data);assert.equal(data.scale,normalScale*4);
-    for(const id of ["1","7","8","9","15"])assert(data.controls[id].enabled,"scaled essential control "+id);
+    for(const id of ["1","2","3","13","14"])assert(data.controls[id].enabled,"scaled essential control "+id);
     await fs.writeFile(path.join(artifacts,"layouts.json"),JSON.stringify(layouts,null,2));
     await call(["script-message-to","mpvkit","playback-mode","shuffle"]);await wait(async()=>await get("user-data/mpvkit-playback-mode")==="shuffle");
     await call(["quit"]);if(child.exitCode===null)await new Promise(resolve=>child.once("exit",resolve));child=null;
@@ -424,7 +428,7 @@ async function ipc(page,command,args={}) {
   }
   return rawIpc(page,command,args);
 }
-async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Save configuration|Save configuration|Apply changes|Clean logs|Reset configuration|Uninstall core|Remove enhancements|Install \/ update with WinGet)$/,exact:true}).click();}
+async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Save configuration|Save configuration|Apply changes|Clean logs|Reset configuration|Uninstall core|Remove enhancements|Update|Update components|Repair components)$/,exact:true}).click();}
 async function settled(page) { await page.locator("main[aria-busy=false]").waitFor(); }
 async function english(page) {
   await page.getByRole("button",{name:/^(应用设置|App settings)$/}).click();

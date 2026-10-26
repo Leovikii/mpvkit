@@ -1,0 +1,343 @@
+{
+  "date": "2026-10-26",
+  "status": "investigation-only; proposal pending review; no product/configuration changes",
+  "mpv": "v0.41.0 Arch system build",
+  "session": "KDE Wayland",
+  "displays": {
+    "DP-1": {
+      "physical": [
+        3840,
+        2160
+      ],
+      "logical": [
+        2560,
+        1440
+      ],
+      "scale": 1.5
+    },
+    "DP-2": {
+      "physicalAfterRotation": [
+        1440,
+        2560
+      ],
+      "logical": [
+        960,
+        1707
+      ],
+      "scale": 1.5
+    }
+  },
+  "method": "isolated synthetic 1280x720 media; window probes use --no-config --load-scripts=no; UI probe uses current source copies and read-only instrumentation",
+  "cases": [
+    {
+      "case": "default-no-resize",
+      "output": [
+        "DP-1"
+      ],
+      "hidpiScale": 1.5,
+      "osdDimensions": {
+        "w": 1080,
+        "h": 608,
+        "par": 1.0,
+        "aspect": 1.776316,
+        "mt": 0,
+        "mb": 0,
+        "ml": 0,
+        "mr": 0
+      },
+      "reportedDisplaySize": [
+        4800,
+        2160
+      ],
+      "autofit": "75%x75%",
+      "autoWindowResize": false,
+      "hidpiWindowScale": false,
+      "geometryTrace": [
+        "Reconfiguring!",
+        "max content size: 1440x2560",
+        "monitor size: 1440x2560",
+        "Window size: 1080x607 (Borders: l=0 t=0 r=0 b=0)",
+        "Window size: 1080x607 (Borders: l=0 t=0 r=0 b=0)",
+        "max content size: 3840x2160",
+        "monitor size: 3840x2160",
+        "Window size: 1080x608 (Borders: l=0 t=0 r=0 b=0)"
+      ]
+    },
+    {
+      "case": "default-auto-resize",
+      "output": [
+        "DP-1"
+      ],
+      "hidpiScale": 1.5,
+      "osdDimensions": {
+        "w": 1080,
+        "h": 608,
+        "par": 1.0,
+        "aspect": 1.776316,
+        "mt": 0,
+        "mb": 0,
+        "ml": 0,
+        "mr": 0
+      },
+      "reportedDisplaySize": [
+        4800,
+        2160
+      ],
+      "autofit": "75%x75%",
+      "autoWindowResize": true,
+      "hidpiWindowScale": false,
+      "geometryTrace": [
+        "Reconfiguring!",
+        "max content size: 1440x2560",
+        "monitor size: 1440x2560",
+        "Window size: 1080x607 (Borders: l=0 t=0 r=0 b=0)",
+        "Window size: 1080x607 (Borders: l=0 t=0 r=0 b=0)",
+        "max content size: 3840x2160",
+        "monitor size: 3840x2160",
+        "Window size: 1080x608 (Borders: l=0 t=0 r=0 b=0)"
+      ]
+    },
+    {
+      "case": "primary-no-resize",
+      "output": [
+        "DP-1"
+      ],
+      "hidpiScale": 1.5,
+      "osdDimensions": {
+        "w": 2880,
+        "h": 1620,
+        "par": 1.0,
+        "aspect": 1.777778,
+        "mt": 0,
+        "mb": 0,
+        "ml": 0,
+        "mr": 0
+      },
+      "reportedDisplaySize": [
+        4800,
+        2160
+      ],
+      "autofit": "75%x75%",
+      "autoWindowResize": false,
+      "hidpiWindowScale": false,
+      "geometryTrace": [
+        "Reconfiguring!",
+        "max content size: 3840x2160",
+        "monitor size: 3840x2160",
+        "Window size: 2880x1620 (Borders: l=0 t=0 r=0 b=0)",
+        "Window size: 2880x1620 (Borders: l=0 t=0 r=0 b=0)",
+        "max content size: 3840x2160",
+        "monitor size: 3840x2160",
+        "Window size: 2880x1620 (Borders: l=0 t=0 r=0 b=0)"
+      ]
+    },
+    {
+      "case": "primary-hidpi",
+      "output": [
+        "DP-1"
+      ],
+      "hidpiScale": 1.5,
+      "osdDimensions": {
+        "w": 2880,
+        "h": 1620,
+        "par": 1.0,
+        "aspect": 1.777778,
+        "mt": 0,
+        "mb": 0,
+        "ml": 0,
+        "mr": 0
+      },
+      "reportedDisplaySize": [
+        4800,
+        2160
+      ],
+      "autofit": "75%x75%",
+      "autoWindowResize": false,
+      "hidpiWindowScale": true,
+      "geometryTrace": [
+        "Reconfiguring!",
+        "max content size: 3840x2160",
+        "monitor size: 3840x2160",
+        "Window size: 2880x1620 (Borders: l=0 t=0 r=0 b=0)",
+        "Window size: 2880x1620 (Borders: l=0 t=0 r=0 b=0)",
+        "max content size: 3840x2160",
+        "monitor size: 3840x2160",
+        "Window size: 2880x1620 (Borders: l=0 t=0 r=0 b=0)"
+      ]
+    }
+  ],
+  "reapplyAutofit": {
+    "before": {
+      "w": 1080,
+      "h": 608,
+      "par": 1.0,
+      "aspect": 1.776316,
+      "mt": 0,
+      "mb": 0,
+      "ml": 0,
+      "mr": 0
+    },
+    "after": {
+      "w": 2880,
+      "h": 1620,
+      "par": 1.0,
+      "aspect": 1.777778,
+      "mt": 0,
+      "mb": 0,
+      "ml": 0,
+      "mr": 0
+    },
+    "command": [
+      "set_property",
+      "autofit",
+      "75%x75%"
+    ],
+    "trigger": "manual IPC after actual output ready, not an implemented automatic fix"
+  },
+  "currentUosc": {
+    "opacity": 0,
+    "controls": {
+      "9": {
+        "icon": "arrow_forward_ios",
+        "kind": "command",
+        "ax": 1467,
+        "hidden": false,
+        "bx": 1515,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1498,
+        "enabled": true,
+        "font_size": 34
+      },
+      "11": {
+        "icon": "arrow_forward",
+        "kind": "button",
+        "ax": 2482,
+        "hidden": false,
+        "bx": 2530.2,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1498,
+        "enabled": true,
+        "font_size": 34
+      },
+      "12": {
+        "icon": "list_alt",
+        "kind": "command",
+        "ax": 2533,
+        "hidden": false,
+        "bx": 2581.2,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1498,
+        "enabled": true,
+        "font_size": 34
+      },
+      "14": {
+        "kind": "speed",
+        "ax": 2599,
+        "hidden": false,
+        "bx": 2817,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1484,
+        "enabled": true,
+        "font_size": 30
+      },
+      "15": {
+        "icon": "crop_free",
+        "kind": "cycle",
+        "ax": 2820,
+        "hidden": false,
+        "bx": 2868,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1498,
+        "enabled": true,
+        "font_size": 34
+      },
+      "1": {
+        "icon": "menu",
+        "kind": "command",
+        "ax": 12,
+        "hidden": false,
+        "bx": 60,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1498,
+        "enabled": true,
+        "font_size": 34
+      },
+      "2": {
+        "icon": "info",
+        "kind": "command",
+        "ax": 63,
+        "hidden": false,
+        "bx": 111,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1498,
+        "enabled": true,
+        "font_size": 34
+      },
+      "4": {
+        "icon": "graphic_eq",
+        "kind": "command",
+        "ax": 0,
+        "bx": 0,
+        "by": 0,
+        "visibility": 1,
+        "ay": 0,
+        "enabled": false
+      },
+      "5": {
+        "icon": "subtitles",
+        "kind": "command",
+        "ax": 128,
+        "hidden": false,
+        "bx": 176.4,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1498,
+        "enabled": true,
+        "font_size": 34
+      },
+      "7": {
+        "icon": "arrow_back_ios",
+        "kind": "command",
+        "ax": 1365,
+        "hidden": false,
+        "bx": 1413,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1498,
+        "enabled": true,
+        "font_size": 34
+      },
+      "8": {
+        "icon": "play_arrow",
+        "kind": "cycle",
+        "ax": 1416,
+        "hidden": false,
+        "bx": 1464,
+        "by": 1546,
+        "visibility": 1,
+        "ay": 1498,
+        "enabled": true,
+        "font_size": 34
+      }
+    },
+    "controls_size": 32,
+    "width": 2880,
+    "height": 1620,
+    "text_border": 1.2,
+    "scale": 1.5
+  },
+  "limits": [
+    "No production changes or new binary",
+    "Automatic one-shot timing/user-resize protection unimplemented",
+    "Only this Linux physical display layout was measured",
+    "Windows native tests not run in this investigation",
+    "Design illustration is not a native render or pixel-perfect acceptance evidence"
+  ]
+}

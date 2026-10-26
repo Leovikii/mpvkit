@@ -1,8 +1,9 @@
 export const messages = {
   getWinget: ["获取应用安装程序", "Get App Installer"],
-  upgradeCore: ["安装 / 更新 MPV 核心", "Install / update MPV core"],
-  applyCore: ["通过 WinGet 安装 / 更新", "Install / update with WinGet"],
-  applyLinuxCore: ["通过 pacman 安装 / 更新", "Install / update with pacman"],
+  installCore: ["安装", "Install"],
+  upgradeCore: ["更新", "Update"],
+  upToDate: ["暂无更新", "No updates available"],
+  updateAvailable: ["有更新", "Update available"],
   linuxCoreHint: ["通过系统授权运行 pacman，保留依赖检查。使用当前同步数据库；如数据库过期，请先在系统中完成常规更新。", "Authorize pacman through the system. Dependency checks remain enabled. Uses the current sync database; update your system first if it is outdated."],
   overwriteHint: ["请核对下方差异。保存将替换管理区域内的手改内容，不保留历史备份；区域外内容和已保留文件不变。", "Review the differences below. Saving replaces manual edits in the managed section without historical backups. Content outside that section and retained files are preserved."],
   wingetHint: ["使用 WinGet 安装和管理 MPV。", "Install and manage MPV with WinGet."],

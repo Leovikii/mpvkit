@@ -26,6 +26,11 @@ fn main() {
     if mode == "stall" { thread::sleep(Duration::from_secs(60)); }
     if args[0] == "show" || args[0] == "list" {
         if mode == "source-failed" { process::exit(1); }
+        if args.iter().any(|arg| arg == "--upgrade-available") {
+            if mode == "no-update" { println!("No installed package found."); }
+            else { println!("mpv shinchiro.mpv 0.40.0 0.41.0 winget"); }
+            return;
+        }
         println!("Fixture only: shinchiro.mpv 0.41.0\nSource: winget\nNo system changes");
         return;
     }

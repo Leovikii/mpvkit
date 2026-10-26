@@ -7,6 +7,7 @@ import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { errorKey, resolveLocale, translator, type Key } from "./i18n";
 import { defaultAppSettings, defaultSettings, type AppSettings, type Asset, type ConfigurationPreview, type CorePreview, type DraftRequest, type Deployment, type Environment, type Preview, type Progress, type Registration, type Report, type Settings } from "./types";
 import logo from "./assets/mpv.svg";
+import { enhancementAction } from "./component-actions";
 import "@mantine/core/styles.css";
 import "./style.css";
 const profileKey: Record<string, Key> = { "power-saving": "powerSaving", balanced: "balanced", "high-quality": "highQuality" };
@@ -26,6 +27,7 @@ export function App() {
   const [appSaving, setAppSaving] = useState(false);
   const [info, setInfo] = useState({version:"", license:"GPL-3.0-or-later", repository:null as string | null, platform:""});
   const [report, setReport] = useState<Report | null>(null);
+  const [coreUpdate, setCoreUpdate] = useState<boolean | null>(null);
   const [page, setPage] = useState<"management"|"settings">("management");
   const [booting, setBooting] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -76,6 +78,7 @@ export function App() {
     setMaterial(await invoke<boolean>("apply_appearance"));
   }
   async function refresh() {
+    setCoreUpdate(null);
     const token = ++revision.current;
     let state: Report;
     try { state = await invoke<Report>("setup_status"); }
@@ -146,15 +149,26 @@ export function App() {
     });
   }
   async function core(action: string) { await run(async()=>setPreview({kind:"core",data:await invoke<CorePreview>("preview_core",{action}),continueInstall:false})); }
+  async function checkCoreUpdate() {
+    await run(async () => {
+      await refresh();
+      setCoreUpdate(await invoke<boolean>("check_core_update"));
+    });
+  }
   function installOnly() { request.current = null; setConfiguration(null); setPreview({kind:"download",data:null}); }
   async function download() {
-    if (!report?.components.some(c=>c.id==="mpv"&&c.ready)) {
+    if (!report?.playerInstalled) {
       setPreview({kind:"core",data:await invoke<CorePreview>("preview_core",{action:"install"}),continueInstall:true});
       return;
     }
     await downloadEnhancements();
   }
-  async function downloadEnhancements() {
+  async function downloadEnhancements(current = report) {
+    if (current && !enhancementAction(current, assets)) {
+      if (request.current) setPreview({kind:"playback",data:await invoke<Deployment>("preview_settings",request.current)});
+      else { setPreview(null); setNotice("done"); }
+      return;
+    }
     setPreview(null); setProgress({component:"uosc",phase:"download",received:0,total:0});
     const channel = new Channel<Progress>();
     channel.onmessage = p => setProgress(p);
@@ -178,7 +192,7 @@ export function App() {
         const current = await refresh();
         setPreview(null);
         if (pending.continueInstall && current?.components.some(c=>c.id==="mpv"&&c.ready)) {
-          await downloadEnhancements();
+          await downloadEnhancements(current);
         } else setNotice("done");
         return;
       }
@@ -226,12 +240,14 @@ export function App() {
   const qualityHint: Record<string, Key> = { "power-saving": "powerHint", balanced: "balancedHint", "high-quality": "qualityHint" };
   function components() {
     const registration = report?.integration;
+    const extrasAction = enhancementAction(report, assets);
+    const extrasReady = !!report && !extrasAction;
     return <>
       {report?.recoveryRequired && <Alert color="orange" mb="md">{t("recovery")}<div className="actions">{action("recover",()=>void (registration?.recoveryRequired?integration("recover"):maintenance("recover")))}</div></Alert>}
       <Paper withBorder className="section">
-        {row("MPV",<Group gap={8}><Text size="sm">{t(report?.playerReady?"systemInstalled":"notInstalled")}</Text>{action("upgradeCore",()=>void core(report?.playerReady?"upgrade":"install"))}{report?.playerReady&&action("uninstallCore",()=>void core("uninstall"))}</Group>,report?.components.find(c=>c.id==="mpv")?.version?.split(" Copyright")[0]??t(linux?"systemMpvHint":"wingetHint"))}
-        {row(t("components"),<Group gap={8}><Text size="sm">{t(report?.componentsReady?"ready":report?.generation?"missing":"notInstalled")}</Text>{!report?.componentsReady&&action(report?.generation?"repairOnly":"installOnly",installOnly,false,blocked||!!report?.recoveryRequired)}{report?.generation&&action("uninstall",()=>void maintenance("uninstall"),false,blocked||!!report?.recoveryRequired)}</Group>)}
-        <Fold title={t("componentDetails")} opened={extrasOpen} onChange={setExtrasOpen}>{componentRow("uosc")}{componentRow("thumbfast")}{componentRow("subtitle-font")}<div className="actions">{action("updateComponents",installOnly)}</div></Fold>
+        {row("MPV",<Group gap={8}><Text size="sm">{t(!report?.playerInstalled?"notInstalled":!report.playerReady?"missing":coreUpdate===true?"updateAvailable":coreUpdate===false?"upToDate":"systemInstalled")}</Text>{report && (!report.playerInstalled? action("installCore",()=>void core("install")):coreUpdate? action("upgradeCore",()=>void core("upgrade")):action("checkUpdates",()=>void checkCoreUpdate()))}{report?.playerInstalled&&action("uninstallCore",()=>void core("uninstall"))}</Group>,report?.components.find(c=>c.id==="mpv")?.version?.split(" Copyright")[0]??t(linux?"systemMpvHint":"wingetHint"))}
+        {row(t("components"),<Group gap={8}><Text size="sm">{t(extrasReady?"ready":extrasAction==="updateComponents"?"updateAvailable":extrasAction==="repairOnly"?"missing":"notInstalled")}</Text>{extrasAction&&action(extrasAction,installOnly,false,blocked||!!report?.recoveryRequired)}{report?.generation&&action("uninstall",()=>void maintenance("uninstall"),false,blocked||!!report?.recoveryRequired)}</Group>)}
+        <Fold title={t("componentDetails")} opened={extrasOpen} onChange={setExtrasOpen}>{componentRow("uosc")}{componentRow("thumbfast")}{componentRow("subtitle-font")}</Fold>
         {row("mpv.conf",<Group gap={8}><Text size="sm">{t(!report?.configurationInstalled?"notInstalled":!report.settingsReady?"missing":report.configurationModified?"manuallyEdited":"saved")}</Text>{report?.configurationInstalled&&action("resetConfig",()=>void maintenance("reset-config"))}</Group>,report?.configurationInstalled?t("modifiedAt")+" · "+time(report.configModifiedAt):undefined)}
         {linux&&row(t("detectedConfigDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists),[report?.configDirectory,report?.configDirectorySource,t("linuxPlaybackHint")].filter(Boolean).join(" · "))}
       </Paper>
@@ -294,7 +310,8 @@ export function App() {
     return <><Text size="sm">{t(preview.kind==="diagnostics"?"exportHint":"dangerHint")}</Text><Fold title={t("details")}><pre className="diagnostic">{JSON.stringify(preview.data,null,2)}</pre></Fold></>;
   }
   const hasConflicts = preview && preview.kind!=="download" && "conflicts" in preview.data && Array.isArray(preview.data.conflicts) && (preview.data.conflicts.length>0 || ("integration" in preview.data && !!(preview.data.integration as Registration|null)?.conflicts.length));
-  const previewAction: Key = !preview ? "preview" : preview.kind==="core" ? (preview.data.action==="uninstall"?"uninstallCore":linux?"applyLinuxCore":"applyCore") : preview.kind==="configuration" ? (preview.readOnly?"previewConfig":saveLabel) : preview.kind==="download" ? "download" : preview.kind==="install" ? "install" : preview.kind==="playback" ? "saveConfig" : preview.kind==="diagnostics" ? "diagnostics" : preview.kind==="logs" ? "cleanup" : preview.kind==="maintenance" ? ({uninstall:"uninstall", "reset-config":"resetConfig",recover:"recover"} as Record<string,Key>)[maintenanceAction]??"applyChanges" : "applyChanges";
+  const extrasAction = enhancementAction(report, assets);
+  const previewAction: Key = !preview ? "preview" : preview.kind==="core" ? (preview.data.action==="uninstall"?"uninstallCore":preview.data.action==="install"?"installCore":"upgradeCore") : preview.kind==="configuration" ? (preview.readOnly?"previewConfig":saveLabel) : preview.kind==="download" ? "download" : preview.kind==="install" ? (extrasAction==="updateComponents"?"updateComponents":extrasAction==="repairOnly"?"repairPlayer":"install") : preview.kind==="playback" ? "saveConfig" : preview.kind==="diagnostics" ? "diagnostics" : preview.kind==="logs" ? "cleanup" : preview.kind==="maintenance" ? ({uninstall:"uninstall", "reset-config":"resetConfig",recover:"recover"} as Record<string,Key>)[maintenanceAction]??"applyChanges" : "applyChanges";
   const navPaths = {management:"M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6",settings:"M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0"};
   const nav = (target: typeof page, glyph: string) => <Tooltip key={target} label={t(target)} disabled={!compact} position="right" events={{hover:true,focus:true,touch:false}}><NavLink component="button" type="button" ref={target==="management"?managementTab:undefined} aria-label={t(target)} aria-current={page===target?"page":undefined} active={page===target} label={compact?null:t(target)} leftSection={<span className="nav-icon" aria-hidden="true">{linux?<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={navPaths[target]}/></svg>:glyph}</span>} onClick={()=>go(target)}/></Tooltip>;
   return <MantineProvider theme={theme} forceColorScheme={dark?"dark":"light"}>

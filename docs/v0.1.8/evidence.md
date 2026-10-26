@@ -2,7 +2,7 @@
 
 2026-10-26。用户批准经典 uosc 布局方案及开发测试；实施前 fetch，HEAD 与 origin/main 均为 v0.1.7 `e41cfda94081cf34508fe0c4f66c9f9e4188ac5d`。本轮仅本地实现、隔离测试与单 EXE 构建，没有提交、推送、CI、安装包或历史开发版迁移。
 
-以下至“WinGet 核心与控制台”章节前为早先自下载核心批次，保留作追溯；当前代码、产物及验证以末尾新批次为准。
+以下至“WinGet 核心与控制台”章节前为早先自下载核心批次，保留作追溯；当前代码、产物及验证以末尾新批次为准。2026-10-26 最新 Linux 原生测试见末尾“本机 Linux 原生验证”；前文“无 Linux 环境”仅描述先前 Windows 批次。
 
 ## 早先环境与产物
 
@@ -233,3 +233,158 @@ Linux 无原生测试环境，`rustup target list --installed` 仅 Windows x64�
 上一轮原生回归 7/8 通过，重装保存发现实际产品缺陷：卸载后保留的手改配置不再受安装清单管理，配置预览仍一律拒绝这些文件，不能进入差异确认。已在共享配置预览层按本次明确替换意图放行，继续保留预览指纹与执行前摘要检查；新增 Rust 回归并通过。最终 EXE 的独立重装用例先通过（40639ms，`mpvkit-v016-draft-vM9qO0`），随后完整套件 8/8 通过，证据见上表；之前的 7/8 不作为全套通过依据。
 
 真实 WinGet 安装/卸载器、UAC、共享系统包缓存以及 Linux pacman/polkit 均未在开发者主机运行。包管理器缓存由其自身管理；自动清理只针对 MpvKit 有归属的操作文件。归属未知或已手改的文件与旧开发版实际数据不清理。保留两个最小 owner/lock 控制文件，不声称卸载后根目录必为空。已目视审阅 Windows 顶部组件区与重置/保存差异截图；完整路径、状态及操作按钮可见。
+
+## 本机 Linux 原生验证（2026-10-26）
+
+本次按用户要求，先 fetch 确认最新源码 HEAD / origin/main 均为 **f2b98806907c7c98594a825d47e4efbafc2df2c8**，再在本机 Linux 实测。接手时工作区干净；参考之前“开发 Linux 版本支持”聊天与 v0.1.7 记录，重新恢复固定工具和组件，不复用历史部署数据或 ELF 作为验证结果。本轮仅增加 Linux 显式集成测试及文档，产品行为与锁文件未改，未提交或推送。
+
+### 环境与产物
+
+- CachyOS x86_64，内核 7.3.0-5-cachyos，KDE Wayland；KWin 6.8.1-2.1、Plasma Workspace 6.8.1-1.1。
+- 系统 mpv **1:0.41.0-6.1 / v0.41.0**；运行时 FFmpeg n9.0.2、libplacebo v7.360.1；GTK 3.24.52、WebKitGTK 2.54.2。
+- 固定 Rust/Cargo 1.98.1、Node 24.19.0、pnpm 11.25.0。之前 /tmp 工具已不存在，本次将官方归档与对应官方 SHA-256 核验后直接提取到仓库忽略目录 .local/toolchain，没有运行远程安装脚本或安装系统软件。Cargo 按现有锁文件恢复依赖后离线测试。
+- uosc 5.13.0、固定 thumbfast 和文楷 1.530 均重新从固定源取得，大小/摘要与 components.rs 一致；测试部署仍再次核验。
+- `pnpm tauri build --debug --no-bundle` 成功；**src-tauri/target/debug/mpvkit，265745296 字节，SHA-256 `b9fbb9be3dd999733e50a274ab08784f886b84d6959ccc0443c44b8f3966bd1b`**。x86-64 动态链接调试 ELF，依赖系统 GTK/WebKitGTK 等库，未生成安装包，bundle.active=false。
+- 系统 MPV 摘要 `390d76705f0af028775a140b4b51a61bd47fc77e8e39039354e14186ace65076`；合成 15 秒 1280×720 H.264/AAC 测试媒体摘要 `8e53d48376cd29be9d614cbc3af645fe9e6c3a1e69c9cf741591d3d1299b422c`。队列末项另由系统 /usr/bin/ffmpeg 在隔离目录生成 2 秒 PCM WAV。
+
+### 本地检查与真实执行
+
+| 检查 | 结果 |
+| --- | --- |
+| Rust 默认检查 `cargo test --locked --offline` | **49 通过 / 3 默认忽略** |
+| fmt / clippy `--all-targets -- -D warnings` | 通过 |
+| TypeScript / Vite / 单 ELF 构建 | 通过，869 模块 |
+| 前端语言/文案测试 | **2 通过** |
+| 显式 `arch_wayland_install_playback_and_uninstall` | **1 通过，32.23 秒**，包括下述扩展检查 |
+| 显式 `kde_session_preferences_are_available` | **1 通过**，zh-CN / dark / blue；只改测试自身 GTK 偏好 |
+| 原生管理器窗口启动 | Wayland 新隔离根下存活 10 秒，由测试关闭；未完成点击验收 |
+| Linux / Windows 依赖材料 `--check` | **356/319 包、618/565 材料**，无缺失 |
+| 真实数据保护 | 预先记录的 **105 个文件摘要不变**，含系统 MPV、真实 MPV 配置、应用偏好和用户 applications 文件 |
+
+三项默认忽略分别为在线固定 HTTPS 下载、真实 KDE 会话和真实 Wayland 集成；后两项已显式执行。资产通过重新下载及摘要核验取得，但不把 curl 下载等同产品内在线下载完整验收。首轮默认测试被沙箱禁止创建本地回环监听器；在完整本地权限下重跑全套通过。Node 在沙箱中仅报告测试文件，完整本地权限下两项前端子测试均通过；没有修改测试断言来跳过这些限制。
+
+原有集成先单独运行通过（24.25 秒），再加入本版原生风险检查。扩展测试首轮因控制台属性尚未异步创建而失败，读取 user-data 根并等待 open 状态后通过；日志确认 MPV 正常执行 commands/open。这是测试等待修正，无产品控制台回退或兼容分支。最终使用新根 `/tmp/mpvkit-v018-final-20261026/config/mpv`，与此前失败根分开。
+
+真实集成覆盖：
+
+1. 普通 /usr/bin/mpv 按系统 desktop entry 模式启动，只覆写测试子进程 HOME/XDG，**无 config-dir、无 MPV_HOME 覆写、无 helper**；实际加载原生根配置、gpu-next/waylandvk、uosc 和 Lua。健康/缺失组件/只读预览/过期保护、音量 +10、播放期全局保存、非空 thumbfast BGRA、退出位置保存及稳定 helper 续播通过；可选 desktop entry 经 desktop-file-validate 校验。
+2. 自然队列为第1集.mp4 → 第2集.mp4 → 第10集.wav，从第2集开始。隐藏媒体、嵌套目录、封面、字幕、文本、播放列表、归档均未进入队列。保留窗口时，中间 EOF 继续至纯音频，最终暂停且进程仍在；关闭窗口时最终音频结束退出成功。连播关闭后只保留当前一项，但显式两个文件仍自动进入第二项。
+3. `sub/subs/subtitle/subtitles` 的小写、首字母大写及全大写 **12 个独立目录**实际加载；同目录另加无语种、zh-Hant、chs、en.forced、en.sdh。精确核对 **17 条外部字幕**，各文件只加载一次，其他集字幕排除，forced/hearing-impaired 标记成立。原生截图中中英字幕可见；没有验证所有实际字体回退或复杂排版。
+4. 四模式逐一核对 loop-file、loop-playlist 和 uosc 实际 shuffle 状态；外部 loop-file=2 显示 custom，恢复顺序播放成功。反引号打开原生控制台，输入空格不改变 pause，Esc 关闭后空格恢复暂停切换。截图取证仅用于测试，产品未恢复截图功能。
+5. 实际读取 autofit=75%x75%、auto-window-resize=false，生成的 Wayland 视频输出尺寸为 1080×608；这只证明本次启动及参数读取，不等于所有屏幕/窗口边框、手动缩放和异比例切集矩阵通过。三画质 × 三 HDR 共九组参数由实际 Wayland MPV 渲染两帧通过，未据此认证物理 HDR。
+6. 重置后结构化设置等于完整默认值，无历史备份或遗留 pending/staging/recovery。增强卸载删未改自有预设/helper/登记，保留 watch_later、未知 notes.txt 和系统核心；系统 MPV 版本及摘要不变。安装/更新/卸载核心预览可生成，Debug 隔离模式均拒绝执行包管理器且不创建目标根；没有运行主机 pacman/pkexec。
+
+[机器证据](linux-playback-evidence.json)保留实际视频参数、队列、17 条轨道、uosc 状态、产物摘要及覆盖边界；绝对测试路径已改为隔离根标记。[原生渲染取证](linux-playback.png)为合成媒体和测试字幕。完整日志在本机忽略目录 .local/linux-v018/，不会上传真实媒体/用户配置。
+
+### 复验入口
+
+在固定工具已加入 PATH、组件资产已按 components.rs 核验后，使用全新的测试根；不预先创建 MPVKIT_TEST_ROOT。原生测试需要系统 ffmpeg，附加 WAV 在测试根内生成：
+
+```sh
+ffmpeg -v error -f lavfi -i testsrc2=size=1280x720:rate=24 \
+  -f lavfi -i sine=frequency=440:sample_rate=48000 -t 15 \
+  -c:v libx264 -preset ultrafast -pix_fmt yuv420p -c:a aac \
+  .local/linux-v018/synthetic.mp4
+pnpm tauri build --debug --no-bundle
+GDK_BACKEND=wayland MPVKIT_TEST_MODE=1 \
+MPVKIT_TEST_ROOT=/tmp/mpvkit-v018-new-run \
+MPVKIT_TEST_ASSETS="$PWD/.local/linux-v018/assets" \
+MPVKIT_TEST_EXECUTABLE="$PWD/src-tauri/target/debug/mpvkit" \
+MPVKIT_TEST_VIDEO="$PWD/.local/linux-v018/synthetic.mp4" \
+cargo test --manifest-path src-tauri/Cargo.toml --locked --offline \
+  arch_wayland_install_playback_and_uninstall -- --ignored --nocapture
+GDK_BACKEND=wayland cargo test --manifest-path src-tauri/Cargo.toml \
+  --locked --offline kde_session_preferences_are_available -- --ignored --nocapture
+```
+
+### 未测与下一任务
+
+真实 pacman/polkit 授权取消、依赖冲突、网络失败及安装/升级/卸载成功，需可回收的 Arch/CachyOS 环境；本轮不卸载开发者系统 MPV。GUI 两页完整点击、菜单鼠标、i/Shift+i 信息覆盖层、背景单/双击、640/900/1200 布局、DPI/辅助技术与异比例媒体窗口切集仍需 Linux 原生验收，不能由 IPC 模式检查或窗口存活代替。
+
+驱动继续输出 `radv is not a conformant Vulkan implementation, testing use only`，未屏蔽。实体 HDR/高刷、音频设备、功耗、画质比较、长时真实多轨媒体、干净系统和完整来源许可审阅尚未完成；releaseReady=false。本轮未在 Linux 重跑 Windows 原生套件，保留此前 Windows 证据，不声称两平台全部验收完成。无 CI/CD、安装包、迁移或用户实际旧数据清理。
+
+## 本机旧配置不兼容诊断与清理（2026-10-26）
+
+用户反馈新测试程序没有检测到已有组件。本机原生配置根正确定位 ~/.config/mpv，系统 /usr/bin/mpv 的版本和能力检查成功；旧版归属清单所列 70 个文件均存在且摘要匹配。失败来自旧 install.json 文件项中的 originalBackup/originalSha256 字段，当前严格读取返回 invalid_state；旧 settings.json 另含已删除的截图字段并缺少 autoPlaylist，返回 settings_invalid。setup_status 在读清单时提前失败，界面因未获得报告而显示未就绪；不是系统 MPV 未安装或目录未找到。
+
+用户随后明确授权“如果是不兼容，不要改动程序代码，帮我清理本机的旧配置即可”。本次按此授权执行一次性本机清理，不增加产品兼容、迁移或自动清理旧版分支。先生成 80 项具体删除预览，依据旧清单、收据、归属和实际摘要逐项复核，持有既有操作锁后删除旧预设、增强、helper、设置/清单及有记录的旧备份/暂存，共 579164360 字节；没有删除整个 MPV 目录。14 条 watch_later 和 owner.json/operation.lock 共 16 文件摘要保持不变，未知文件未删除，系统核心未改。当前操作的临时失败恢复副本在成功后删除，不保留历史备份。
+
+清理后实际 Rust setup::status 返回成功：playerReady=true，generation=null、componentsReady=false、settingsReady=false，设置回到空安装默认状态。现在应显示系统 MPV 已安装，增强和配置等待安装；需要重新打开管理器刷新状态。没有安装新配置或改变默认应用。临时只读诊断代码已移除，产品代码和测试程序未修改；本机清理预览及结果日志保留在忽略目录 .local/linux-v018。此前“真实配置未改”的表述对应上一批隔离测试，本节为用户后续明确授权的例外操作记录。
+
+
+## 组件操作状态与最终 Linux 测试程序（2026-10-26）
+
+按用户新要求修正组件交互：核心未安装→安装，已安装→检查更新，有候选→更新，无候选→暂无更新。是否安装与能力健康分开，前后端均防止对已存在核心执行 install。增强缺失/损坏/固定版本变化分别显示安装/修复/更新，当前健康组件不提供重复操作；缺核心不会重新安装健康增强，连续安装并保存流程补好核心后直接进入配置确认。明细常驻更新入口删除，预览标题/确认按钮使用具体动作。独立设计预览同步核心未安装、有更新及无更新场景。
+
+更新查询：Linux `/usr/bin/pacman -Qu mpv`（15 秒超时），只读当前同步数据库，不刷新；退出 1 且标准输出/错误均空才判为无更新，数据库错误保持失败。Windows `winget list --id shinchiro.mpv --exact --source winget --upgrade-available --disable-interactivity --accept-source-agreements`（45 秒超时），精确包候选行决定是否更新；错误不复用旧结果。Linux 安装/更新使用 --needed，避免无更新时重复安装。没有新增依赖、后台查询或自动升级。
+
+| 验证 | 结果 |
+| --- | --- |
+| Rust 默认测试 | 50 通过，3 默认忽略；含更新输出/错误解析 |
+| 前端测试 | 3 通过；缺失、健康、损坏、缺少单个组件、版本变化及缺核心但增强健康 |
+| fmt / clippy --all-targets -- -D warnings | 通过 |
+| TypeScript / Vite / 单 ELF | 通过，870 模块，bundle.active=false |
+| 实际 React 页面（隔离 Tauri 模拟数据） | 已安装/未安装、无更新/有更新/检查失败、缺失/损坏/版本变化、补核心后跳过健康增强安装、弹窗动作、640/900/1200 布局通过，无页面异常 |
+| 独立 Mantine 预览 | 完整 check.mjs 通过，新增各组件动作断言；无页面异常或外部请求 |
+| 最终 ELF + 系统 MPV 的 KDE Wayland 隔离回归 | 1 项通过，32.57 秒；本机实际只读更新查询 false，已安装 install 被拒绝，upgrade/uninstall 在隔离模式被拦截 |
+
+原生回归复用本节之前的命令，新根为 `/tmp/mpvkit-v018-actions-final-20261026`；仍覆盖当前版实际播放、字幕/队列/结束行为、模式/控制台、配置保护/重置及增强卸载。默认 Rust 测试首次在沙箱内因本地 HTTP 测试无法监听而失败，获准运行同一隔离套件后 50 项通过，没有跳过该用例。
+
+最终单 ELF：`src-tauri/target/debug/mpvkit`，**265910680 字节**，SHA-256 **`0a4546a4a3933a0fb6bf64dd7562d839d36380cf566cce2d986246e993595990`**。使用固定工具链执行 `pnpm tauri build --debug --no-bundle`，包含本节按钮/查询修正。前节 `b9fbb9…` 及 linux-playback-evidence.json 为修正前当批播放证据，保留追溯，不代表当前程序摘要。
+
+本机忽略证据：`.local/linux-v018/actions-unit.log`、`actions-clippy.log`、`actions-build.log`、`actions-wayland.log`、`actions-ui.mjs` / `actions-ui.png`，独立预览截图在 `.local/ui-v016/`。实际 React 验证使用本地 HTTP 页面及模拟 IPC，不冒称 Linux WebKit 原生点击验收；原生播放验证使用真实 Wayland 与系统 MPV。
+
+Windows 参数解析和原生测试脚本/夹具已同步，但本机没有 Windows，未重跑其编译和原生套件；Windows 真实 WinGet/UAC、Linux 真实 pacman/polkit 仍待可回收环境。Linux 更新结论仅针对当前同步数据库，若过期应先完成系统常规更新。依据：[WinGet list](https://learn.microsoft.com/en-us/windows/package-manager/winget/list)、[WinGet 列表实现](https://github.com/microsoft/winget-cli/blob/master/src/AppInstallerCLICore/Workflows/WorkflowBase.cpp)、[pacman](https://man.archlinux.org/man/pacman.8.en)。本节只进行隔离文件操作与只读包查询，无安装包、CI、提交、推送或历史开发版兼容。
+
+
+## uosc 与 4K 启动窗口调查（2026-10-26，实施前记录）
+
+本轮按用户要求只调查与设计，不实施产品改动。完整结论、两个布局的比较、推荐尺寸、倍速列表及启动窗口修复边界见[待审方案](uosc-window-review.md)，已整理[原生调查数据](uosc-window-investigation.json)。
+
+本机 CachyOS / KDE Wayland，系统 MPV v0.41.0；主屏 3840×2160、150%，副屏旋转后 1440×2560、150%。使用合成 1280×720 视频、无配置/脚本的临时 MPV 进程，默认 autofit=75%x75% 与 auto-window-resize=no 得到 1080×608；日志先记录竖屏尺寸，再进入 DP-1。auto-window-resize=yes 仍为 1080×608；screen-name=DP-1 得到 2880×1620，额外 hidpi-window-scale=yes 仍为同尺寸。默认窗口实际落屏后，通过 IPC 重新设定同一个 autofit，实际由 1080×608 变成 2880×1620。仅证明一次原生重算有效，不证明待设计的自动时机与用户手动调整保护已经可靠。
+
+uosc 调查使用固定 5.13.0 ZIP、当前配置与脚本的临时副本及只读布局观察代码；合成白底加/不加字幕各取一张原生窗口图。中央三控 enabled=true、visibility=1，按钮 48×48 物理像素、字体 34，uosc scale=1.5、controls_size=32、opacity.controls=0。字幕隐藏后中央控件可见，显示时与字幕交叠；刻度条由 controls 第 14 项 kind=speed 证实。
+
+本机忽略证据：`.local/linux-v018/window-probe.py`、`window-reapply-probe.py`、`uosc-current-probe.py`；原始输出与截图在 `/tmp/mpvkit-v018-window-investigation/`。独立布局示意的播放/切集模拟、六项倍速、Esc 和 320/480/736 宽度检查通过；示意控件使用占位图标与本地模拟，不冒称原生渲染、完整可访问性或产品验收。
+
+未改实际配置、桌面分辨率/缩放/规则、系统核心或默认应用。没有重建测试程序，上一批 ELF 摘要仍有效。Windows 原生、多屏跨屏/手动缩放竞争、首次纯音频转视频、不同视频比例与完整字幕避让仍待获批后实施验证。无提交、推送、CI、安装包或历史开发版迁移。
+
+
+### 左侧仅三控的后续设计收敛（实施前记录）
+
+按用户进一步反馈，仅更新[设计方案](uosc-window-review.md)和独立示意：左侧仅上一集/播放暂停/下一集，右侧功能分组，取消逐键深色方块，改为统一衬底及透明按钮。对比直接分组与精简设置入口，推荐前者，宽窗保留独立信息；窄窗从更多访问收起项。独立示意已验证左侧恰为三控、六项倍速/四模式选择、暂停/切集、窄窗更多的倍速入口及 Esc；320/480/640/736 宽度无左右按钮重叠或横向溢出，两案已渲染查看，无页面脚本错误。Git diff 空白检查及本轮文档本地链接检查通过。预览检查只证明示意交互和布局，不作为 uosc 原生样式可行性或实播验收。产品代码、资源、实际配置和测试 ELF 未在本批修改；Linux 调窗建议仍待审。
+
+
+## uosc 布局、倍速和 Wayland 启动尺寸实施（2026-10-26）
+
+用户批准直接分组，并明确随手测试的底色数值不作为参考。最终选择 55% 中性衬底、24 逻辑像素渐隐、透明次要按钮、12% 主按钮轻底及最多 18% 悬停；44/48/44 逻辑尺寸左三控，右侧按轨道、播放选项和工具/窗口分组。基于原生 uosc 坐标、命中和菜单，仅在现有 bridge 增加有限样式与文字倍速按钮，两平台来源/合并摘要已更新。完整实现见[设计与实施记录](uosc-window-review.md)。
+
+[原生控制栏取证](uosc-native.png)依次为合成白底和深色画面的底部裁剪，非概念预览；[机器记录](uosc-native-evidence.json)包含实际坐标、尺寸矩阵和本次程序摘要。原始日志与菜单/ASS 图在本机忽略目录 `.local/linux-v018/` 和 `/tmp/mpvkit-v018-uosc-visual`。
+
+| 检查 | 结果 |
+| --- | --- |
+| Rust 默认测试 | 50 通过 / 3 默认忽略 |
+| 前端 3 项、fmt/clippy、TypeScript/Vite | 通过，无依赖或锁文件变更 |
+| Windows 原生测试脚本 | 位置/点击断言同步，语法检查通过；未运行 Windows 原生 |
+| 真实 Wayland 全套隔离回归 | 1 项通过，46.91 秒，根 `/tmp/mpvkit-v018-uosc-final2-20261026` |
+| 左三控、窄窗、倍速/模式 | 320/480/640/900/1200 逻辑宽度无按钮重叠，三控/更多/全屏保留；六倍速、1.1×、列表重开、已打开列表当前值更新及 Esc 通过 |
+| 720p / 1080p / 4K 16:9 初始窗口 | 均 2880×1620，实际单屏 DP-1；与 MPV 正确输出参考一致 |
+| 竖屏 / 超宽 / 自定义 60% | 911×1620 / 2880×1215 / 2304×1296；保持原生比例与当前 autofit |
+| 纯音频转视频、全屏往返及切集 | 首次视频正确适配；手动设置尺寸后，往返及切集保持宽度 |
+| 显式 geometry/window-scale、最大化/全屏 | 不执行启动重算 |
+| 实际策略的无窗口行为自检 | 一次性调用/注销、当前值、取整容差、初始尺寸干预、跨多屏永久跳过、Windows/X11 跳过、音频等待视频均通过 |
+
+自动点击曾受到 Wayland hover 与原生菜单/遮罩动画的影响。最终测试在私有 Lua 副本中驱动原生 cursor 入口，并同步 MPV 原始鼠标坐标，再经 IPC 按下/松开验证 uosc 命中与延迟分发；不改变产品输入逻辑，也不移动用户物理鼠标。切集等待实际 file-loaded，避免读取卸载间隙暂不可用的 time-pos。早期失败未作为产品通过证据；原版 uosc 和实际用户配置没有为测试修改。
+
+扩展矩阵另捕获初始窗口同时进入 DP-1/DP-2：MPV 当时重算仍可能采用竖屏，因而增加“唯一输出”条件，歧义时停止，不在后续拖屏后补强制调窗。该新分支的无窗口行为检查通过；最终原生矩阵全部实际落于 DP-1，未用模拟假称原生跨屏跳过已稳定复现。平铺依靠目标 MPV 原生 locked_size；极短物理尺寸干预、所有混合缩放、真正的鼠标/桌面快捷键移动窗口仍未验收。字幕不抬高，长行/双语/任意定位字幕仍可能与次要入口或衬底重叠；本轮只实播查看 SRT 和一份定位 ASS，不声称全字体和字幕矩阵通过。
+
+复验继续使用前节固定工具链、组件资产和新隔离根，执行 arch_wayland_install_playback_and_uninstall；其中已集成 src-tauri/src/linux_tests/uosc.rs / uosc-inspect.lua。无窗口策略检查从仓库根执行：
+
+```sh
+/usr/bin/mpv --no-config --load-scripts=no --vo=null --ao=null \
+  --resume-playback=no --save-position-on-quit=no \
+  --script=src-tauri/src/linux_tests/window-policy.lua \
+  -- .local/linux-v018/synthetic.mp4
+```
+
+本次构建使用 `pnpm tauri build --debug --no-bundle`，`bundle.active=false`。最终 Linux 单 ELF：**265918880 字节**，SHA-256 **f2743d00520576c4630910c623b94e09ad7c2b12e51ca518397d536e3ce723a8**，位置 `src-tauri/target/debug/mpvkit`；替代前节组件按钮批次程序摘要。本轮未修改真实配置或系统核心，无安装包、CI、兼容迁移、提交/推送。Windows 运行环境不可用，其共享代码已同步但不冒称原生验证完成。

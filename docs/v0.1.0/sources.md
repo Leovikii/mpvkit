@@ -6,7 +6,7 @@
 
 ## 信息来源的职责
 
-2026-10-26 v0.1.8 集成补充：uosc 仍固定 5.13.0 / d124c2c930d69446448022851373e00ae592390d，下载 ZIP 未改。该版没有公开的随机状态 getter；为准确同步外部状态并按真实缩放收起可选按钮，在部署的 main.lua 原版前缀后追加 MpvKit 自有 uosc-bridge.lua，GPL-3.0-or-later，注明日期和修改内容。两平台 catalog 标记 modified=true，source-materials 的 uoscIntegration 分别记录原版、扩展、合并结果摘要，部署附源码和修改说明。其余上游脚本、字体、helper 和导航算法不改。MpvKit 自有 script-opts/uosc.conf 与未部署的上游示例分开记录。实现依据、验证及 Linux 待测边界见 [v0.1.8](../v0.1.8/plan.md)。
+2026-10-26 v0.1.8 集成补充：uosc 仍固定 5.13.0 / d124c2c930d69446448022851373e00ae592390d，下载 ZIP 未改。该版没有公开的随机状态 getter；为准确同步外部状态、按真实缩放收起可选按钮，并在批准的左三控/右侧分组布局中补必要衬底、按钮层级与文字倍速样式，在部署的 main.lua 原版前缀后追加 MpvKit 自有 uosc-bridge.lua，GPL-3.0-or-later，注明日期和修改内容。两平台 catalog 标记 modified=true，source-materials 的 uoscIntegration 分别记录原版、扩展、合并结果摘要，部署附源码和修改说明。其余上游脚本、字体、helper 和导航算法不改。MpvKit 自有 script-opts/uosc.conf 与未部署的上游示例分开记录。实现依据、Linux 原生验证及双端未测边界见 [v0.1.8](../v0.1.8/plan.md)。
 
 | 信息 | 首要依据 | 补充依据 |
 | --- | --- | --- |

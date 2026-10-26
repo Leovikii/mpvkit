@@ -4,7 +4,7 @@ import { chromium } from 'playwright';
 import { pathToFileURL, fileURLToPath } from 'node:url';
 import path from 'node:path';
 const output = fileURLToPath(new URL('../../../.local/ui-v016/', import.meta.url));
-const browser = await chromium.launch({channel:'msedge',headless:true});
+const browser = await chromium.launch({...(process.env.MPVKIT_BROWSER?{executablePath:process.env.MPVKIT_BROWSER}:{channel:'msedge'}),headless:true});
 try {
   const page=await browser.newPage({viewport:{width:1120,height:820},reducedMotion:'reduce'});
   const errors=[],requests=[];
@@ -80,6 +80,13 @@ try {
   for(let i=0;i<10;i++){await page.keyboard.press('Tab');assert(await dialog.evaluate(e=>e.contains(document.activeElement)));}
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
   await scenario('ready'); await button('重置配置').click(); assert.match(await dialog.innerText(),/覆盖手改内容/); await page.keyboard.press('Escape');
+  assert.equal(await button('安装').count(),0);assert.equal(await button('更新').count(),0);assert.equal(await button('仅安装组件').count(),0);assert.equal(await button('更新组件').count(),0);
+  await button('检查更新').click();await page.getByText('暂无更新。',{exact:true}).waitFor();assert.equal(await button('更新').count(),0);
+  await scenario('update');await button('更新').click();assert(await dialog.getByRole('button',{name:'更新',exact:true}).isVisible());assert.equal(await dialog.getByRole('button',{name:'安装',exact:true}).count(),0);await page.keyboard.press('Escape');
+  await button('更新组件').click();await dialog.getByRole('button',{name:'更新组件',exact:true}).click();await page.getByText('组件已安装，草稿尚未保存。',{exact:true}).waitFor();assert.equal(await button('更新组件').count(),0);
+  await scenario('no-core');await button('安装').click();assert.equal(await dialog.getByRole('button',{name:'更新',exact:true}).count(),0);await dialog.getByRole('button',{name:'安装',exact:true}).click();assert.equal(await button('安装').count(),0);
+  await scenario('broken');assert(await button('仅修复组件').isVisible());assert.equal(await button('仅安装组件').count(),0);
+  await scenario('ready');
   await button('卸载 MPV 核心').click(); await dialog.getByRole('button',{name:'卸载 MPV 核心',exact:true}).click(); assert.equal(await button('卸载 MPV 核心').count(),0);
   await scenario('core');await button('English').click();
   for(const size of [{width:1200,height:800},{width:900,height:700},{width:640,height:600}]) {

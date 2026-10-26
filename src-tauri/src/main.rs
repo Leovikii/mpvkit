@@ -72,6 +72,7 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             commands::setup_status,
             commands::preview_core,
+            commands::check_core_update,
             commands::apply_core,
             commands::read_app_settings,
             commands::save_app_settings,

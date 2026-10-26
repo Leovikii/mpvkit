@@ -135,16 +135,27 @@ mp.register_script_message('playback-mode', function(id)
         end
     end
 end)
-mp.register_script_message('speed-menu', function()
+local function speed_menu_data()
     local items = {}
     local current_speed = mp.get_property_number('speed', 1)
     for _, speed in ipairs({0.5, 0.75, 1, 1.25, 1.5, 2}) do
         items[#items + 1] = {title=tostring(speed) .. '×', hint=current_speed == speed and '当前 / Current' or '',
             value={'set', 'speed', tostring(speed)}}
     end
-    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json({type='mpvkit-speed', title='倍速 / Playback speed', items=items}))
+    return {type='mpvkit-speed', title='倍速 / Playback speed', items=items}
+end
+local function update_speed()
+    mp.commandv('script-message-to', 'uosc', 'set-button', 'mpvkit-speed', utils.format_json({
+        icon='speed', tooltip='倍速 / Playback speed · ' .. string.format('%g×', mp.get_property_number('speed', 1)),
+        command={'script-message-to', 'mpvkit', 'speed-menu'},
+    }))
+    mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(speed_menu_data()))
+end
+mp.register_script_message('speed-menu', function()
+    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json(speed_menu_data()))
 end)
-mp.observe_property('user-data/mpvkit-uosc', 'native', update_playback_mode)
+mp.observe_property('speed', 'number', update_speed)
+mp.observe_property('user-data/mpvkit-uosc', 'native', function() update_playback_mode(); update_speed() end)
 mp.observe_property('loop-file', 'string', update_playback_mode)
 mp.observe_property('loop-playlist', 'string', update_playback_mode)
 
@@ -159,3 +170,47 @@ mp.register_event('file-loaded', function()
     for key,value in pairs(initial) do mp.set_property(key,value) end
     current=options.profile;publish()
 end)
+
+-- Wayland initially sizes against its first output before surface-enter identifies
+-- the actual output. Reapply the effective autofit once; never resize on episode changes.
+if mp.get_property('platform') == 'linux' and os.getenv('WAYLAND_DISPLAY') then
+    local first_size, finished
+    local check_window
+    local function stop()
+        finished = true
+        mp.unobserve_property(check_window)
+    end
+    check_window = function()
+        if finished then return end
+        if mp.get_property('geometry', '') ~= '' or mp.get_property_number('window-scale', 1) ~= 1
+            or mp.get_property_bool('fullscreen') or mp.get_property_bool('window-maximized')
+            or mp.get_property_bool('window-minimized') or mp.get_property_bool('auto-window-resize') then
+            stop(); return
+        end
+        local size = mp.get_property_native('osd-dimensions')
+        if not size or size.w <= 0 or size.h <= 0 then return end
+        if first_size and (math.abs(size.w - first_size.w) > 2 or math.abs(size.h - first_size.h) > 2) then
+            stop(); return -- Respect size changes while waiting for the first real output.
+        end
+        first_size = first_size or size
+        local names = mp.get_property_native('display-names')
+        local video = mp.get_property_native('video-out-params')
+        if not mp.get_property_bool('vo-configured') or not names or #names == 0 or not video then return end
+        if #names ~= 1 then
+            stop()
+            msg.info('Skipped startup autofit: window spans multiple Wayland outputs')
+            return
+        end
+        local context = mp.get_property('current-gpu-context', '')
+        local fit = mp.get_property('autofit', '')
+        stop()
+        if (context == 'waylandvk' or context == 'wayland') and fit ~= '' then
+            mp.set_property('autofit', fit)
+            msg.info('Reapplied startup autofit on the actual Wayland output')
+        end
+    end
+    for _, name in ipairs({'display-names', 'osd-dimensions', 'video-out-params', 'vo-configured',
+        'geometry', 'window-scale', 'fullscreen', 'window-maximized', 'window-minimized'}) do
+        mp.observe_property(name, 'native', check_window)
+    end
+end
