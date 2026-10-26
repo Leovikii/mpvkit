@@ -477,3 +477,81 @@ arch_wayland_install_playback_and_uninstall -- --ignored --nocapture
 本轮 ELF 与前一功能批字节相同：**266315352 字节**，SHA-256 **c58bfd0e4c199cec83fa83761653bcdcf5e39bd9ba7ee91c4b474e39600d6cd5**。当前运行窗口、播放、事务代码未变，因此未重复完整 Wayland/Windows GUI 或真实包管理器/设备矩阵；已有功能实测与限制继续有效。不会把本轮文档/预览检查当作新增设备验收。
 
 日志在 .local/linux-v018/cleanup-*.log。保留本机工具链、研究资产、测试程序与历史 evidence；没有清理 .local/实际数据或启用 CI/安装包。用户随后明确要求提交并推送本批整理到 origin/main；下一任务仍按 [当前交接](plan.md#下一任务与未测边界)选择最小可验证项。
+
+## Windows 当前批实机回归（2026-10-27）
+
+用户在拉取更新后要求检查进度并完成 Windows 实机测试。本轮从干净工作区 **a24ff6c** 开始，覆盖此前 Linux 功能批对应的当前 Windows 程序。测试跨 10 月 26 日晚至 27 日，记录使用 Asia/Hong_Kong 日期。全程只构建单 EXE，bundle.active=false；没有 CI、安装包、历史开发版兼容、真实用户数据清理、提交或推送。
+
+### 环境、资产与隔离
+
+- Windows x64，系统 API 报告 **10.0.26200.0**；实测管理器窗口 DPI **192（200%）**，DWM backdrop **2**、查询结果 0。屏幕物理范围为 **3072×1920**。这只是当前一块屏幕，不扩展为混合 DPI/多屏验收。
+- Rust/Cargo 1.98.1，pnpm 11.25.0；Node 实际 v24.22.1，与声明 24.19.0 的既有 engine 提示保留，未升级工具链要求或依赖。构建保留缓存 hard-link 回退和 MSVC 导入库提示。
+- 复核已提取 WinGet 核心 mpv.exe：**120308736 字节**，SHA-256 **1645e57569c0af58a70c61257f3716f2ee6eb31bb170edc51f3f25a0b8d0d99c**，实际 **v0.41.0-244-gaf9c81fa1**，libplacebo 7.360.0。合成媒体 ffmpeg SHA-256 **7491af2d1d44f695d7c169db5f12b51d61667d585619dea75d3a0fc96215a5f1**。两者与前述渠道核验证据一致，没有重新下载或执行安装器。
+- Node 套件每个用例新建私有临时根；显式 MPVKIT_TEST_ASSETS、MPVKIT_CORE_SOURCE、MPVKIT_FFMPEG。Debug 核心/WinGet 来自该根，WinGet 为本地编译夹具；启动后先通过 setup_status 核对隔离配置根再允许写入。登记使用私有文件后端；额外原生注册表测试使用 Offreg 私有文件 hive，不改真实 HKCU。桌面补查复用本轮已完成安装的隔离根，integrationEnabled=false。
+
+### 检查结果
+
+| 检查 | 结果 |
+| --- | --- |
+| pnpm tauri build --debug --no-bundle（含 TypeScript/Vite） | 通过，871 模块；收尾重建也通过 |
+| cargo test --locked | **63 通过 / 6 默认忽略，8.39 秒** |
+| fmt / clippy all-targets -D warnings | 通过；修正契约模块后专项 2/2 通过 |
+| 私有 hive 原生登记/外改/失败恢复 | **1/1 通过，0.17 秒**；显式只运行该 ignored 用例 |
+| pnpm test:frontend | **3/3 通过** |
+| Windows 完整原生回归 | **8/8 通过，292549ms**；另含 **52 个真实 MPV 轨道子用例** |
+| 浅/深色固定品牌与当前偏好字段专项 | **1/1 通过**；最终重建 EXE 另有侧栏冒烟记录 |
+| Windows 依赖材料 --check | **319 包 / 565 材料**，无缺失 |
+| 桌面管理器目视/输入 | 英文播放器页、英文/中文应用页、深色/浅色、紫色强调色、标题栏品牌图标通过；语言/明暗使用桌面原生点击及按键 |
+
+完整套件运行 `node --test --test-reporter=tap --test-concurrency=1 scripts/native-v016.test.mjs`；原始日志在 **.local/windows-v018-20261026/**：build.log、build-final.log、unit.log、clippy-final.log、private-hive.log、contract-final.log、native.log（首轮）、native-final.log（通过）、brand-smoke.log、final-exe-smoke.log、notices.log、window-metadata.json。前端结果保留在本轮工具输出。机器摘要见 [windows-native-evidence.json](windows-native-evidence.json)。
+
+| 最终完整回归证据（.local/e2e-artifacts/） | 目录 |
+| --- | --- |
+| 核心缺失/失败/取消/重试、更新检查与升级、卸载归属 | mpvkit-winget-Cn3Twp |
+| 五种视频尺寸、4K 切集、手调及全屏 | mpvkit-v018-window-7KviWk |
+| uosc 布局、四模式、倍速列表、stats、右键控制台 | mpvkit-v018-nwxHmJ |
+| 自然连播、队列结束、字幕目录/语言后缀 | mpvkit-v018-autoplay-6gGf6D |
+| 安装、手改保护、原生 profile/helper、52 轨道子用例 | mpvkit-v016-1Q0BN0 |
+| 双语、主题、路径、键盘与焦点 | mpvkit-v016-ui-Ju5XSq |
+| 预编辑、mtime、过期预览、布局与卸载保留 | mpvkit-v016-draft-ZehsIA |
+| 新增品牌断言专项 | mpvkit-v016-ui-r3KcJf |
+
+### 本轮修正及真实覆盖
+
+1. Windows clippy 首次发现 linux_core_contract 中 check_update 未使用。沿用 prepare/execute 的现有类型引用检查补 **一行 check_update 引用**，继续在 Windows 编译 Linux 实现而不执行 pacman；未屏蔽警告或改变产品平台分支。
+2. 首轮普通沙箱 Rust 为 33 通过/30 失败，错误集中于 Windows 文件替换权限及本地回环连接（10013）；普通沙箱 WebView 调试端口也未就绪。保留失败日志，获准使用隔离进程后 Rust 63 项通过，未修改事务/路径保护来绕过限制。
+3. 首轮原生 **7/8（281049ms）**，uosc 在 playlist 循环回首集后，playlist-pos 已为 0 但新媒体尚未就绪，下一条 seek 返回 error running command。日志显示随后才 Starting playback。与既有主动切集等待保持一致，增加 **time-pos 为 number** 的就绪条件；没有放宽模式/seek/暂停断言，也未修改产品 Lua。新根完整 8/8 通过。此前 Linux 暂停即时断言的时序记录仍保留。
+4. 侧栏专项增加原生 WebView 浅/深色 --mantine-color-brand-6 都等于 **#A84BD6**，并检查 read_app_settings 只有 schemaVersion/language/theme 三个当前字段。桌面补查也得到同样结果，没有旧字段迁移逻辑。
+5. 已在实际 MPV 核对左三控、640/900/1200 宽度收起、六项倍速及当前项、四种模式和外部状态、目录/随机/列表边界、队列 EOF、stats 与 Shift+i、右键控制台、单击忽略/双击全屏不暂停、缩放重排、配置手改与重置、上游前缀/桥接摘要。实播使用 IPC 命令与原生渲染；已目视审阅 layout-1200.png、layout-640.png 和管理器桌面，不能等同物理鼠标输入。
+6. 窗口专项用 640×360、1920×1080、3840×2160、竖屏和超宽合成视频验证 75% 范围与比例、切集尺寸稳定、手动窗口调整后切集及全屏返回；文件根和所有截图均为本轮测试资产。实际轨道、续播、字体、缩略图、手改/恢复/过期保护由完整套件覆盖。GUI 640×600、900×700、1200×800 与 200% 文本断言通过。
+
+完整回归使用 EXE **30689280 字节**，SHA-256 **08b48e35cc2a5f8c7b9deeaaab4edc8d8ded6753e34ce37cf58ef2c6413c1248**。补测试专用类型引用后收尾重建的单 EXE 仍为 **30689280 字节**，SHA-256 **60d6b0a509de5abe0378251b513b7da0b5bdf7ed07a69acab65d4a9bd2ac13c5**；最终文件仅补原生侧栏冒烟，不把两份 EXE 摘要混为同一份完整回归产物。路径均为 src-tauri/target/debug/mpvkit.exe，没有安装包。
+
+### 保留的未测边界
+
+无可回收 Windows 虚拟机，本轮没有运行真实 WinGet install/upgrade/uninstall、UAC、包自身登记/依赖/取消或系统缓存操作；真实 WinGet 更新候选/源失败仍需虚拟机复验，现有检查为进程夹具。没有改变默认应用或真实配置/注册表；未额外制作真实用户数据前后全量快照，隔离结论依据启动路径复核与测试后端。
+
+Computer Use 管理器首次应用授权等待超时，重试后成功；管理器两页原生树可读取，但未运行屏幕阅读器。MPV 桌面窗口被工具映射为已登记的 mpv-lazy 路径，实际 PID/映像核对为隔离 MPV；刷新绑定仍报 no longer belongs（错误两侧显示相同路径），按工具要求停止该窗口输入。因此未完成物理鼠标双击/控制台输入验收，未以 IPC 结果替代；额外测试播放器经自己的 IPC quit 退出，管理器正常 Alt+F4 退出，窗口列表确认本轮目标消失。
+
+HDR/高刷/功耗、长期真实媒体、混合 DPI/多屏、完整辅助技术、高对比及系统减少动态效果映射、干净系统和完整来源许可审阅仍按既有台账推进。当前无新的已复现产品故障，releaseReady=false；本轮不重跑已完成的 Linux 实机检查。
+
+## Windows 验证收尾与清理（2026-10-27）
+
+用户已明确授权更新文档、清理无用文件/代码并提交推送。同步 README、文档入口、AGENTS、当前基线和交接，补充本机 Windows 结果及未测边界；原始批次证据与来源/许可材料继续保留。
+
+- 全仓检查确认 component_catalog 无调用方，删除该 IPC 及 handler 登记；组件目录本体仍供部署、来源和测试使用。
+- 原生测试删除未执行的 managed 启动分支和重复按钮匹配；将启动参数不含 --include/--scale 的断言移至实际托管启动路径，保留有效覆盖。
+- 仅删除本轮生成的 .local/windows-v018-20261026/manual.mjs 与 manual-state.json；删除前核对绝对路径在工作区内。保留测试截图、原始日志、研究资产、工具链和实际用户数据。
+
+| 清理后检查 | 结果 |
+| --- | --- |
+| cargo test --locked | **63 通过 / 6 默认忽略，8.01 秒** |
+| fmt / clippy all-targets -D warnings | 通过 |
+| pnpm test:frontend | **3/3 通过** |
+| 单 EXE 构建（含 TypeScript/Vite） | pnpm tauri build --debug --no-bundle 通过，bundle.active=false |
+| 受影响的安装/手改/profile/helper/托管启动及侧栏原生专项 | **2/2 通过，56006.6419ms**；另含 **52 个真实 MPV 轨道子用例** |
+| 原生脚本语法 / Git diff / 文档本地链接与锚点 | 通过 |
+
+日志位于 .local/windows-v018-20261026/cleanup-{unit,clippy,build,native}.log。原生证据分别为 .local/e2e-artifacts/mpvkit-v016-5kHmi5 和 mpvkit-v016-ui-5kAdY4。当前单 EXE：src-tauri/target/debug/mpvkit.exe，**30683136 字节**，SHA-256 **baa00658a50ebb43a655ee4224bf076bbf372b1b9eb0737487aeb35cf8bb1fc9**；机器摘要见 [windows-native-evidence.json](windows-native-evidence.json) 的 postCleanup。
+
+上节完整 8/8 是清理前的回归结果；本轮清理后仅重跑受影响原生专项，不把旧产物的完整结果套用到新摘要。未重复 Linux 实机和无关设备矩阵；真实 WinGet/UAC、物理鼠标、HDR/功耗等未测边界继续保留。无新增依赖、CI、安装包或开发版兼容逻辑。

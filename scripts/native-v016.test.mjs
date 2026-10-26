@@ -239,7 +239,7 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     await call(["set_property","playlist-pos",0]);await wait(async()=>await get("playlist-pos")===0&&typeof await get("time-pos")==="number");
     await call(["seek",2.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")!==0,"shuffle advances at EOF");assert.deepEqual((await get("playlist")).map(f=>f.filename),paths);await call(["set_property","pause",true]);
     await call(["script-message-to","mpvkit","playback-mode","sequential"],["set_property","playlist-pos",2],["set_property","pause",false]);await wait(async()=>await get("eof-reached")&&await get("pause"),"sequential keeps last frame");
-    await call(["script-message-to","mpvkit","playback-mode","playlist"],["seek",2.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")===0,"playlist wraps at EOF");await call(["set_property","pause",true]);
+    await call(["script-message-to","mpvkit","playback-mode","playlist"],["seek",2.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")===0&&typeof await get("time-pos")==="number","playlist wraps and playback is ready at EOF");await call(["set_property","pause",true]);
     await call(["script-message-to","mpvkit","playback-mode","file"],["seek",2.8,"absolute+exact"],["set_property","pause",false]);await sleep(700);assert.equal(await get("playlist-pos"),0);assert(await get("time-pos")<2);await call(["set_property","pause",true]);
     await call(["script-message-to","mpvkit","playback-mode","sequential"],["seek",1,"absolute+exact"]);
     await click((await inspect()).controls["8"]);await wait(async()=>(await inspect()).menu?.type==="mpvkit-speed","speed button opened menu");data=await inspect();assert.equal(data.menu.type,"mpvkit-speed");assert.equal(data.menu.items.length,6);assert.match(data.menu.items[2].hint,/Current/);
@@ -428,7 +428,7 @@ async function ipc(page,command,args={}) {
   }
   return rawIpc(page,command,args);
 }
-async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Save configuration|Save configuration|Apply changes|Clean logs|Reset configuration|Uninstall core|Remove enhancements|Update|Update components|Repair components)$/,exact:true}).click();}
+async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Save configuration|Apply changes|Clean logs|Reset configuration|Uninstall core|Remove enhancements|Update|Update components|Repair components)$/,exact:true}).click();}
 async function settled(page) { await page.locator("main[aria-busy=false]").waitFor(); }
 async function english(page) {
   await page.getByRole("button",{name:/^(应用设置|App settings)$/}).click();
@@ -472,13 +472,12 @@ test("native v016 install, manual configuration, native profiles and unified sav
   const approved=await ipc(p,'preview_settings',{settings,replaceManual:true});await ipc(p,'apply_deployment',{previewId:approved.id});
   // Real system core: read the isolated native MPV_HOME without --config-dir.
   const media=path.join(sandbox,'媒体 test.wav');await fs.writeFile(media,wav());const mpv=path.join(global,'system-mpv/mpv.exe');
-  const start=async(label,managed)=>{
+  const start=async(label)=>{
     const pipe='\\\\.\\pipe\\mpvkit-v016-'+crypto.randomUUID();
-    if(managed){await fs.appendFile(confPath,'\ninput-ipc-server='+pipe+'\nao=null\nidle=yes\n');const preview=await ipc(p,'preview_launch',{media});assert(!preview.arguments.some(a=>a.startsWith('--include=')||a.startsWith('--scale=')));await ipc(p,'launch_mpv',{previewId:preview.id});const pid=await latestPlayer(root);children.push({pid,mpv});}
-    else{const env={...process.env,MPVKIT_TEST_MODE:"1",MPVKIT_TEST_ROOT:global};env.MPV_HOME=root;const child=spawn(mpv,['--input-ipc-server='+pipe,'--ao=null','--idle=yes','--pause=yes','--log-file='+path.join(artifacts,label+'.log'),media],{env,windowsHide:true,stdio:'ignore'});children.push({pid:child.pid,mpv});}
+    const env={...process.env,MPVKIT_TEST_MODE:"1",MPVKIT_TEST_ROOT:global};env.MPV_HOME=root;const child=spawn(mpv,['--input-ipc-server='+pipe,'--ao=null','--idle=yes','--pause=yes','--log-file='+path.join(artifacts,label+'.log'),media],{env,windowsHide:true,stdio:'ignore'});children.push({pid:child.pid,mpv});
     return pipe;
   };
-  const direct=await start('direct',false);const values=await probeMpv(direct,[['get_property','volume'],['get_property','save-position-on-quit'],['get_property','sub-font'],['get_property','user-data/mpvkit']]);
+  const direct=await start('direct');const values=await probeMpv(direct,[['get_property','volume'],['get_property','save-position-on-quit'],['get_property','sub-font'],['get_property','user-data/mpvkit']]);
   assert.equal(values[0],23);assert.equal(values[1],false);assert.equal(values[2],'LXGW WenKai Screen');assert.equal(values[3].profile,settings.profile);
   const bindings=(await probeMpv(direct,[['get_property','input-bindings']]))[0];assert(bindings.some(b=>b.key==='UP'&&b.cmd==='add volume 10'));
   await probeMpv(direct,[['script-message-to','mpvkit','profile','high-quality']]);await sleep(300);assert.equal((await probeMpv(direct,[['get_property','scale']]))[0],'ewa_lanczossharp');
@@ -491,7 +490,7 @@ test("native v016 install, manual configuration, native profiles and unified sav
   assert(!await exists(path.join(root,'.mpvkit/playback.json')));await probeMpv(direct,[['quit']]);children.pop();
   session=await startApp(sandbox,global);await heading(session.page,'Player settings');assert.equal((await ipc(session.page,'read_settings')).profile,'high-quality');
   const q=session.page;const managedPipe='\\\\.\\pipe\\mpvkit-v016-'+crypto.randomUUID();await fs.appendFile(confPath,'\ninput-ipc-server='+managedPipe+'\nao=null\nidle=yes\n');
-  const launch=await ipc(q,'preview_launch',{media});const launched=await ipc(q,'launch_mpv',{previewId:launch.id});children.push({pid:launched.processId,mpv});
+  const launch=await ipc(q,'preview_launch',{media});assert(!launch.arguments.some(a=>a.startsWith('--include=')||a.startsWith('--scale=')));const launched=await ipc(q,'launch_mpv',{previewId:launch.id});children.push({pid:launched.processId,mpv});
   assert.equal((await probeMpv(managedPipe,[['get_property','scale']]))[0],'ewa_lanczossharp');assert.equal((await probeMpv(managedPipe,[['get_property','volume']]))[0],23);
   await probeMpv(managedPipe,[['quit']]);children.pop();
   assert.equal((await ipc(q,'setup_status')).configurationModified,true);
@@ -524,9 +523,12 @@ test("native sidebar, language, theme and fixed paths",{timeout:90000},async()=>
   await assert.rejects(ipc(p,'preview_settings',{settings:await ipc(p,'read_settings')}),e=>e.code==='components_required');
   await p.getByRole('button',{name:'Player settings',exact:true}).focus();await p.keyboard.press('Tab');await p.keyboard.press('Enter');await heading(p,'App settings');
   await p.getByRole('combobox',{name:'Appearance mode',exact:true}).selectOption('dark');await settled(p);
+  assert.equal((await p.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--mantine-color-brand-6'))).trim().toLowerCase(),'#a84bd6');
+  assert.deepEqual(Object.keys(await ipc(p,'read_app_settings')).sort(),['language','schemaVersion','theme']);
   await p.setViewportSize({width:640,height:600});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));await p.screenshot({animations:"disabled",path:path.join(artifacts,'settings-dark.png')});
   await p.getByRole('combobox',{name:'Display language',exact:true}).selectOption('zh-Hans');await heading(p,'应用设置');
   await p.getByRole('combobox',{name:'明暗模式',exact:true}).selectOption('light');await p.screenshot({animations:"disabled",path:path.join(artifacts,'settings-light-zh.png')});
+  assert.equal((await p.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--mantine-color-brand-6'))).trim().toLowerCase(),'#a84bd6');
   await p.getByRole('button',{name:'播放器设置',exact:true}).click();await heading(p,'播放器设置');
   assert.equal(await p.getByText('打开安装目录',{exact:true}).isVisible(),false);
   await p.getByRole('button',{name:'高级选项',exact:true}).click();

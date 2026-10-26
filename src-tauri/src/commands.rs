@@ -413,11 +413,6 @@ pub fn open_app_installer() -> Result<()> {
     platform::open_app_installer()
 }
 
-#[tauri::command]
-pub fn component_catalog() -> serde_json::Value {
-    serde_json::from_str(crate::components::CATALOG).expect("embedded component catalog")
-}
-
 #[derive(Default)]
 pub struct PendingLogCleanup(Mutex<Option<crate::logs::Plan>>);
 #[tauri::command]

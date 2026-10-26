@@ -1,6 +1,6 @@
 # 本地开发与测试入口
 
-当前 v0.1.8，更新：2026-10-26。先读 [AGENTS](../AGENTS.md)、[当前交接](v0.1.8/plan.md) 与 [目录边界](current.md#当前目录)。本页为命令索引，不授予真实配置/默认应用/包管理器写入权限。无 CI、历史版兼容/迁移或安装包，不执行旧 NSIS 测试。
+当前 v0.1.8，更新：2026-10-27。先读 [AGENTS](../AGENTS.md)、[当前交接](v0.1.8/plan.md) 与 [目录边界](current.md#当前目录)。本页为命令索引，不授予真实配置/默认应用/包管理器写入权限。无 CI、历史版兼容/迁移或安装包，不执行旧 NSIS 测试。
 
 ## 工具与最小检查
 
@@ -50,6 +50,8 @@ Linux 图标专项：隔离模式只写私有 applications，不足以证明真�
 在 Windows x64 上构建单 EXE，运行 `pnpm test:e2e`；快速侧栏检查为 `pnpm test:e2e:smoke`。脚本虽名 native-v016.test.mjs，仍是当前持续维护的原生套件，不是废弃文件。
 
 完整套件须显式提供 MPVKIT_TEST_ASSETS、MPVKIT_CORE_SOURCE（已经核验并提取的 WinGet MPV 包目录）与 MPVKIT_FFMPEG（固定摘要的研究用生成器）；可用 MPVKIT_TEST_EXECUTABLE 选择当前 EXE。脚本创建私有临时根，以本地 Rust fixture 模拟 WinGet，绝不执行真实安装器。缺少这些资源应记录未测，不能替换为任意系统工具绕过校验。来源、包版本/实际提交差异及边界见 [WinGet 证据](v0.1.8/evidence.md#winget-核心与控制台2026-10-26当前批)。
+
+2026-10-27 本机回归已完成，见 [Windows 证据](v0.1.8/evidence.md#windows-当前批实机回归2026-10-27)。本机 Cargo 需将 `$env:USERPROFILE + '\.cargo\bin'` 加入 PATH；普通沙箱阻止回环连接/文件替换时，应在获准进程复验，不能把批量 replace_failed 判作产品故障或改写替换保护。列表回绕后的下一步 seek 需同时等 playlist-pos 和 time-pos 就绪；固定品牌色与偏好字段断言已纳入侧栏专项。
 
 scripts/test-process.ps1、test-media-preferences.mjs、make-media-fixtures.mjs 为现有套件辅助；test-window.ps1 为独立原生窗口/DPI/截图探针，使用时先核对精确 PID/映像。截图仅为测试取证，不是已删除的产品截图功能。
 

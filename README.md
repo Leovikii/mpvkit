@@ -42,7 +42,7 @@ Windows 单 EXE：src-tauri/target/debug/mpvkit.exe；Linux 单 ELF：src-tauri/
 
 后续 AI agent 从 [AGENTS.md](AGENTS.md) 开始，阅读[当前行为和目录](docs/current.md)、[v0.1.8 当前交接](docs/v0.1.8/plan.md)和[本地测试入口](docs/testing.md)；其他材料按[文档索引](docs/README.md)查阅。专项规范：[前端与 Mantine](docs/v0.1.0/frontend.md)、[来源政策](docs/v0.1.0/sources.md)、[未完成验收](docs/v0.1.0/acceptance.md)。
 
-最新功能提交为 `7fa64a2`，用户已确认 uosc/窗口和 Linux 图标修复；本机 Linux 默认 Rust 52 项及完整隔离 Wayland 回归通过，标题栏/任务栏/桌面启动已实测，见 [当前交接](docs/v0.1.8/plan.md)和[本版证据](docs/v0.1.8/evidence.md)。最新外观批次的 Windows 原生与真实包管理器写操作仍未测。不扩展 ARM、X11 或其他发行版。实体高刷/HDR/功耗、干净系统和完整来源/许可验收尚未完成，不把本机隔离测试等同正式发布条件。
+最新功能提交为 `7fa64a2`，用户已确认 uosc/窗口和 Linux 图标修复；Linux 默认 Rust 52 项、完整隔离 Wayland 回归及原生图标检查通过。2026-10-27 补齐 Windows 默认 Rust 63 项、私有 hive 专项、完整原生 8/8（另含 52 轨道子用例）与管理器桌面检查，见 [当前交接](docs/v0.1.8/plan.md)和[本版证据](docs/v0.1.8/evidence.md)。真实包管理器写操作、物理鼠标/完整辅助技术及设备矩阵仍待验收。不扩展 ARM、X11 或其他发行版。实体高刷/HDR/功耗、干净系统和完整来源/许可验收尚未完成，不把本机隔离测试等同正式发布条件。
 
 ## 许可证
 

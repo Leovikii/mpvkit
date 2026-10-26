@@ -1,0 +1,117 @@
+{
+  "date": "2026-10-27",
+  "timezone": "Asia/Hong_Kong",
+  "baselineCommit": "a24ff6c",
+  "version": "0.1.8",
+  "releaseReady": false,
+  "environment": {
+    "platform": "Windows x64",
+    "osVersion": "10.0.26200.0",
+    "rust": "1.98.1",
+    "node": "24.22.1",
+    "declaredNode": "24.19.0",
+    "pnpm": "11.25.0",
+    "monitorPixels": [3072, 1920],
+    "managerDpi": 192,
+    "managerDwmBackdrop": 2,
+    "managerDwmResult": 0
+  },
+  "assets": {
+    "mpvVersion": "0.41.0-244-gaf9c81fa1",
+    "mpvBytes": 120308736,
+    "mpvSha256": "1645e57569c0af58a70c61257f3716f2ee6eb31bb170edc51f3f25a0b8d0d99c",
+    "ffmpegSha256": "7491af2d1d44f695d7c169db5f12b51d61667d585619dea75d3a0fc96215a5f1",
+    "coreSource": ".local/winget-research/extracted/{app}",
+    "componentAssets": ".local/source-research"
+  },
+  "build": {
+    "command": "pnpm tauri build --debug --no-bundle",
+    "path": "src-tauri/target/debug/mpvkit.exe",
+    "bytes": 30689280,
+    "bundleActive": false,
+    "fullNativeRunSha256": "08b48e35cc2a5f8c7b9deeaaab4edc8d8ded6753e34ce37cf58ef2c6413c1248",
+    "finalRebuildSha256": "60d6b0a509de5abe0378251b513b7da0b5bdf7ed07a69acab65d4a9bd2ac13c5",
+    "finalRebuildValidation": "native sidebar smoke with fixed brand assertions"
+  },
+  "checks": {
+    "rustDefault": {"passed": 63, "failed": 0, "ignored": 6, "seconds": 8.39},
+    "rustFinalLinuxCoreContract": {"passed": 2, "failed": 0},
+    "privateNativeRegistryHive": {"passed": 1, "failed": 0, "seconds": 0.17},
+    "frontend": {"passed": 3, "failed": 0},
+    "rustFmt": "passed",
+    "rustClippyAllTargetsDenyWarnings": "passed",
+    "typeScriptVite": "passed",
+    "windowsDependencyMaterials": {"packages": 319, "materials": 565, "missing": 0},
+    "nativeFull": {"passed": 8, "failed": 0, "milliseconds": 292549.4144},
+    "realTrackSubcases": {"passed": 52},
+    "brandNativeSmoke": {"passed": 1, "failed": 0},
+    "finalExeNativeSmoke": {"passed": 1, "failed": 0, "milliseconds": 5847.847},
+    "managerDesktop": ["player page", "application page", "English to Simplified Chinese", "dark and light appearance", "brand #A84BD6", "native titlebar icon", "192 DPI", "Mica backdrop query"],
+    "managerPreferenceKeys": ["schemaVersion", "language", "theme"],
+    "testWindowsClosed": true
+  },
+  "artifacts": {
+    "logs": ".local/windows-v018-20261026",
+    "core": ".local/e2e-artifacts/mpvkit-winget-Cn3Twp",
+    "windowSizing": ".local/e2e-artifacts/mpvkit-v018-window-7KviWk",
+    "uosc": ".local/e2e-artifacts/mpvkit-v018-nwxHmJ",
+    "autoplaySubtitles": ".local/e2e-artifacts/mpvkit-v018-autoplay-6gGf6D",
+    "installationProfilesTracks": ".local/e2e-artifacts/mpvkit-v016-1Q0BN0",
+    "sidebar": ".local/e2e-artifacts/mpvkit-v016-ui-Ju5XSq",
+    "draftLayoutProtection": ".local/e2e-artifacts/mpvkit-v016-draft-ZehsIA",
+    "brandSmoke": ".local/e2e-artifacts/mpvkit-v016-ui-r3KcJf",
+    "finalExeSmoke": ".local/e2e-artifacts/mpvkit-v016-ui-ngmgLU"
+  },
+  "fixes": [
+    "Reference check_update in the existing Windows Linux-core compile contract, fixing clippy dead_code without changing product behavior.",
+    "Wait for time-pos readiness after playlist wraps before issuing the next seek; retain playback assertions.",
+    "Assert fixed brand in native dark/light WebView and current application preference keys."
+  ],
+  "postCleanup": {
+    "date": "2026-10-27",
+    "build": {
+      "command": "pnpm tauri build --debug --no-bundle",
+      "path": "src-tauri/target/debug/mpvkit.exe",
+      "bytes": 30683136,
+      "sha256": "baa00658a50ebb43a655ee4224bf076bbf372b1b9eb0737487aeb35cf8bb1fc9",
+      "bundleActive": false
+    },
+    "rustDefault": {"passed": 63, "failed": 0, "ignored": 6, "seconds": 8.01},
+    "frontend": {"passed": 3, "failed": 0},
+    "rustFmt": "passed",
+    "rustClippyAllTargetsDenyWarnings": "passed",
+    "typeScriptVite": "passed",
+    "nativeAffectedCases": {"passed": 2, "failed": 0, "milliseconds": 56006.6419},
+    "realTrackSubcases": {"passed": 52},
+    "fullNativeRerun": false,
+    "artifacts": {
+      "logs": ".local/windows-v018-20261026/cleanup-*.log",
+      "installationProfilesTracks": ".local/e2e-artifacts/mpvkit-v016-5kHmi5",
+      "sidebar": ".local/e2e-artifacts/mpvkit-v016-ui-5kAdY4"
+    },
+    "cleanup": ["Unused component_catalog IPC and handler", "Unreachable native-test managed-start branch and duplicate button pattern", "Two one-time local desktop helper files"]
+  },
+  "firstRuns": {
+    "sandboxRust": {"passed": 33, "failed": 30, "reason": "sandbox blocked file replacement and loopback connection"},
+    "native": {"passed": 7, "failed": 1, "milliseconds": 281049.5167, "reason": "playlist index became ready before media was seekable"}
+  },
+  "isolation": {
+    "freshRootPerNativeCase": true,
+    "verifyRootBeforeUiWrites": true,
+    "winget": "local Rust process fixture",
+    "integration": "private file backend plus opt-in private Offreg hive",
+    "systemPackageWrites": false,
+    "actualConfigOrDefaultAppChanges": false,
+    "actualUserStateSnapshot": "not collected this run",
+    "committedOrPushedDuringTestRun": false
+  },
+  "notVerified": [
+    "Real WinGet source/update and installer/UAC/dependency/cancellation/uninstall behavior in a disposable VM",
+    "Physical mouse double-click and MPV console input; Windows automation misclassified the isolated MPV window as registered mpv-lazy and refused binding after refresh",
+    "Screen readers and full assistive technology",
+    "Mixed DPI, multiple monitors and window management races",
+    "High contrast and OS reduced-motion mapping",
+    "Physical HDR, high refresh rate, power consumption and long real media",
+    "Clean system and complete source/license release review"
+  ]
+}

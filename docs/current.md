@@ -1,6 +1,6 @@
 # 当前开发基线：v0.1.8
 
-更新：2026-10-26。最新功能提交 **7fa64a2**，用户已确认 Linux 图标修复；此前 **86dfa97** 的 uosc/组件按钮改动也已通过用户实测。本机为 CachyOS x86_64 / KDE Wayland，Windows 历史验证保留。当前完成状态/未测项见 [交接](v0.1.8/plan.md)，执行命令见 [测试入口](testing.md)，逐批证据在 [evidence](v0.1.8/evidence.md)。
+更新：2026-10-27。最新功能提交 **7fa64a2**，用户已确认 Linux 图标修复；此前 **86dfa97** 的 uosc/组件按钮改动也已通过用户实测。Linux CachyOS x86_64 / KDE Wayland 与 Windows x64 当前批隔离原生回归均已完成，真实包管理器写操作仍待可回收环境。当前完成状态/未测项见 [交接](v0.1.8/plan.md)，执行命令见 [测试入口](testing.md)，逐批证据在 [evidence](v0.1.8/evidence.md)。
 
 尚未正式发布；无 CI/CD、开发版兼容/迁移或安装包。仅构建 Windows 单 EXE / Linux 单 ELF。用户一次性授权清理过本机不兼容配置，已完成；不得把它当作后续自动清理真实数据的授权。
 
@@ -65,4 +65,4 @@ Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写�
 | 系统打开方式 | platform/integration.rs 与 registry/desktop_entry 后端；管理器入口在 manager_entry.rs |
 | 启动/诊断 | launch.rs、mpv.rs、diagnostics.rs |
 
-业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件与登记分别有事务，不宣称跨资源原子性；全局偏好使用全局根的锁。最新验证为 Linux 默认 Rust 52 通过/3 忽略、完整 Wayland 回归及用户实测；Windows 最新批、真实包管理器、完整 GUI/辅助技术/设备矩阵仍见 [下一任务](v0.1.8/plan.md#下一任务与未测边界)。来源政策、第三方许可证与原始证据继续保留。
+业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件与登记分别有事务，不宣称跨资源原子性；全局偏好使用全局根的锁。最新验证为 Linux 默认 Rust 52 通过/3 忽略、完整 Wayland 回归及用户实测；Windows 默认 Rust 63 通过/6 忽略、私有 hive 专项、完整原生 8/8（另含 52 轨道子用例）及管理器桌面检查。真实包管理器、物理鼠标/完整辅助技术和设备矩阵仍见 [下一任务](v0.1.8/plan.md#下一任务与未测边界)。来源政策、第三方许可证与原始证据继续保留。

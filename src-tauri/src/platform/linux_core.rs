@@ -171,6 +171,7 @@ mod tests {
         assert!(package_args("install").contains(&"--needed"));
         assert!(package_args("upgrade").contains(&"--needed"));
         // Compiling on Windows checks shared types and both implementations without executing pacman.
+        let _check_update: fn() -> Result<bool> = check_update;
         let _prepare: fn(&str) -> Result<CorePlan> = prepare;
         let _execute: fn(CorePlan) -> Result<Option<mpv::MpvInfo>> = execute;
     }

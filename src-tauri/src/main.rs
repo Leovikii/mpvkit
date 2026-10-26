@@ -104,7 +104,6 @@ fn main() {
             commands::preview_settings,
             commands::preview_configuration,
             commands::component_sources,
-            commands::component_catalog,
             commands::cancel_component_download,
             commands::preview_install,
             commands::deployment_status,
