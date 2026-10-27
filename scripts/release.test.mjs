@@ -3,10 +3,30 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { base, archVersion, compare, promote, recipe, stageArch, manifest, versionCheck } from './release.mjs';
 import { prepareRelease } from './prepare-release.mjs';
 
 const source = { automatic: true, repository: 'Leovikii/mpvkit', sha: 'a'.repeat(40), token: 'test-token' };
+test('draft upload commands include extensionless checksums and all release assets', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mpvkit-upload-'));
+  try {
+    const files = ['SHA256SUMS', 'updater.json', 'MpvKit-setup.exe', 'MpvKit-setup.exe.sig', 'mpvkit.pkg.tar.zst', 'aur-recipe.tar.gz'];
+    fs.mkdirSync(path.join(root, '.local/release'), { recursive: true });
+    for (const file of files) fs.writeFileSync(path.join(root, '.local/release', file), 'fixture');
+    const commands = fs.readFileSync('.github/workflows/release.yml', 'utf8').split('\n')
+      .map(line => line.trim()).filter(line => line.startsWith('gh release create '));
+    assert(commands.length > 0);
+    const bash = process.platform === 'win32' ? path.join(process.env.ProgramFiles, 'Git', 'bin', 'bash.exe') : 'bash';
+    for (const command of commands) {
+      const args = execFileSync(bash, ['-c', `gh() { printf '%s\\n' "$@"; }\n${command}`], {
+        cwd: root, encoding: 'utf8', env: { ...process.env, RELEASE_TAG: 'v0.2.0-alpha.1', version: '0.2.0-alpha.1' },
+      }).trim().split('\n');
+      for (const file of files) assert(args.includes(`.local/release/${file}`), `Missing upload: ${file}`);
+    }
+  } finally { fs.rmSync(root, { recursive: true }); }
+});
+
 test('main creates the missing version tag at its event commit and skips an existing version', async t => {
   const calls = [];
   t.mock.method(globalThis, 'fetch', async (url, options) => {

@@ -76,7 +76,7 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 
 本批收尾将日常 CI 改为仅 main PR/merge_group，取消 push 重复构建和整个工作流的路径过滤。固定 `CI` 汇总检查始终返回，文档变更只走轻量检测与汇总；前端一次构建、两端并行，失败/取消/意外跳过均阻止通过。ruleset 配置见[流程说明](../ci/README.md)；本机只读 main 规则 API 返回空列表，未改远端合并政策。
 
-下一任务：[PR #1](https://github.com/Leovikii/mpvkit/pull/1) 已合并，修复后的双平台 [CI](https://github.com/Leovikii/mpvkit/actions/runs/40497998384) 全部通过。用户追加 main 自动版本检测 / 建 tag / CD 与用户 README 分离要求，实施见下节。维护者需配置发布受保护环境和正式签名、设置 main 必需检查 `CI`，再验收首次自动草稿；真实下一 alpha 升级、polkit 授权与设备专项、公开分发许可门槛仍独立跟踪。公开发布未获授权。
+下一任务：[PR #1](https://github.com/Leovikii/mpvkit/pull/1) 与 [PR #2](https://github.com/Leovikii/mpvkit/pull/2) 已合并，main 自动版本检测 / 建 tag / 双端草稿已走通，正式更新密钥签名与独立验签通过；本轮修复草稿校验清单上传遗漏。维护者仍需配置发布环境保护、设置 main 必需检查 `CI`，完成许可审阅及实际安装升级验收；真实下一 alpha 升级、polkit 授权与设备专项独立跟踪。公开发布未获授权。
 
 ## Linux 必要测试精简与验收（2026-10-27，已完成）
 
@@ -105,7 +105,15 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 - `build-draft` 手动入口保留，用于已有 tag 的失败重试；`promote` 仍需显式手动触发及原有许可 / 签名校验。预览草稿明确 prerelease、latest=false。没有依赖 GITHUB_TOKEN 建 tag 再触发工作流，也没有引入 PAT。
 - 当前 notes 改为版本标题与四条英文变更，仍由同一文件供 Release 和 updater.json 使用；后续版本沿用此格式。README 按用户补充要求使用英文，精简为用户功能、两端安装和许可证，另增[预设配置设计](../presets.md)，agent 与开发入口留在 AGENTS / docs 索引。
 - 针对性 Node 测试 **10/10**（含 CI 分类、分发及 API 反例子用例）；actionlint 1.7.12、JS 语法、英文日志 / 本地链接 / diff 检查通过。未改 Rust 或前端行为，不重复设备、图形和安装包套件。证据见[本轮记录](evidence.md#main-自动-cd-与用户文档2026-10-27)。
-- 只读远端环境查询仍为空；需由维护者设置受保护 `release-build` / `release-publish` 和正式签名材料。自动流程在合并后生效，本地测试不创建真实远端 tag 或 Release，不能写成自动 CD 已实际打包通过。
+- 合并后的首次自动 CD 已创建 `v0.2.0-alpha.1` tag，Arch 构建通过，Windows 因缺少公钥停在签名打包前。`release-build` / `release-publish` 现已创建并配置同一正式公钥；无需改源码空公钥，打包脚本会注入。私钥须放入 build 环境的 Secret，而非 Variable；无密码时不添加密码 Secret。签名重试结果见后续证据，环境保护、公开推广与许可 gate 仍独立验收。
+
+## 正式签名重试与草稿验收（2026-10-27）
+
+- 用户将私钥配置到 build 环境 Secret，误存的同名 Variable 已删除；仅核对名称，不读取私钥内容。公钥在两环境中与用户提供文件一致，开发配置和测试夹具无需替换公钥。
+- 对 [Release #40502127238](https://github.com/Leovikii/mpvkit/actions/runs/40502127238) 执行仅失败任务重试，第二次执行成功；Windows NSIS / updater 签名及 draft 通过，复用第一次成功的 Arch 结果，不重建 tag、不公开推广。
+- 实际成品验收发现上传 glob `*.*` 漏掉 `SHA256SUMS`。新增真实 Bash 展开回归先复现缺失，再显式补上传文件参数；本地分发 / CI 分类 **11/11**、actionlint 与 diff / 文档链接检查通过。
+- 当前草稿原有 9 个资产先与 GitHub 上传摘要逐一对照，再按原算法重建并补传遗漏清单，未替换原有资产。全部 9 项 SHA-256、updater 元数据及独立 Minisign 安装器 / 注释签名通过；草稿保持 prerelease、未公开。证据见[本轮记录](evidence.md#正式签名重试与草稿验收2026-10-27)。
+- README 的 Arch 安装按用户要求优先给出 `yay -S mpvkit-bin` / `paru -S mpvkit-bin`；只读 AUR RPC 确认尚未公开，保留简短可用性说明。本次文档不升版、不改 tag；用户授权推送 dev、CI 通过后合并 main，再将 dev 快进同步 main，采用极简英文 commit。main 的版本检查应因已有 tag 跳过 CD 构建，结果以实际运行核对。
 
 ## 核验来源
 

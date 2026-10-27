@@ -165,9 +165,9 @@ jobs:
           node scripts/release.mjs manifest .local/release
           version="${RELEASE_TAG#v}"
           if [[ "$RELEASE_TAG" == *-* ]]; then
-            gh release create "$RELEASE_TAG" .local/release/*.* --draft --prerelease --latest=false --title "MpvKit $version" --notes-file "docs/v$version/notes.md"
+            gh release create "$RELEASE_TAG" .local/release/*.* .local/release/SHA256SUMS --draft --prerelease --latest=false --title "MpvKit $version" --notes-file "docs/v$version/notes.md"
           else
-            gh release create "$RELEASE_TAG" .local/release/*.* --draft --latest=false --title "MpvKit $version" --notes-file "docs/v$version/notes.md"
+            gh release create "$RELEASE_TAG" .local/release/*.* .local/release/SHA256SUMS --draft --latest=false --title "MpvKit $version" --notes-file "docs/v$version/notes.md"
           fi
   promote:
     needs: prepare
