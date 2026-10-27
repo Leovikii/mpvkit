@@ -1,6 +1,6 @@
 # CI/CD 与分发流程
 
-当前版本 **0.2.0-alpha.1，第一个 alpha 预览版**；0.2.0 是后续首个正式版目标。用户于 2026-10-27 明确解除旧 CI/CD 与安装包禁令，随后授权清理、提交并推送当前整批更新；不包含公开发布 Release 或 AUR。
+当前版本 **0.2.0-alpha.1，第一个 alpha 预览版**；0.2.0 是后续首个正式版目标。用户于 2026-10-27 明确解除旧 CI/CD 与安装包禁令，随后授权清理、提交并推送当前整批更新；本轮进一步明确要求公开发布当前 alpha，并将后续新版本自动公开发布。AUR 因新账号注册暂时关闭，暂不接入，Arch 用户下载原生包用 pacman 手动安装。
 
 前一轮惰性模板已转为 `.github/workflows/ci.yml` 和 `release.yml`，重复模板已删除，实际配置通过 actionlint 1.7.12（本机未安装 shellcheck）。2026-10-27 首次 PR 运行发现 Arch 测试环境遗漏系统 MPV，已同步修复两条工作流；运行结果见 [PR #1 检查](https://github.com/Leovikii/mpvkit/pull/1/checks)，冷/热缓存耗时和实际发布仍须另验。
 
@@ -35,12 +35,12 @@ GitHub Settings → Rules → Rulesets 中，针对 main 设置 Require a pull r
 `release.yml` 监听 `push` 到 main，覆盖普通合并、squash 和 rebase，也覆盖直接推送 main。每次使用事件中的精确提交 SHA 检出源码，核对 package.json、Tauri 与 Cargo 版本及本版日志 `docs/v<版本>/notes.md`。日志统一为极简英文 Markdown：一个版本标题、数条用户可见变更，不写开发交接或验收台账。
 
 1. 查询 `v<版本>` tag；存在则正常结束，不重建、不移动既有 tag。文档合并或未升版代码合并仍执行轻量版本检查。
-2. 不存在则用当前 main 事件 SHA 创建 tag，直接将输出传给本次工作流的 Windows / Arch 构建与草稿任务。只把真实 404 视为缺 tag；权限、网络或服务错误均失败，不伪装成缺失。并发同版本只有建 tag 成功的一次继续构建。
-3. 完成签名和双平台资产收集后创建 Release 草稿；alpha/beta/rc 标记 prerelease，草稿不更新 latest 或 channels.json。不同 main 提交互不取消，推广任务另行串行执行以保护更新索引。
+2. 不存在则用当前 main 事件 SHA 创建 tag，直接将输出传给本次工作流的 Windows / Arch 构建与发布任务。只把真实 404 视为缺 tag；权限、网络或服务错误均失败，不伪装成缺失。并发同版本只有建 tag 成功的一次继续构建。
+3. 完成签名和双平台资产收集后，自动进入 `release-publish` 环境：许可 gate、SHA-256、Minisign 和 updater 元数据核验通过后直接公开发布，随即更新 channels.json。alpha/beta/rc 为公开 Pre-release、latest=false；稳定版设为 latest。没有“成功生成草稿后等待手动推广”的路径；条件不满足时明确失败。不同 main 提交互不取消，发布任务串行执行以保护更新索引。
 
 自动建 tag 使用最小任务权限的 `GITHUB_TOKEN`。GitHub 不会因这个 token 创建 tag 而再触发普通 tag push 工作流，所以流程直接用 `needs.prepare.outputs.tag` 继续执行，不依赖第二次事件，也不需要 PAT。
 
-已有 tag 的构建若失败，可在 Actions → Release → Run workflow，选择 main 工作流、原有 tag 和 `build-draft` 重试；也可重跑失败的构建任务。重新运行整个自动工作流会因 tag 已存在而跳过。不要删除或移动 tag 来重试。`promote` 仍只允许手动触发。
+已有 tag 的构建若失败，可在 Actions → Release → Run workflow，选择 main 工作流、原有 tag 和 `release`，重新构建并公开发布；也可重跑失败任务。已有完整草稿或发布成功但更新索引失败时，选择 `publish` 复用资产，不重复编译。重新运行整个自动工作流会因 tag 已存在而跳过。不要删除或移动 tag 来重试。prepare / publish 的执行脚本取工作流提交，源码和许可 gate 取版本 tag，允许修复发布流程而不改动既有版本资产。
 
 ## 启用前提
 
@@ -50,11 +50,13 @@ GitHub Settings → Rules → Rulesets 中，针对 main 设置 Require a pull r
 
 本轮已由用户纠正私钥误存 Variable 的问题，核对 Secret 名称后重跑失败任务，[第二次执行](https://github.com/Leovikii/mpvkit/actions/runs/40502127238/attempts/2) 的 Windows 签名构建及草稿任务成功，复用此前成功的 Arch 产物。独立 Minisign 验证安装器签名与版本注释通过。草稿上传曾因 `*.*` 漏掉无扩展名 `SHA256SUMS`，现有草稿已补齐，工作流两条创建分支均显式上传该文件；全部 9 项摘要及 updater 元数据核验通过。草稿仍未公开，不能将签名构建成功视为安装升级或公开推广验收。
 
-两个环境仍需按实际 GitHub 设置配置保护规则，允许 main 上的自动 / 手动流程使用可信版本 tag；`release-publish` 独立保护并要求人工批准，不向不可信 PR 提供密钥。部署分支规则按工作流事件的 main 设置，不能因实际检出 tag 而只允许 tag 事件。仓库不保存正式私钥；重试前只核对 Secret 名称，实际签名及公私钥匹配以构建和验签结果为准。
+两个环境仍需按实际 GitHub 设置配置保护规则，允许 main 上的自动 / 手动流程使用可信版本 tag；`release-publish` 独立保护；是否设置人工审批由维护者决定，要求全自动发布时不添加人工审批步骤，不向不可信 PR 提供密钥。部署分支规则按工作流事件的 main 设置，不能因实际检出 tag 而只允许 tag 事件。仓库不保存正式私钥；重试前只核对 Secret 名称，实际签名及公私钥匹配以构建和验签结果为准。
 
-构建只产生草稿。维护者验收双平台安装/升级与许可材料后，再运行 promote；不重复编译。`verify-release.mjs gate` 当前按真实 releaseReady=false 拒绝推广，完整审阅后再更新来源材料及生成规则。首次由维护者明确创建 `updates` 元数据 Release，channels.json 为 `{"schemaVersion":1,"stable":null,"preview":null}`；不在失败时自行重置索引。
+构建只保存 Actions 产物，公开发布由同一工作流自动继续完成。`verify-release.mjs gate` 当前按真实 releaseReady=false 拒绝公开发布，不能把尚未审阅的材料改成已通过。2026-10-27 按用户指令公开现有 alpha 的操作被自动审批因这项前提未完成而拒绝，实际版本仍为草稿，需解决该明确阻断。
 
-AUR 配方由 Arch 构建产物中的 aur-recipe.tar.gz 提供，维护者审阅并发布后才在推广时选择 mpvkit-bin；未发布时选 none。流程不自动推送 AUR，避免为首版引入额外凭据和发布系统。
+首次成功发布会自动创建公开的 `updates` 元数据 Release，以空 stable/preview 索引为基础写入本次版本；已有索引则保留另一渠道并防止倒退。只有认证 API 确认 metadata Release 不存在才初始化；Release 已存在但索引缺失、损坏或读取失败时停止，不重置。发布后再次核对公开 Release 状态及公开 channels.json。现有版本资产按服务端 SHA-256 与本地字节逐项比较，拒绝覆盖或混入新资产。
+
+AUR 配方由 Arch 构建产物中的 aur-recipe.tar.gz 提供，维护者审阅并发布后才手动发布时选择 mpvkit-bin；未发布时选 none；main 自动发布默认 none。用户已考虑自动同步，但 AUR 注册暂时关闭，本轮按用户要求暂不接入或改动下载资产。
 
 Linux 应用只提醒并展示日志，提示用户用已选择的 yay/paru 等 AUR 助手手动更新 MpvKit，再重新启动。`在 AUR 查看` 仅打开已发布包页面。预览开关只影响应用内通知，不限制包管理器选择版本；普通 pacman -Syu 不会更新 AUR 包。
 

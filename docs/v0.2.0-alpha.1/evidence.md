@@ -233,3 +233,23 @@ PR #2 合并后 main 提交 2f3be38 触发 [Release #40502127238](https://github
 | MpvKit_0.2.0-alpha.1_x64-setup.exe | 4092195 | 713042bfff5a3953fa03ce112ca324eb4f49ef96f02d9c581721887b336eab51 |
 
 证据与下载资产保留在 `.local/release-retry-20261027/`：`draft.json`、`release-rest.json`、`checksum-upload.json`、`verification-result.json`、`verify-signature.log`、工具包验签日志、针对性测试与 actionlint 日志。当前 [Release 草稿](https://github.com/Leovikii/mpvkit/releases/tag/untagged-2ed9aec3aec4e12a0ab2) 保持 draft / prerelease；没有运行 promote、公开 Release/AUR 或修改真实配置。发布环境保护规则、许可 gate 与实际安装升级验收仍未关闭。
+
+## 本机旧测试配置清理（2026-10-27）
+
+用户明确授权本机清理。检查范围为已知 MPV / MpvKit 配置目录及固定用户菜单入口，未扫描媒体目录。系统已安装 `mpvkit-bin 0.2.0alpha1-1`；`$HOME/.config/mpv/.mpvkit/settings.json` 保留当前 `config::portable::State` 不接受的 `integrationEnabled` 字段，并有旧 launcher。`$HOME/.local/share/applications/io.github.mpvkit.desktop` 为指向旧应用资产的链接，其 Exec 指向仓库 debug 程序。
+
+本机忽略目录 `.local/cleanup-20261027/` 保留一次性 `cleanup.py`、具体 `plan.json` 和 `result.json`，不含配置内容备份。执行前确认无 MPV / MpvKit 进程，核对旧 owner/install 记录、路径无符号链接跳转、73 个 MPV 文件和 2 个桌面资产摘要全部匹配；持有两个既有 `operation.lock`，重新校验完整预览及保护文件，再逐项删除。
+
+- 删除 **79 个文件/链接，303713038 字节**，仅移除 **13 个空目录**；包括旧增强/预设、launcher、设置及安装清单、旧应用偏好和旧用户菜单链接。没有删除整个 MPV 根或跟随菜单符号链接递归删除。
+- **27 个保护文件**执行前后摘要与身份一致，含 **11 条 watch_later**、系统 MPV、系统 MpvKit 包文件、默认应用设置及两个根的 owner/lock。清理后 MPV 根仅保留 `.mpvkit` 归属/锁和续播目录，旧应用根仅保留归属/锁；当前 `io.github.mpvkit` 数据根没有偏好文件，WebKit 缓存不涉及旧配置而保留。
+- 新版系统 desktop 入口保留，`kbuildsycoca6 --noincremental` 退出码 0。没有改动系统包数据库、默认应用、源码、密钥或 Release；未启动真实 GUI / 重新部署增强，需用户重新打开新版并安装增强、保存设置。
+
+## 自动公开发布修正（2026-10-27）
+
+更新失败诊断：请求应用固定地址 `https://github.com/Leovikii/mpvkit/releases/download/updates/channels.json` 返回 **HTTP 404**；认证 GitHub API 只列出 `v0.2.0-alpha.1` 草稿（ID 425452414），没有 updates Release。不是旧配置清理造成，也不能把服务器缺少索引伪装成已是最新。
+
+用户要求公开版本并修正 workflow。旧 `draft` 任务删除，替换为纯 Actions 资产收集及自动 publish；公开创建命令不传 `--draft`，已有草稿重试明确转为公开。新增 `scripts/publish-release.mjs` 在发布前检查远端既有资产和渠道，公开版本后创建/更新索引并读回核验。`release-publish` 原有许可 / 签名门槛保留，构建和发布只使用各自需要的权限。
+
+正常 Node 进程中执行 `node --test scripts/release.test.mjs scripts/ci-changes.test.mjs`，**20 passed / 0 failed**，覆盖公开上传含无扩展名校验单、首发初始化、既有草稿公开、幂等元数据重试、保留另一渠道、资产篡改、索引缺失/HTTP 404/错误 schema/倒退、API 403、tag 并发与 main 已有 tag 跳过。全部网络及 gh 发布命令在测试中 mock，没有真实发布。actionlint 1.7.12（无 shellcheck）、JS 语法与 Git diff 检查通过。
+
+现有 9 项 `SHA256SUMS`、updater 元数据和 Minisign 的签名 / 版本注释重新验证通过。随后 PATCH 草稿为公开预发布的操作被自动审批拒绝：可信项目指令要求许可审阅及验收先于公开，而当前许可 gate 的未完成记录未关闭；公开指令未明确豁免该前提。没有换工具、改工作流或翻转布尔值绕过这次拒绝。公开操作尚未执行，当前改动仅在本地。
