@@ -194,3 +194,22 @@ Arch pacman 安装列表没有 `mpv`。失败包括配置保护、设置事务�
 首次反例脚本的挂载目标在只读 `/run` 下无法创建，Bubblewrap 启动即拒绝；改为事先建立的隔离目录挂载后才得到上述有效反例。没有删除、改名或覆盖主机 `/usr/bin/mpv`，没有改真实配置/包数据库。未新增测试跳过项，也未重跑与工作流环境修复无关的完整 GUI、播放矩阵和安装包验收。
 
 用户随后明确授权修复完成推送 dev 并 PR 到 main；已存在 [PR #1](https://github.com/Leovikii/mpvkit/pull/1)，沿用该 PR 更新并由 push 触发同步检查，不重复建 PR、不合并 main。此节记录本地定位和验证，远端各次执行以 [PR Checks](https://github.com/Leovikii/mpvkit/pull/1/checks) 的提交及结论为准；未手动触发 Release，不将本次修复写成公开发布或正式版验收。
+
+## main 自动 CD 与用户文档（2026-10-27）
+
+前轮修复提交 9ff35f4 的远端 [Checks #40497998384](https://github.com/Leovikii/mpvkit/actions/runs/40497998384) 全部 success：Arch Rust **47 passed / 4 ignored**（5.40 秒）、Windows **44 passed / 4 ignored**（10.98 秒），前端 / changes / 固定 CI 汇总成功；完整日志中无 warning，Node 20 弃用提示消失。原始成功日志留在 `.local/ci-fix-20261027/remote-success.zip`。PR #1 随后由用户合并，当前基线 84fd7b7；之前的 main 合并没有 CD 是因为 Release 仅支持 workflow_dispatch。
+
+用户追加要求 main 每次推送 / PR 合并后检测版本与 tag，缺 tag 自动创建并进入 CD，日志采用极简英文 Markdown；主 README 面向用户，与 AI 开发文档分开，提供预设设计链接。
+
+本轮新增 `scripts/prepare-release.mjs`，复用原有 versionCheck，核对 package.json / Tauri / Cargo 与 notes；GitHub API 固定官方端点、15 秒超时，只有 404 可进入建 tag，提交 SHA 来自事件且校验格式。创建权限只授予 prepare，构建仍只读；Release 草稿与推广各保留必要写权限。脚本不接受外部 API URL，也不打印 token；checkout 继续不持久化凭据。新 tag 直接作为 needs 输出传给后续任务，避开 GITHUB_TOKEN 创建事件不递归触发工作流的限制。
+
+首次建 tag 后构建失败，不自动移动 / 删除 tag；手动选择同 tag 的 build-draft 或重跑失败任务。并发 API 创建冲突需重新确认 tag 存在才跳过。自动版本流程使用每个 main 事件独立的 concurrency group，避免不同待执行版本被新提交取消；公开推广另设全局串行 group，防止 channels.json 并发覆盖。
+
+日志 `docs/v0.2.0-alpha.1/notes.md` 改为 `# 0.2.0-alpha.1` 与四条英文要点，Release / updater 仍共用一个来源。README 按用户补充要求改用英文，删除开发栈、测试命令、历史授权和 agent 接手说明，保留用户功能、Windows / Arch 安装及许可；`docs/presets.md` 解释三档预设、默认行为、配置预览 / 手改 / 重置边界。开发入口继续由 AGENTS 和 docs/README 提供，不删除历史证据。
+
+本地验证：
+
+- 固定 Node 24.19.0，`node --test scripts/release.test.mjs scripts/ci-changes.test.mjs` **10/10**，约 68 毫秒；包含新建 tag 绑定准确 SHA、已有版本跳过、403 查询失败、500 创建失败、422 冲突后仍不存在拒绝、422 后确认存在去重、手动重试 / 推广 / 错 tag / 缺 tag，以及原有资源布局 / 完整性 / 渠道防倒退与 CI 分类。HTTP 响应使用 Node 原生 mock，不调用真实写 API；日志 `.local/auto-release-20261027/release-tests.log`。
+- actionlint **1.7.12** 验证两条实际工作流；JS 语法、notes 标题 / 英文文本、本地链接及 `git diff --check` 通过。无新依赖或应用行为改动，不重复 Rust / 原生 GUI / 设备 / 安装包全套测试。
+
+只读 GitHub 环境 API 返回 `[]`，尚无 release-build / release-publish 配置。需维护者放入正式签名公钥变量、私钥 Secret 与所需密码并设置环境保护；部署策略需允许 main 事件，不能因为任务检出版本 tag 就只允许 tag 事件。许可 gate 仍为真实 releaseReady=false，公开推广未验收。本轮本地验证不创建真实 tag / 草稿，不修改密钥或远端环境，不将 PR 检查当作 main push 自动 CD 的端到端验证。

@@ -4,6 +4,58 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { base, archVersion, compare, promote, recipe, stageArch, manifest, versionCheck } from './release.mjs';
+import { prepareRelease } from './prepare-release.mjs';
+
+const source = { automatic: true, repository: 'Leovikii/mpvkit', sha: 'a'.repeat(40), token: 'test-token' };
+test('main creates the missing version tag at its event commit and skips an existing version', async t => {
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push({ url, ...options });
+    return new Response(null, { status: calls.length === 1 ? 404 : 201 });
+  });
+  const tag = `v${versionCheck()}`;
+  assert.deepEqual(await prepareRelease(source), { tag, build: true });
+  assert.equal(calls[0].url, `https://api.github.com/repos/Leovikii/mpvkit/git/ref/tags/${tag}`);
+  assert.equal(calls[1].method, 'POST');
+  assert.deepEqual(JSON.parse(calls[1].body), { ref: `refs/tags/${tag}`, sha: source.sha });
+  t.mock.restoreAll();
+  t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 200 }));
+  assert.deepEqual(await prepareRelease(source), { tag, build: false });
+});
+
+test('tag API failures fail closed and a concurrent creator does not build twice', async t => {
+  for (const [statuses, build, error] of [
+    [[403], undefined, /Cannot inspect/],
+    [[404, 500], undefined, /Cannot create/],
+    [[404, 422, 404], undefined, /Cannot create/],
+    [[404, 422, 200], false, undefined],
+  ]) {
+    await t.test(statuses.join('/'), async t => {
+      let count = 0;
+      t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: statuses[count++] }));
+      if (error) await assert.rejects(prepareRelease(source), error);
+      else assert.equal((await prepareRelease(source)).build, build);
+      assert.equal(count, statuses.length);
+    });
+  }
+});
+
+test('manual retries use existing matching tags without creating or moving them', async t => {
+  const options = { ...source, automatic: false, tag: `v${versionCheck()}` };
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url, options) => {
+    calls.push({ url, ...options });
+    return new Response(null, { status: 200 });
+  });
+  assert.equal((await prepareRelease({ ...options, operation: 'build-draft' })).build, true);
+  assert.equal((await prepareRelease({ ...options, operation: 'promote' })).build, false);
+  await assert.rejects(prepareRelease({ ...options, tag: 'v9.9.9', operation: 'build-draft' }), /Tag and source version differ/);
+  assert.equal(calls.length, 2);
+  assert(calls.every(call => !call.method));
+  t.mock.restoreAll();
+  t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 404 }));
+  await assert.rejects(prepareRelease({ ...options, operation: 'build-draft' }), /does not exist/);
+});
 
 test('channel promotion validates versions, fixed origin and prevents downgrade', () => {
   const release = version => ({ version, manifest: `${base}v${version}/updater.json`, archPackage: null });
