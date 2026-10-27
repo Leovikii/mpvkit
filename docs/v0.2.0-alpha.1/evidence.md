@@ -213,3 +213,23 @@ Arch pacman 安装列表没有 `mpv`。失败包括配置保护、设置事务�
 - actionlint **1.7.12** 验证两条实际工作流；JS 语法、notes 标题 / 英文文本、本地链接及 `git diff --check` 通过。无新依赖或应用行为改动，不重复 Rust / 原生 GUI / 设备 / 安装包全套测试。
 
 只读 GitHub 环境 API 返回 `[]`，尚无 release-build / release-publish 配置。需维护者放入正式签名公钥变量、私钥 Secret 与所需密码并设置环境保护；部署策略需允许 main 事件，不能因为任务检出版本 tag 就只允许 tag 事件。许可 gate 仍为真实 releaseReady=false，公开推广未验收。本轮本地验证不创建真实 tag / 草稿，不修改密钥或远端环境，不将 PR 检查当作 main push 自动 CD 的端到端验证。
+
+## 正式签名重试与草稿验收（2026-10-27）
+
+PR #2 合并后 main 提交 2f3be38 触发 [Release #40502127238](https://github.com/Leovikii/mpvkit/actions/runs/40502127238)，prepare 创建 `v0.2.0-alpha.1`，Arch 构建 / 归档 / 软件包成功，Windows Rust 44/4 ignored 通过，但因缺公钥停在签名构建前。用户提供新正式公钥后，核验 Tauri Base64 / Minisign 结构，写入两个发布环境的 `MPVKIT_UPDATER_PUBLIC_KEY`；正式公钥原始 42 字节的 SHA-256 为 `db97b55d9ee531dd561fbcfe1eb7c3c49b0b50089349c4779912a0659964b4c8`，未把正式私钥或本机路径写入源码。
+
+用户要求检查文件并重试时，名称核对发现私钥误存为 build 环境 Variable，Secret 列表为空。请求用户重新保存后，核对 `TAURI_SIGNING_PRIVATE_KEY` Secret 名称存在且同名 Variable 消失；没有读取私钥内容。无密码，未添加密码 Secret。源码开发配置的空公钥与独立测试公钥夹具均保留：正式公钥由打包脚本注入，不需要修改业务代码。
+
+仅调用 `gh run rerun --failed`，第二次执行成功：Windows NSIS / updater 签名、draft success；第一次成功的 prepare / Arch 结果复用，promote skipped。没有移动 / 删除 tag，没有重复跑 Linux 构建或执行安装器。签名对应版本注释为 `version:0.2.0-alpha.1`。
+
+成品验收另发现工作流 `gh release create ... *.*` 没有上传无扩展名 `SHA256SUMS`，否则未来推广会因缺文件失败。新增测试直接在临时目录创建真实文件并用 Bash 展开实际工作流的两条上传命令，先得到 `Missing upload: SHA256SUMS`，再对稳定 / 预览两分支显式加入清单文件参数；完整本地分发与 CI 分类 **11/11**（约 65 毫秒）通过，actionlint 1.7.12 通过。只修上传列表，不改产物生成 / 签名 / 许可门槛。
+
+本次草稿已经用旧 tag 中的工作流创建，不能移动 tag 后重建。将其 9 个原有资产逐一核对 GitHub REST 提供的 SHA-256 上传摘要，再按既有 release.mjs 的排序 / 哈希算法从这些未变字节重建 `SHA256SUMS`，通过精确草稿 Release ID 仅补传这一文件，并核对上传回执摘要。按 tag 的 REST 查询及本机 CLI upload 不返回草稿，改用认证可见的草稿列表和上传 ID；没有公开发布来绕过此限制，也没有替换任何已有资产。
+
+独立验证工具 Minisign 0.12 来自 Arch 官方包 `minisign-0.12-2-x86_64.pkg.tar.zst`，包 SHA-256 `16a98b33121b1bf1b4211d868cbba45020bc98306612134d3d2e19e2b9a2f0f5`，先用既有 Arch 公钥环验签，再只提取到忽略目录，未安装系统包。Minisign 输出 `Signature and comment signature verified`；9 项清单均匹配，`node scripts/verify-release.mjs <assets>` 元数据 / 签名正文 / 资源完整性通过。
+
+| 本次正式签名产物 | 字节数 | SHA-256 |
+| --- | --- | --- |
+| MpvKit_0.2.0-alpha.1_x64-setup.exe | 4092195 | 713042bfff5a3953fa03ce112ca324eb4f49ef96f02d9c581721887b336eab51 |
+
+证据与下载资产保留在 `.local/release-retry-20261027/`：`draft.json`、`release-rest.json`、`checksum-upload.json`、`verification-result.json`、`verify-signature.log`、工具包验签日志、针对性测试与 actionlint 日志。当前 [Release 草稿](https://github.com/Leovikii/mpvkit/releases/tag/untagged-2ed9aec3aec4e12a0ab2) 保持 draft / prerelease；没有运行 promote、公开 Release/AUR 或修改真实配置。发布环境保护规则、许可 gate 与实际安装升级验收仍未关闭。

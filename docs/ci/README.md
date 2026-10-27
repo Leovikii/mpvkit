@@ -44,7 +44,13 @@ GitHub Settings → Rules → Rulesets 中，针对 main 设置 Require a pull r
 
 ## 启用前提
 
-启用配置并不表示远端环境已配置。2026-10-27 只读环境 API 返回空列表，当前尚未创建发布环境。维护者需创建并保护 `release-build`，允许 main 上的自动 / 手动流程使用可信版本 tag，配置 MPVKIT_UPDATER_PUBLIC_KEY 变量、TAURI_SIGNING_PRIVATE_KEY 与可选密码 Secret；`release-publish` 独立保护并要求人工批准，不向不可信 PR 提供密钥。部署分支规则按工作流事件的 main 设置，不能因实际检出 tag 而只允许 tag 事件。仓库不保存正式私钥；离线备份由维护者保管。
+2026-10-27 首次自动 CD 已成功创建 `v0.2.0-alpha.1` tag，Arch 构建完成，Windows 在签名打包前因缺少公钥失败；两个发布环境现已创建，并已配置同一正式公钥变量 `MPVKIT_UPDATER_PUBLIC_KEY`。公钥由 `scripts/build-windows.mjs` 注入临时 Tauri 配置并编入安装包，源码的开发配置仍保持空公钥，无需手动修改源码或提交密钥文件。
+
+`release-build` 必须在 **Environment secrets** 保存 `TAURI_SIGNING_PRIVATE_KEY`，值为私钥文件完整内容；不能放入 Environment variables。私钥有密码才添加 `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` Secret；无密码时省略，工作流取空字符串。`release-publish` 只需同名公钥变量，不需要私钥。所有正式版本持续使用同一密钥对，私钥在本机另行安全备份。
+
+本轮已由用户纠正私钥误存 Variable 的问题，核对 Secret 名称后重跑失败任务，[第二次执行](https://github.com/Leovikii/mpvkit/actions/runs/40502127238/attempts/2) 的 Windows 签名构建及草稿任务成功，复用此前成功的 Arch 产物。独立 Minisign 验证安装器签名与版本注释通过。草稿上传曾因 `*.*` 漏掉无扩展名 `SHA256SUMS`，现有草稿已补齐，工作流两条创建分支均显式上传该文件；全部 9 项摘要及 updater 元数据核验通过。草稿仍未公开，不能将签名构建成功视为安装升级或公开推广验收。
+
+两个环境仍需按实际 GitHub 设置配置保护规则，允许 main 上的自动 / 手动流程使用可信版本 tag；`release-publish` 独立保护并要求人工批准，不向不可信 PR 提供密钥。部署分支规则按工作流事件的 main 设置，不能因实际检出 tag 而只允许 tag 事件。仓库不保存正式私钥；重试前只核对 Secret 名称，实际签名及公私钥匹配以构建和验签结果为准。
 
 构建只产生草稿。维护者验收双平台安装/升级与许可材料后，再运行 promote；不重复编译。`verify-release.mjs gate` 当前按真实 releaseReady=false 拒绝推广，完整审阅后再更新来源材料及生成规则。首次由维护者明确创建 `updates` 元数据 Release，channels.json 为 `{"schemaVersion":1,"stable":null,"preview":null}`；不在失败时自行重置索引。
 
