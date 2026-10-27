@@ -172,3 +172,25 @@ namcap 工具及三个 Python 依赖来自当时 pacman 仓库列出的固定版
 所有日志/短验收脚本与包根保留在 `.local/linux-v020/`，必要/扩展原生根另在上述 /tmp 路径。只有源码、当前文档与证据摘要进入 Git；不提交 ELF、归档、用户配置、媒体、密钥或 Inspector 状态。
 
 必要测试已完成。未新增验证真实 polkit 授权/取消、真实后继版本升级、完整 WebKit 640/200% GUI、物理鼠标/辅助技术、混合 DPI/HDR/功耗/长期媒体；这些与公开 AUR/Release、正式签名、许可 gate 保持独立，不能把本轮通过扩称为正式版发布验收。用户按计划手动 PR，远端 CI 与 main ruleset 后续由维护者跟进。
+
+## 首次 CI 失败定位与 workflow 组件更新（2026-10-27）
+
+用户提供 `logs_109756496328(1).zip` 与 `(2).zip`，SHA-256 均为 `39a17ed6bb9db0086e6c5570d6b3a28fa92c1fbf45e7505c89279565c7e3d1b7`，内容相同。原始运行 Windows Rust **44 passed / 4 ignored**；Arch 为 **39 passed / 8 failed / 4 ignored**，退出 101，固定 `CI` 汇总按预期拒绝通过。附件只作为失败证据读取。
+
+Arch pacman 安装列表没有 `mpv`。失败包括配置保护、设置事务及原生目录加载，实际需要固定 `/usr/bin/mpv`；首个断言是 `player_path(...).exists()`，其他出现 `components_required` 与 `probe_failed`。不是程序编译错误，日志中的 Node 20 弃用警告也不是退出 101 的原因。本地宿主已装 MPV，前轮本地通过不能证明空容器依赖完备。
+
+本轮只在 `.github/workflows/ci.yml` 和 `release.yml` 增加系统 MPV 测试依赖，并更新全部 5 种 Actions。官方 GitHub API `releases/latest` → tag 解引用 → 完整 commit SHA，与该提交 `action.yml` 的 Node 24 运行时交叉核验；版本为 checkout **7.0.1**、setup-node **7.1.0**、cache **6.1.0**、upload-artifact **7.0.2**、download-artifact **8.0.2**。版本来源链接与兼容要求见[流程说明](../ci/README.md#工作流依赖与版本)。Docker 官方 Registry 当前 Arch base 摘要与既有固定值相同。未调整应用工具链、CI 触发政策、分发包 MPV 可选依赖或下载摘要校验。
+
+本地针对性验证保存在忽略目录 `.local/ci-fix-20261027/`：
+
+| 验证 | 实际结果 |
+| --- | --- |
+| 缺 MPV 反例 | Bubblewrap 根只读，用独立 bin 链接目录隐藏 MPV；同一当前测试执行器精确复现原日志的 8 个失败，**39 passed / 8 failed / 4 ignored**，1.06 秒；`missing-mpv-reproduction.log` |
+| 恢复 MPV 对照 | 相同只读隔离参数，恢复原 `/usr/bin`，**47 passed / 0 failed / 4 ignored**，1.35 秒；`with-mpv-reproduction.log` |
+| Cargo 默认测试 | 固定 Rust 1.98.1，`cargo test --offline --locked --manifest-path src-tauri/Cargo.toml`，**47 passed / 4 ignored**，1.40 秒；`linux-tests.log` |
+| CI 分类 / 分发契约 | 固定 Node 24.19.0，**3/3**；`ci-release-tests.log` |
+| 工作流语法 | 官方 actionlint **1.7.12**，下载归档匹配官方 SHA-256 `8aca8db96f1b94770f1b0d72b6dddcb1ebb8123cb3712530b08cc387b349a3d8`，两条工作流通过；未安装 shellcheck |
+
+首次反例脚本的挂载目标在只读 `/run` 下无法创建，Bubblewrap 启动即拒绝；改为事先建立的隔离目录挂载后才得到上述有效反例。没有删除、改名或覆盖主机 `/usr/bin/mpv`，没有改真实配置/包数据库。未新增测试跳过项，也未重跑与工作流环境修复无关的完整 GUI、播放矩阵和安装包验收。
+
+用户随后明确授权修复完成推送 dev 并 PR 到 main；已存在 [PR #1](https://github.com/Leovikii/mpvkit/pull/1)，沿用该 PR 更新并由 push 触发同步检查，不重复建 PR、不合并 main。此节记录本地定位和验证，远端各次执行以 [PR Checks](https://github.com/Leovikii/mpvkit/pull/1/checks) 的提交及结论为准；未手动触发 Release，不将本次修复写成公开发布或正式版验收。

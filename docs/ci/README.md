@@ -2,7 +2,23 @@
 
 当前版本 **0.2.0-alpha.1，第一个 alpha 预览版**；0.2.0 是后续首个正式版目标。用户于 2026-10-27 明确解除旧 CI/CD 与安装包禁令，随后授权清理、提交并推送当前整批更新；不包含公开发布 Release 或 AUR。
 
-前一轮惰性模板已转为 `.github/workflows/ci.yml` 和 `release.yml`，重复模板已删除，实际配置通过 actionlint 1.7.12（本机未安装 shellcheck）。Action commit 与 Arch OCI 摘要于 2026-10-27 从官方远端只读核对。远端运行、冷/热缓存耗时和实际发布仍须另验。
+前一轮惰性模板已转为 `.github/workflows/ci.yml` 和 `release.yml`，重复模板已删除，实际配置通过 actionlint 1.7.12（本机未安装 shellcheck）。2026-10-27 首次 PR 运行发现 Arch 测试环境遗漏系统 MPV，已同步修复两条工作流；运行结果见 [PR #1 检查](https://github.com/Leovikii/mpvkit/pull/1/checks)，冷/热缓存耗时和实际发布仍须另验。
+
+## 工作流依赖与版本
+
+Linux 默认 Rust 测试会实际查询 `/usr/bin/mpv`，因此 CI 和 Release 的 Arch 构建环境均安装 `mpv`。这只补齐测试环境依赖，分发包中的 `mpv` 仍为 optdepends，保留无核心启动能力。不能通过跳过原生目录或配置保护测试来绕过缺失依赖。
+
+2026-10-27 按各官方仓库 `releases/latest`、tag 对象及对应 `action.yml` 核验以下最新版，工作流固定完整提交 SHA，并注释版本，全部使用 Node 24 运行时：
+
+| Action | 已核验版本 |
+| --- | --- |
+| checkout | [v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1) |
+| setup-node | [v7.1.0](https://github.com/actions/setup-node/releases/tag/v7.1.0) |
+| cache | [v6.1.0](https://github.com/actions/cache/releases/tag/v6.1.0) |
+| upload-artifact | [v7.0.2](https://github.com/actions/upload-artifact/releases/tag/v7.0.2) |
+| download-artifact | [v8.0.2](https://github.com/actions/download-artifact/releases/tag/v8.0.2) |
+
+Node 24 Actions 最低要求 runner 2.327.1；本次日志中的托管 runner 为 2.338.0，满足要求。checkout 保留 `persist-credentials: false`；触发器不涉及 v7 默认阻止的不安全 fork checkout。现有 pnpm 项目不启用 setup-node 的自动 npm 缓存；上传沿用默认归档、下载沿用自动解压，并保留 v8 默认的摘要不符即失败，不降低完整性检查。Arch `base` 官方当前摘要仍为 `sha256:52dfbd5afb23a220d5ee92dafcb4c788d96c026ed04179890c23adef4c897fa0`，无需变更。应用自身 Node/pnpm/Rust 工具链继续使用既定版本。
 
 ## PR 与 main 分支保护
 

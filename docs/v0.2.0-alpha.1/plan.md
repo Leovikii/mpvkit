@@ -76,7 +76,7 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 
 本批收尾将日常 CI 改为仅 main PR/merge_group，取消 push 重复构建和整个工作流的路径过滤。固定 `CI` 汇总检查始终返回，文档变更只走轻量检测与汇总；前端一次构建、两端并行，失败/取消/意外跳过均阻止通过。ruleset 配置见[流程说明](../ci/README.md)；本机只读 main 规则 API 返回空列表，未改远端合并政策。
 
-下一任务：本轮用户确认 Windows 测试已完成，并授权实现精简方案、完成 Linux 必要测试后提交推送到 dev，稍后由用户手动 PR 到 main。维护者在首次 PR 检查出现后将 `CI` 设为 main ruleset 必需检查，配置发布受保护环境和正式签名，并记录远端冷/热缓存耗时；真实下一 alpha 升级、polkit 授权与设备专项、公开分发许可门槛仍独立跟踪。公开发布未获授权。
+下一任务：Linux 必要测试与 dev 推送已完成；用户在首次 CI 失败后补充授权修复、推送 dev 并更新指向 main 的 PR 重新触发检查，当前沿用 [PR #1](https://github.com/Leovikii/mpvkit/pull/1)。维护者将 `CI` 设为 main ruleset 必需检查，配置发布受保护环境和正式签名，并记录远端冷/热缓存耗时；真实下一 alpha 升级、polkit 授权与设备专项、公开分发许可门槛仍独立跟踪。公开发布未获授权。
 
 ## Linux 必要测试精简与验收（2026-10-27，已完成）
 
@@ -91,6 +91,13 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 - release ELF 构建后真实 makepkg 封装成功，收尾一致性重建的 release 摘要未变；vercmp、desktop、readelf、namcap 核验完成。在仅装运行依赖的全新隔离根验证无 MPV 启动；补 MPV/Vulkan 后验证实际 `/usr/bin/mpvkit` helper、desktop 启动与 app_id。真实 pacman 同版重装/卸载保留全部 **71 个配置文件**，系统 MPV 哈希不变，自有程序/入口/资源移除。
 
 本轮命令、产物摘要、初次失败与修复、namcap 警告和环境限制见[当前证据](evidence.md#linux-必要回归与软件包验收2026-10-27)。测试根和脚本留在忽略目录或 /tmp，没有改变主机包数据库、默认应用或真实 MPV 配置。软件包验收使用新的用户空间根和主机 Wayland 会话，不冒称完整虚拟机或真实 polkit 交互验收；跨版本升级、物理输入/HDR/混合 DPI、公开 AUR/Release 与许可 gate 未由本轮关闭。
+
+## 首次 CI 失败修复（2026-10-27）
+
+- 用户提供的两个日志 ZIP 内容相同。Windows Rust **44 passed / 4 ignored**；Arch Rust **39 passed / 8 failed / 4 ignored**。根因是 Arch 容器的 pacman 依赖列表遗漏 `mpv`，本地已有系统 MPV 因而未暴露；Node 20 弃用警告是独立问题。
+- CI 和 Release 同时补齐系统 MPV 测试依赖，保留全部默认安全测试；分发包仍将 MPV 作为可选依赖。5 个 Actions 升到官方核验的最新 Node 24 版本并固定完整 SHA，具体版本及兼容性见[工作流说明](../ci/README.md#工作流依赖与版本)。Arch 镜像仍是官方当前摘要，应用工具链未变。
+- 在同一个只读 Bubblewrap 环境隐藏 `/usr/bin/mpv`，精确复现同样 **8 个失败**；恢复系统 MPV 后 **47 passed / 0 failed / 4 ignored**。实际 `cargo test --offline --locked` 同样通过；actionlint 1.7.12、CI 分类与分发契约 **3/3** 通过。仅改工作流依赖与文档，无需重复图形、安装包或 Windows 本地完整套件。
+- 本地证据见[当前记录](evidence.md#首次-ci-失败定位与-workflow-组件更新2026-10-27)，远端结果以 [PR 检查](https://github.com/Leovikii/mpvkit/pull/1/checks) 当前提交为准；手动 Release 流程和公开发布不属于本次触发范围。
 
 ## 核验来源
 
