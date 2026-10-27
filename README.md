@@ -39,7 +39,7 @@ pnpm build
 pnpm test:frontend
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
-pnpm tauri build --debug --no-bundle
+pnpm tauri build --debug --no-bundle --config '{"build":{"beforeBuildCommand":""}}'
 ~~~
 
 Windows 单 EXE：src-tauri/target/debug/mpvkit.exe；Linux 单 ELF：src-tauri/target/debug/mpvkit；分发配置与当前审批边界见上述交接。Linux 开发依赖及隔离验证见 [v0.1.7 计划](docs/v0.1.7/plan.md)。Windows 原生测试见 scripts/native-v016.test.mjs，使用显式隔离目录、固定组件与合成媒体，不改变实际默认应用或配置；真实播放测试需设置 MPVKIT_FFMPEG 指向经过校验的研究用生成器，MPVKIT_CORE_SOURCE 指向明确校验后提取的 WinGet MPV 目录；测试 WinGet 仅为本地原生模拟程序，绝不调用真实安装器。
@@ -48,7 +48,7 @@ Windows 单 EXE：src-tauri/target/debug/mpvkit.exe；Linux 单 ELF：src-tauri/
 
 后续 AI agent 从 [AGENTS.md](AGENTS.md) 开始，阅读[当前行为和目录](docs/current.md)、[v0.2.0-alpha.1 当前交接](docs/v0.2.0-alpha.1/plan.md)和[本地测试入口](docs/testing.md)；其他材料按[文档索引](docs/README.md)查阅。专项规范：[前端与 Mantine](docs/v0.1.0/frontend.md)、[来源政策](docs/v0.1.0/sources.md)、[未完成验收](docs/v0.1.0/acceptance.md)。
 
-此前 v0.1.9 已取消 MpvKit 专属媒体登记，保留原生配置及播放期保存 helper；“设置默认应用”移至 MPV 核心管理区。Windows 包已按固定 tag 源码及 12 种常见媒体分类核验登记能力；本版实施与 Windows 完整回归结果见 [当前交接](docs/v0.1.9/plan.md)和[证据](docs/v0.1.9/evidence.md)。v0.1.8 的两端实测保留作历史记录；本版 Linux 实机、真实包管理器写操作、完整辅助技术与设备矩阵仍待验收。
+此前 v0.1.9 已取消 MpvKit 专属媒体登记，保留原生配置及播放期保存 helper；“设置默认应用”移至 MPV 核心管理区。Windows 包已按固定 tag 源码及 12 种常见媒体分类核验登记能力；本版两端回归结果见 [当前交接](docs/v0.2.0-alpha.1/plan.md)和[证据](docs/v0.2.0-alpha.1/evidence.md)。Linux 已完成必要原生回归、Arch 打包及隔离安装/重装/卸载；历史记录不替代本版验证。真实下一版升级、polkit 交互、完整辅助技术与设备矩阵仍待验收。
 
 ## 许可证
 

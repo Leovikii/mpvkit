@@ -72,11 +72,25 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 
 一键 NSIS 包已成功构建并验签，坏内容和被篡改签名注释均拒绝。保留真实生成页面/初始化、替换全部三个系统写入 Section 的本地探针已实际运行：检测到可见进度窗口，免点击完成并关闭，`/D` 无法改变默认位置，没有创建真实安装目录。此探针只证明流程控制，不能替代正式包安装/卸载验收；包摘要及证据见 evidence。
 
-本机无安装的 WSL、Linux VM/容器环境；可行 Linux 测试为平台无关 Rust 契约、实际资源映射/配方生成、版本与通道防倒退测试。**未完成当前 Linux 编译、makepkg、pacman 安装升级卸载、Wayland GUI/播放器验证。** 当前 Windows 系统真实 WinGet 写操作、NSIS 安装/卸载、alpha.1 → alpha.2 插件安装升级、UAC/物理输入/HDR 亦未验收；未改真实用户配置、注册表、默认应用或桌面入口。
+前轮 Windows 环境无安装的 WSL、Linux VM/容器，当时只完成平台无关契约；这不代表当前 Linux 主机状态。**本轮 Linux 编译、makepkg、隔离 pacman 安装/同版重装/卸载及 Wayland GUI/播放器已通过，见下节；跨版本升级仍待真实下一版。** 当前 Windows 系统真实 WinGet 写操作、NSIS 安装/卸载、alpha.1 → alpha.2 插件安装升级、UAC/物理输入/HDR 亦未验收；未改真实用户配置、注册表、默认应用或桌面入口。
 
 本批收尾将日常 CI 改为仅 main PR/merge_group，取消 push 重复构建和整个工作流的路径过滤。固定 `CI` 汇总检查始终返回，文档变更只走轻量检测与汇总；前端一次构建、两端并行，失败/取消/意外跳过均阻止通过。ruleset 配置见[流程说明](../ci/README.md)；本机只读 main 规则 API 返回空列表，未改远端合并政策。
 
-下一任务：维护者在首次 PR 检查出现后将 `CI` 设为 main ruleset 必需检查，并配置发布受保护环境和正式签名；在隔离 Windows 用户/VM 和 Arch Wayland 主机完成正式包安装、升级、卸载、资源/入口/helper 和配置手改保留验证；首次远端运行后记录冷/热缓存耗时，解决公开分发许可门槛后再发布。本批提交/推送已获明确授权，公开发布未获授权。
+下一任务：本轮用户确认 Windows 测试已完成，并授权实现精简方案、完成 Linux 必要测试后提交推送到 dev，稍后由用户手动 PR 到 main。维护者在首次 PR 检查出现后将 `CI` 设为 main ruleset 必需检查，配置发布受保护环境和正式签名，并记录远端冷/热缓存耗时；真实下一 alpha 升级、polkit 授权与设备专项、公开分发许可门槛仍独立跟踪。公开发布未获授权。
+
+## Linux 必要测试精简与验收（2026-10-27，已完成）
+
+用户先审阅方案，随后授权实施、完成 Linux 必要测试并推送 dev，由用户手动 PR 到 main。起点 ae815c2；测试环境为当前 CachyOS x86_64 / KDE Wayland，不沿用历史通过结果。版本保持 0.2.0-alpha.1。
+
+- `docs/testing.md` 将默认必要检查、显式扩展回归和 Arch 包验收分开；前端 dist 只生成一次，debug/release 各自复用，CI 分类/离线预览/来源复采按变更触发，不重跑 Windows 套件，不修改双平台 PR CI 政策。
+- 必要原生链保留部署、原生目录加载、helper 保存、缩略图、队列/字幕/续播及卸载保护，uosc 采用 1200/640 宽、4K 首次尺寸、手动缩放切集和 geometry/window-scale 保护；画质/HDR 从九组合缩为五个代表组合。字幕大小写等低成本覆盖和默认安全测试继续保留。
+- 完整五档宽度、纵横比、音频切视频、启动状态和九组合移至 `arch_wayland_extended_window_and_render_matrix`；独立新根和音频夹具，不依赖必要链产物。本轮因移动覆盖而额外验证一次，以后按需运行。
+- 修复测试执行器被误写入 Lua helper 的问题：`MPVKIT_TEST_EXECUTABLE` 仅在 `cfg(test)` 下生效，实际 debug/release 产品仍记录自身路径。删除前轮清理后遗留、无调用且会阻断 Linux clippy 的 `show_error`。
+- 最终 Linux 默认 Rust **47 passed / 4 ignored**；fmt/clippy、前端 3 项、分发契约 2 项、Linux 许可材料一致性通过。必要 Wayland 链 **16.53 秒**，独立扩展 **17.50 秒**，KDE 语言/主题专项通过；不以历史耗时计算节省比例。
+- 原生 WebKitGTK 短验收通过：启动一次、默认不收预览、保存后重查、失败重试、纯文本长日志、稍后/重开、AUR 已发布/未发布提示、无安装调用及深浅色偏好。没有移植整套 Windows 自动化或新增依赖。
+- release ELF 构建后真实 makepkg 封装成功，收尾一致性重建的 release 摘要未变；vercmp、desktop、readelf、namcap 核验完成。在仅装运行依赖的全新隔离根验证无 MPV 启动；补 MPV/Vulkan 后验证实际 `/usr/bin/mpvkit` helper、desktop 启动与 app_id。真实 pacman 同版重装/卸载保留全部 **71 个配置文件**，系统 MPV 哈希不变，自有程序/入口/资源移除。
+
+本轮命令、产物摘要、初次失败与修复、namcap 警告和环境限制见[当前证据](evidence.md#linux-必要回归与软件包验收2026-10-27)。测试根和脚本留在忽略目录或 /tmp，没有改变主机包数据库、默认应用或真实 MPV 配置。软件包验收使用新的用户空间根和主机 Wayland 会话，不冒称完整虚拟机或真实 polkit 交互验收；跨版本升级、物理输入/HDR/混合 DPI、公开 AUR/Release 与许可 gate 未由本轮关闭。
 
 ## 核验来源
 

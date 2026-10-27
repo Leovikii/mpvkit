@@ -290,38 +290,8 @@ fn arch_wayland_install_playback_and_uninstall() {
     wait(|| UnixStream::connect(&socket).is_err());
     assert!(reopened.wait().unwrap().success());
     playback::verify(&root, &media);
-    uosc::verify(&root, &media);
-    // All profile/HDR modes must parse in the actual target MPV; this does not certify HDR hardware output.
-    for profile in [
-        config::Profile::PowerSaving,
-        config::Profile::Balanced,
-        config::Profile::HighQuality,
-    ] {
-        for hdr in [config::Hdr::Auto, config::Hdr::On, config::Hdr::Off] {
-            let settings = config::Settings {
-                profile,
-                playback: config::Playback {
-                    hdr,
-                    ..Default::default()
-                },
-                ..Default::default()
-            };
-            let preview = config::portable::preview(&root, &settings, false).unwrap();
-            setup::execute(
-                setup::prepare_draft(&root, settings, false, &preview.fingerprint).unwrap(),
-            )
-            .unwrap();
-            let args = vec![
-                "--config=yes".into(),
-                format!("--config-dir={}", root.clone().display()).into(),
-                "--load-scripts=no".into(),
-                "--frames=2".into(),
-                "--audio=no".into(),
-                media.as_os_str().to_owned(),
-            ];
-            crate::mpv::capture(Path::new("/usr/bin/mpv"), &args, Duration::from_secs(8)).unwrap();
-        }
-    }
+    uosc::verify(&root, &media, false);
+    verify_render_modes(&root, &media, false);
     assert!(config::portable::ready(&root).unwrap());
     setup::execute(setup::prepare_uninstall(&root).unwrap()).unwrap();
     assert!(!config_file.exists());
@@ -346,4 +316,63 @@ fn arch_wayland_install_playback_and_uninstall() {
         player_hash
     );
     println!("Linux integration evidence: {}", root.display());
+}
+
+#[test]
+#[ignore = "extended window/render matrix; requires the same explicit Wayland fixtures and a fresh root"]
+fn arch_wayland_extended_window_and_render_matrix() {
+    assert_eq!(std::env::var("MPVKIT_TEST_MODE").as_deref(), Ok("1"));
+    let root = platform::app_root().unwrap();
+    assert!(!root.exists(), "use a fresh isolated MPVKIT_TEST_ROOT");
+    let media =
+        PathBuf::from(std::env::var_os("MPVKIT_TEST_VIDEO").expect("local synthetic video"));
+    platform::validate_local_path(&media).unwrap();
+    deploy::execute(
+        components::prepare_install(&root, false, &AtomicBool::new(false), &mut |_| {}).unwrap(),
+    )
+    .unwrap();
+    let settings = config::Settings::default();
+    let preview = config::portable::preview(&root, &settings, false).unwrap();
+    setup::execute(setup::prepare_draft(&root, settings, false, &preview.fingerprint).unwrap())
+        .unwrap();
+    uosc::verify(&root, &media, true);
+    verify_render_modes(&root, &media, true);
+    println!("Linux extended evidence: {}", root.display());
+}
+
+fn verify_render_modes(root: &Path, media: &Path, extended: bool) {
+    // Exercise each independent setting by default; use the full product after renderer/config changes.
+    for profile in [
+        config::Profile::PowerSaving,
+        config::Profile::Balanced,
+        config::Profile::HighQuality,
+    ] {
+        for hdr in [config::Hdr::Auto, config::Hdr::On, config::Hdr::Off] {
+            if !extended && profile != config::Profile::Balanced && hdr != config::Hdr::Auto {
+                continue;
+            }
+            let settings = config::Settings {
+                profile,
+                playback: config::Playback {
+                    hdr,
+                    ..Default::default()
+                },
+                ..Default::default()
+            };
+            let preview = config::portable::preview(root, &settings, false).unwrap();
+            setup::execute(
+                setup::prepare_draft(root, settings, false, &preview.fingerprint).unwrap(),
+            )
+            .unwrap();
+            let args = vec![
+                "--config=yes".into(),
+                format!("--config-dir={}", root.display()).into(),
+                "--load-scripts=no".into(),
+                "--frames=2".into(),
+                "--audio=no".into(),
+                media.as_os_str().to_owned(),
+            ];
+            crate::mpv::capture(Path::new("/usr/bin/mpv"), &args, Duration::from_secs(8)).unwrap();
+        }
+    }
 }

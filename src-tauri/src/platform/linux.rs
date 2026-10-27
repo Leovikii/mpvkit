@@ -177,9 +177,6 @@ pub fn playback_config(hardware_decoding: bool) -> &'static str {
         "vo=gpu-next\ngpu-api=vulkan\ngpu-context=waylandvk\nhwdec=no\nsub-fonts-dir=~~/fonts\nosd-fonts-dir=~~/fonts\n"
     }
 }
-pub fn show_error(message: &str) {
-    eprintln!("MpvKit: {message}");
-}
 pub fn open_default_apps() -> Result<()> {
     if Path::new("/usr/bin/kcmshell6").is_file() {
         command(Path::new("/usr/bin/kcmshell6"))

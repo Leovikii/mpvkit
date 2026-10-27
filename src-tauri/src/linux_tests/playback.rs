@@ -1,4 +1,4 @@
-//! Native checks for v0.1.8, called only by the explicitly enabled Wayland test.
+//! Queue and subtitle checks, called only by the explicitly enabled Wayland test.
 use super::*;
 use serde_json::json;
 
