@@ -14,7 +14,7 @@ fn copy_tree(from: &Path, to: &Path) {
     }
 }
 
-pub(super) fn verify(root: &Path, media: &Path) {
+pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     let output = root.join("uosc-native");
     fs::create_dir(&output).unwrap();
     let config = output.join("config");
@@ -113,7 +113,12 @@ pub(super) fn verify(root: &Path, media: &Path) {
     );
     let mut layouts = Vec::new();
     // Widths are in uosc logical pixels, including a high-DPI narrow window.
-    for width in [1200, 900, 640, 480, 320] {
+    let widths: &[u32] = if extended {
+        &[1200, 900, 640, 480, 320]
+    } else {
+        &[1200, 640]
+    };
+    for &width in widths {
         let scale = inspect()["scale"].as_f64().unwrap();
         let physical = (f64::from(width) * scale).round() as u32;
         request(
@@ -248,6 +253,9 @@ pub(super) fn verify(root: &Path, media: &Path) {
         ("portrait", "720x1280"),
         ("ultrawide", "1280x540"),
     ] {
+        if !extended && name != "4k" {
+            continue;
+        }
         let sample = output.join(format!("{name}.mp4"));
         assert!(
             platform::command(Path::new("/usr/bin/ffmpeg"))
@@ -293,46 +301,71 @@ pub(super) fn verify(root: &Path, media: &Path) {
         request(&socket, json!(["quit"]));
         assert!(child.wait().unwrap().success());
     }
-    child = launch("custom-fit", &["--autofit=60%x60%"], media);
-    let custom = get("osd-dimensions");
-    let custom_outputs = get("display-names");
-    if custom_outputs.as_array().unwrap().len() == 1 && custom_outputs == reference_outputs {
+    if extended {
+        child = launch("custom-fit", &["--autofit=60%x60%"], media);
+        let custom = get("osd-dimensions");
+        let custom_outputs = get("display-names");
+        if custom_outputs.as_array().unwrap().len() == 1 && custom_outputs == reference_outputs {
+            assert!(
+                (custom["w"].as_f64().unwrap() - fit_bounds["w"].as_f64().unwrap() * 0.8).abs()
+                    <= 2.0
+            );
+        } else {
+            assert!(
+                fs::read_to_string(output.join("custom-fit.log"))
+                    .unwrap()
+                    .contains("window spans multiple")
+            );
+        }
+        startup_cases.push(json!({"case":"custom-fit","dimensions":custom}));
+        request(&socket, json!(["quit"]));
+        assert!(child.wait().unwrap().success());
+        // The extended entry has its own fresh root; do not depend on playback::verify's files.
+        let audio = output.join("audio.wav");
         assert!(
-            (custom["w"].as_f64().unwrap() - fit_bounds["w"].as_f64().unwrap() * 0.8).abs() <= 2.0
-        );
-    } else {
-        assert!(
-            fs::read_to_string(output.join("custom-fit.log"))
+            platform::command(Path::new("/usr/bin/ffmpeg"))
+                .args([
+                    "-v",
+                    "error",
+                    "-f",
+                    "lavfi",
+                    "-i",
+                    "sine=frequency=440:sample_rate=8000",
+                    "-t",
+                    "2"
+                ])
+                .arg(&audio)
+                .status()
                 .unwrap()
-                .contains("window spans multiple")
+                .success()
         );
+        child = launch("audio-first", &[], &audio);
+        assert!(
+            !fs::read_to_string(output.join("audio-first.log"))
+                .unwrap()
+                .contains("Reapplied startup autofit")
+        );
+        request(&socket, json!(["loadfile", media, "replace"]));
+        wait(|| get("user-data")["mpvkit-test-loaded"] == 2);
+        wait(|| {
+            let log = fs::read_to_string(output.join("audio-first.log")).unwrap();
+            log.contains("Reapplied startup autofit") || log.contains("window spans multiple")
+        });
+        if get("display-names") == reference_outputs {
+            assert_eq!(get("osd-dimensions")["w"], fit_bounds["w"]);
+        }
+        request(&socket, json!(["quit"]));
+        assert!(child.wait().unwrap().success());
     }
-    startup_cases.push(json!({"case":"custom-fit","dimensions":custom}));
-    request(&socket, json!(["quit"]));
-    assert!(child.wait().unwrap().success());
-    child = launch("audio-first", &[], &root.join("媒体 test/第10集.wav"));
-    assert!(
-        !fs::read_to_string(output.join("audio-first.log"))
-            .unwrap()
-            .contains("Reapplied startup autofit")
-    );
-    request(&socket, json!(["loadfile", media, "replace"]));
-    wait(|| get("user-data")["mpvkit-test-loaded"] == 2);
-    wait(|| {
-        let log = fs::read_to_string(output.join("audio-first.log")).unwrap();
-        log.contains("Reapplied startup autofit") || log.contains("window spans multiple")
-    });
-    if get("display-names") == reference_outputs {
-        assert_eq!(get("osd-dimensions")["w"], fit_bounds["w"]);
-    }
-    request(&socket, json!(["quit"]));
-    assert!(child.wait().unwrap().success());
     for (name, extra) in [
         ("geometry", vec!["--geometry=900x506"]),
         ("scale", vec!["--window-scale=0.5"]),
         ("maximized", vec!["--window-maximized=yes"]),
         ("fullscreen", vec!["--fullscreen=yes"]),
     ] {
+        if !extended && matches!(name, "maximized" | "fullscreen") {
+            continue;
+        }
         child = launch(name, &extra, media);
         assert!(
             !fs::read_to_string(output.join(format!("{name}.log")))

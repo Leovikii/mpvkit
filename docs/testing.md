@@ -12,12 +12,13 @@
 pnpm build
 pnpm test:frontend
 node --test scripts/release.test.mjs
-node --test scripts/ci-changes.test.mjs
 cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
 cargo test --manifest-path src-tauri/Cargo.toml --locked
 cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
-pnpm tauri build --debug --no-bundle
+pnpm tauri build --debug --no-bundle --config '{"build":{"beforeBuildCommand":""}}'
 ```
+
+上面的 `pnpm build` 已生成 dist，所以 Tauri 命令显式跳过重复的前端构建；单独构建时仍用默认 `pnpm tauri build --debug --no-bundle`。Linux 本轮另跑一次 `node scripts/collect-app-notices.mjs --linux --check`。CI 分类测试仅修改 CI/分类脚本时运行；来源复采、独立预览及其他设备专项按影响面选择，不重复全跑。
 
 产物：src-tauri/target/debug/mpvkit.exe（Windows）或 mpvkit（Linux），bundle.active=false。默认 Rust 测试在临时根运行，部分测试需回环端口；隔离策略阻止绑定时，应明确说明并申请运行所需权限，不改成成功占位。纯文档修改只检查链接/格式/Git diff；逻辑、构建配置或共享样式变更按影响面验证，不无故重跑所有设备测试。
 
@@ -30,7 +31,7 @@ Windows 的 `updates::download_tests` 使用官方 Tauri mock runtime 和仅回�
 ```sh
 # 必须使用一个尚不存在的新绝对目录；不要复用上次根或指向真实配置。
 GDK_BACKEND=wayland MPVKIT_TEST_MODE=1 \
-MPVKIT_TEST_ROOT=/tmp/mpvkit-v018-new-run \
+MPVKIT_TEST_ROOT=/tmp/mpvkit-alpha1-new-run \
 MPVKIT_TEST_ASSETS="$PWD/.local/linux-v018/assets" \
 MPVKIT_TEST_EXECUTABLE="$PWD/src-tauri/target/debug/mpvkit" \
 MPVKIT_TEST_VIDEO="$PWD/.local/linux-v018/synthetic.mp4" \
@@ -41,7 +42,25 @@ GDK_BACKEND=wayland cargo test --manifest-path src-tauri/Cargo.toml --locked \
 kde_session_preferences_are_available -- --ignored --nocapture
 ```
 
-资产与视频路径是本机夹具；缺失时先按 [原生准备记录](v0.1.8/evidence.md#复验入口)准备并校验来源，不从任意 URL 下载后直接执行。套件在测试根内部署资源、运行系统 MPV，验证预览/手改/过期、连播/字幕/续播、uosc/窗口、重置/卸载/清理；包管理器实际写操作被阻断。系统管理器入口现由软件包提供，需单独包装验收。脚本注入指针不等于物理鼠标或完整 WebKit GUI 验收。
+资产与视频路径是本机夹具；缺失时先按 [原生准备记录](v0.1.8/evidence.md#复验入口)准备并校验来源，不从任意 URL 下载后直接执行。套件在测试根内部署资源、运行系统 MPV，验证组件/配置部署、原生目录加载、播放期 helper、连播/字幕/续播、缩略图、uosc、代表性窗口/渲染和卸载/清理。手改/过期/路径/锁/恢复等安全边界由默认 Linux Rust 测试完整覆盖，不在每个 GUI 场景重复；包管理器实际写操作被阻断。系统管理器入口由软件包提供，按文末独立进行包验收。脚本注入指针不等于物理鼠标或完整 WebKit GUI 验收。
+
+默认原生入口保留 1200/640 两档 uosc 宽度、4K 首次 autofit、手动缩放后切集保持、geometry/window-scale 保护；画质/HDR 是三档画质 × Auto，加均衡 On/Off，共五组合。同一进程内的十二种字幕目录大小写及自然队列覆盖继续保留。`MPVKIT_TEST_EXECUTABLE` 仅在 Rust 测试编译时选择实际 helper，生产程序始终记录自身路径。
+
+仅修改窗口/Lua/渲染配置、组件版本，或相关默认测试失败时运行扩展入口。该入口使用独立新根，自行部署及生成音频样本，不依赖必要链产物：
+
+```sh
+GDK_BACKEND=wayland MPVKIT_TEST_MODE=1 \
+MPVKIT_TEST_ROOT=/tmp/mpvkit-alpha1-extended-new-run \
+MPVKIT_TEST_ASSETS="$PWD/.local/linux-v018/assets" \
+MPVKIT_TEST_EXECUTABLE="$PWD/src-tauri/target/debug/mpvkit" \
+MPVKIT_TEST_VIDEO="$PWD/.local/linux-v018/synthetic.mp4" \
+cargo test --manifest-path src-tauri/Cargo.toml --locked \
+arch_wayland_extended_window_and_render_matrix -- --ignored --nocapture
+```
+
+扩展覆盖五档宽度、1080p/4K/竖屏/超宽、自定义 autofit、音频切视频、最大化/全屏启动及完整九组合。两个图形入口分别运行，不用 `--ignored` 一次启用所有在线/设备验收。失败保留根和日志，修复后只重跑受影响入口。
+
+Linux GUI 短验收使用当前 debug 程序、新隔离数据根和固定更新 JSON：两页基本操作、语言/深浅色、启动仅检查一次、预览默认关闭与切换后重查、错误重试、纯文本长日志、稍后/重开、AUR 已发布/未发布提示；确认无安装更新按钮或 helper 调用。Windows 原生 Node 套件使用 WebView2 和 WinGet 夹具，不在 Linux 强行移植整套。实际本轮命令、短验收脚本与结果位置见[当前证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)。
 
 旧启动预览的 Rust 真实进程测试已删除；直接系统 MPV 启动由当前原生套件验证，不运行历史 launch/real_tests.rs。
 
@@ -84,7 +103,7 @@ node docs/v0.1.6/preview/check.mjs
 - scripts/verify-uosc-sources.py：固定本地源码归档；verify-uosc-icons.mjs：固定字体映射；verify-scroll-bar-license.py、collect-go-notices.py：对应来源/许可。先读参数及原证据，不把这些脚本删成“无人调用”。
 - scripts/rebuild-uosc-helper.py、inspect-uosc-buildinfo.mjs、compare-uosc-links.go：固定 helper 的构建/核验链；用途和未完成发布审阅在 [验收台账](v0.1.0/acceptance.md)。
 
-最新一次通过范围统一记在 [交接](v0.1.9/plan.md)，原始命令/日志路径/产物摘要记在 [证据](v0.1.9/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
+最新一次通过范围统一记在 [当前交接](v0.2.0-alpha.1/plan.md)，原始命令/日志路径/产物摘要记在 [当前证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
 
 ## v0.2.0-alpha.1 更新与分发检查
 
@@ -92,4 +111,8 @@ Windows 当前原生套件新增应用更新测试：默认不收预览版、启
 
 布局专项覆盖 WinUI 3 对齐、640/1040 宽、200% 字号、深浅色、长日志滚动/固定操作区与焦点锁，截图只留 .local。独立预览同步当前界面，不能代替系统包或实际更新安装验收。
 
-分发脚本命令与工作流见 [CI/CD 审阅说明](ci/README.md)。本机没有 Linux 执行环境，release.test.mjs 使用实际资源映射验证 Arch stage/配方/哈希/版本完整性，Rust linux_core_contract 验证参数；这些都不算 Arch 编译、makepkg、pacman 或 Wayland 实测。
+分发脚本命令与工作流见 [CI/CD 审阅说明](ci/README.md)。前轮 Windows 环境只运行 release.test.mjs 的资源/配方契约与 Rust 包参数测试，不能作为 Arch 实测。本轮在 CachyOS/KDE Wayland 完成的编译、makepkg、原生 GUI/播放和隔离 pacman 验收见[当前证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)。
+
+Arch 包验收独立于默认单测：已有 dist 时，用 `pnpm tauri build --no-bundle --config '{"build":{"beforeBuildCommand":""}}'` 构建一次 release，再以非 root 用户运行 `node scripts/release.mjs arch <新输出目录>`。makepkg 仅封装，不二次编译 Rust。核验 vercmp、desktop-file-validate、readelf、namcap 与许可/资源清单；namcap 警告逐项说明，不只看退出码。debug 隔离测试和 release 包验收各自有用途，不用测试覆写替代 release 的原生用户目录行为。
+
+真正的 pacman 安装、同版重装、卸载及包入口验证在全新隔离系统根进行；先只装运行依赖，确认缺 MPV 仍可启动，再加入 MPV 与所需 Vulkan 驱动核验实际播放期保存。重装/卸载保留配置、未知文件和系统 MPV，不改变主机默认应用。隔离根引导所需的系统依赖缓存须验证来源与签名；初始化钩子/显示会话受容器限制的情况单独记录。无真实后继版时，同版重装不算跨版本升级；升级到下一 alpha 时再验。公开 AUR、真实 polkit 授权和设备矩阵不以契约测试冒充通过。

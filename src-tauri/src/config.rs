@@ -221,6 +221,11 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
 pub fn runtime_files() -> Result<Vec<Payload>> {
     let executable =
         std::env::current_exe().map_err(|_| error("helper_path", "无法取得管理器位置。"))?;
+    // Native Rust tests run in a harness, while playback must invoke the separately built manager.
+    #[cfg(test)]
+    let executable = std::env::var_os("MPVKIT_TEST_EXECUTABLE")
+        .map(std::path::PathBuf::from)
+        .unwrap_or(executable);
     crate::platform::validate_local_path(&executable)?;
     let path = executable
         .to_str()
