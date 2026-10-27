@@ -99,6 +99,13 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 - 在同一个只读 Bubblewrap 环境隐藏 `/usr/bin/mpv`，精确复现同样 **8 个失败**；恢复系统 MPV 后 **47 passed / 0 failed / 4 ignored**。实际 `cargo test --offline --locked` 同样通过；actionlint 1.7.12、CI 分类与分发契约 **3/3** 通过。仅改工作流依赖与文档，无需重复图形、安装包或 Windows 本地完整套件。
 - 本地证据见[当前记录](evidence.md#首次-ci-失败定位与-workflow-组件更新2026-10-27)，远端结果以 [PR 检查](https://github.com/Leovikii/mpvkit/pull/1/checks) 当前提交为准；手动 Release 流程和公开发布不属于本次触发范围。
 
+## 本机旧测试配置清理（2026-10-27）
+
+- 用户明确要求完整清理本机不兼容旧配置。本机已安装 `mpvkit-bin 0.2.0alpha1-1`，但原生 MPV 根仍有旧 launcher 与含 `integrationEnabled` 的设置；当前严格反序列化不接受该字段。旧用户菜单链接仍指向仓库 debug 程序，并遮蔽系统包入口。
+- 生成 79 项删除预览，核对旧清单中的 73 个 MPV 文件和 2 个桌面资产全部摘要匹配；持有两个既有操作锁、复核状态后删除旧配置、增强、launcher、旧应用偏好/清单和用户菜单链接。仅移除空目录，保留根及 `owner.json` / `operation.lock`。
+- 删除约 290 MiB；11 条续播记录和系统程序、包资源、默认应用设置等共 27 个保护文件复核不变，KDE 菜单缓存刷新成功。当前应用数据根没有待清理的偏好文件，其 WebKit 缓存保留。未启动 GUI 或重新安装增强；下次打开新版后需重新安装增强并保存配置。详见[清理证据](evidence.md#本机旧测试配置清理2026-10-27)。
+- 此为用户本轮授权的一次性本机操作，不增加产品迁移或自动清理逻辑，不提交或推送。
+
 ## main 自动 CD 与用户文档（2026-10-27）
 
 - Release 增加 main push 触发，每次核对源码版本与本版日志，查询 `v<版本>`；仅真实 404 才创建 tag，绑定本次事件的精确 SHA，并在同一工作流继续双端构建、签名与草稿收集。已有 tag 正常跳过；网络 / 权限失败停止，并发建同一版本只允许成功创建者进入构建。不同 main 提交互不取消，公开推广任务仍串行。
@@ -122,3 +129,10 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 - [Tauri updater](https://v2.tauri.app/plugin/updater/) / [Windows](https://v2.tauri.app/distribute/windows-installer/) / [AUR](https://v2.tauri.app/distribute/aur/)；实际 API 和资源路径核对本地锁定 crate，不能拿主线模板替代版本验证。
 - [Arch PKGBUILD](https://man.archlinux.org/man/PKGBUILD.5.en)、[vercmp](https://man.archlinux.org/man/vercmp.8.en)、[打包规范](https://manual.archlinux.page/package-guidelines/)。
 - [GitHub latest 语义](https://docs.github.com/en/rest/releases/releases#get-the-latest-release)：不使用 latest 发现预览版；插件 endpoints 是 fallback，不是跨渠道取最大值。
+
+## 自动公开发布修正（2026-10-27）
+
+- 用户明确要求公开当前 alpha，并纠正“后续自动发布仍只留下草稿”的错误流程。Release 移除 draft 任务，package 只保存 Actions 资产；publish 在两端成功后自动核验许可 gate / SHA-256 / Minisign / updater，再公开版本和更新渠道。公开 alpha 保留 prerelease，已有 tag 的 main 推送继续跳过。
+- 手动模式改为 `release`（重新构建并发布）和 `publish`（复用已有完整资产发布）；版本源码保持原 tag，执行流程脚本来自工作流提交，修复流程无需移动不可变 tag。首次 metadata Release 不存在时自动初始化；已有索引缺失、HTTP 错误、损坏或倒退均失败，不重置。现有 Release 的全部资产必须与本地哈希一致，发布重试不覆盖安装包。
+- 发布回归与 CI 分类 **20/20** 通过，actionlint 1.7.12 / JS 语法 / diff 检查通过；现有 9 项清单、updater 与正式 Minisign 签名重新验证通过。不改应用源码或安装包，不重复原生播放/设备测试。
+- 实际公开现有版本的请求被自动审批拒绝：仓库要求真实公开前完成许可审阅，四份分发/依赖记录仍为 `releaseReady=false`。没有绕过拒绝或把审阅结果改真；远端仍为草稿，公开更新索引仍未建立。本轮工作流修改尚未推送或运行，不能写成已公开发布。下一步解决这项明确前提后再公开现有资产，并验证更新地址 HTTP 200。

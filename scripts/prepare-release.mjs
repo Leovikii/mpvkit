@@ -5,7 +5,7 @@ import { pathToFileURL } from 'node:url';
 import { versionCheck } from './release.mjs';
 
 export async function prepareRelease({ automatic, repository, sha, token, tag, operation }) {
-  assert(automatic || ['build-draft', 'promote'].includes(operation), 'Unsupported release operation');
+  assert(automatic || ['release', 'publish'].includes(operation), 'Unsupported release operation');
   assert(automatic || tag, 'Select an existing version tag');
   const version = versionCheck(automatic ? undefined : tag);
   tag = `v${version}`;
@@ -19,7 +19,7 @@ export async function prepareRelease({ automatic, repository, sha, token, tag, o
     signal: AbortSignal.timeout(15_000),
   });
   const ref = await request(`ref/tags/${tag}`);
-  if (ref.ok) return { tag, build: !automatic && operation === 'build-draft' };
+  if (ref.ok) return { tag, build: !automatic && operation === 'release' };
   assert.equal(ref.status, 404, `Cannot inspect ${tag}: HTTP ${ref.status}`);
   assert(automatic, `Tag ${tag} does not exist; merge the version into main first`);
   const created = await request('refs', { method: 'POST', body: JSON.stringify({ ref: `refs/tags/${tag}`, sha }) });
@@ -45,5 +45,5 @@ if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.ar
     operation: process.env.RELEASE_OPERATION,
   });
   fs.appendFileSync(process.env.GITHUB_OUTPUT, `tag=${result.tag}\nbuild=${result.build}\n`);
-  console.log(`${result.tag}: ${result.build ? 'build draft' : 'no build required'}`);
+  console.log(`${result.tag}: ${result.build ? 'build and publish' : 'no build required'}`);
 }

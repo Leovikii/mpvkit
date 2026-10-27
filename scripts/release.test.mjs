@@ -3,28 +3,97 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { execFileSync } from 'node:child_process';
-import { base, archVersion, compare, promote, recipe, stageArch, manifest, versionCheck } from './release.mjs';
+import { base, archVersion, compare, promote, recipe, stageArch, manifest, versionCheck, digest } from './release.mjs';
 import { prepareRelease } from './prepare-release.mjs';
+import { publishRelease } from './publish-release.mjs';
 
 const source = { automatic: true, repository: 'Leovikii/mpvkit', sha: 'a'.repeat(40), token: 'test-token' };
-test('draft upload commands include extensionless checksums and all release assets', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mpvkit-upload-'));
-  try {
-    const files = ['SHA256SUMS', 'updater.json', 'MpvKit-setup.exe', 'MpvKit-setup.exe.sig', 'mpvkit.pkg.tar.zst', 'aur-recipe.tar.gz'];
-    fs.mkdirSync(path.join(root, '.local/release'), { recursive: true });
-    for (const file of files) fs.writeFileSync(path.join(root, '.local/release', file), 'fixture');
-    const commands = fs.readFileSync('.github/workflows/release.yml', 'utf8').split('\n')
-      .map(line => line.trim()).filter(line => line.startsWith('gh release create '));
-    assert(commands.length > 0);
-    const bash = process.platform === 'win32' ? path.join(process.env.ProgramFiles, 'Git', 'bin', 'bash.exe') : 'bash';
-    for (const command of commands) {
-      const args = execFileSync(bash, ['-c', `gh() { printf '%s\\n' "$@"; }\n${command}`], {
-        cwd: root, encoding: 'utf8', env: { ...process.env, RELEASE_TAG: 'v0.2.0-alpha.1', version: '0.2.0-alpha.1' },
-      }).trim().split('\n');
-      for (const file of files) assert(args.includes(`.local/release/${file}`), `Missing upload: ${file}`);
+function publicationFixture(t) {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mpvkit-publish-'));
+  const directory = path.join(root, 'release'); fs.mkdirSync(directory);
+  t.after(() => fs.rmSync(root, { recursive: true }));
+  const files = ['SHA256SUMS', 'updater.json', 'MpvKit-setup.exe', 'MpvKit-setup.exe.sig', 'mpvkit.pkg.tar.zst', 'aur-recipe.tar.gz'];
+  for (const file of files) fs.writeFileSync(path.join(directory, file), 'fixture');
+  const version = versionCheck(), tag = `v${version}`;
+  const assets = files.map(name => ({ name, digest: `sha256:${digest(fs.readFileSync(path.join(directory, name)))}` }));
+  const current = { tag_name: tag, draft: false, prerelease: true, assets };
+  const calls = [];
+  let releases = [], channels = null;
+  let indexStatus = 200, apiStatus = 200;
+  const options = { tag, token: 'test-token', repository: 'Leovikii/mpvkit', directory, run(program, args) {
+    assert.equal(program, 'gh'); calls.push(args);
+    if (args[1] === 'create' && args[2] === tag) releases.push(current);
+    if (args[1] === 'edit') releases.find(r => r.tag_name === tag).draft = false;
+    if (args[2] === 'updates') channels = JSON.parse(fs.readFileSync(path.join(root, 'channels.json'), 'utf8'));
+  } };
+  t.mock.method(globalThis, 'fetch', async url => {
+    if (url.startsWith('https://api.github.com/')) {
+      if (apiStatus !== 200) return new Response(null, { status: apiStatus });
+      return Response.json(url.includes('releases?') ? releases : releases.find(r => r.tag_name === tag));
     }
-  } finally { fs.rmSync(root, { recursive: true }); }
+    assert.equal(url, `${base}updates/channels.json`);
+    return Response.json(channels, { status: indexStatus });
+  });
+  return { options, files, calls, current,
+    setReleases: value => { releases = value; },
+    setChannels: value => { channels = value; },
+    setIndexStatus: value => { indexStatus = value; },
+    setApiStatus: value => { apiStatus = value; },
+  };
+}
+
+test('automatic publication uploads all assets publicly and bootstraps update channels', async t => {
+  const f = publicationFixture(t);
+  await publishRelease(f.options);
+  const [release, channels] = f.calls;
+  assert.deepEqual(release.slice(0, 3), ['release', 'create', f.options.tag]);
+  for (const file of f.files) assert(release.includes(path.join(f.options.directory, file)), `Missing upload: ${file}`);
+  assert(!release.includes('--draft')); assert(release.includes('--verify-tag'));
+  assert(release.includes('--prerelease')); assert(release.includes('--latest=false'));
+  assert.deepEqual(channels.slice(0, 3), ['release', 'create', 'updates']);
+  const value = JSON.parse(fs.readFileSync(channels[3], 'utf8'));
+  assert.equal(value.stable, null); assert.equal(value.preview.version, versionCheck());
+  assert.equal(value.preview.archPackage, null);
+  const workflow = fs.readFileSync('.github/workflows/release.yml', 'utf8');
+  assert(!workflow.includes('build-draft')); assert(!workflow.includes('  draft:'));
+  assert.match(workflow, /needs: \[prepare, package\]/);
+  assert.match(workflow, /needs\.package\.result == 'success'/);
+  assert(workflow.indexOf('node scripts/verify-release.mjs gate') < workflow.indexOf('node .local/workflow/scripts/publish-release.mjs'));
+});
+
+test('retry publishes an existing verified draft without replacing assets', async t => {
+  const f = publicationFixture(t); f.setReleases([{ ...f.current, draft: true }]);
+  await publishRelease(f.options);
+  assert.deepEqual(f.calls[0].slice(0, 4), ['release', 'edit', f.options.tag, '--draft=false']);
+  assert(!f.calls.some(args => args[1] === 'create' && args[2] === f.options.tag));
+});
+
+test('published retry preserves stable channel and only updates metadata', async t => {
+  const f = publicationFixture(t);
+  const stable = { version: '0.1.9', manifest: `${base}v0.1.9/updater.json`, archPackage: null };
+  f.setReleases([f.current, { tag_name: 'updates', draft: false, assets: [{ name: 'channels.json' }] }]);
+  f.setChannels({ schemaVersion: 1, stable, preview: null });
+  await publishRelease(f.options);
+  assert.equal(f.calls.length, 1); assert.deepEqual(f.calls[0].slice(0, 3), ['release', 'upload', 'updates']);
+  const value = JSON.parse(fs.readFileSync(f.calls[0][3], 'utf8')); assert.deepEqual(value.stable, stable);
+});
+
+test('publication rejects changed immutable assets and broken channels before mutation', async t => {
+  for (const failure of ['asset', 'missing-index', 'index-http', 'schema', 'downgrade', 'api']) {
+    await t.test(failure, async t => {
+      const f = publicationFixture(t);
+      const updates = { tag_name: 'updates', draft: false, assets: [{ name: 'channels.json' }] };
+      f.setReleases([f.current, updates]);
+      f.setChannels({ schemaVersion: 1, stable: null, preview: null });
+      if (failure === 'asset') f.current.assets[0].digest = 'sha256:invalid';
+      if (failure === 'missing-index') updates.assets = [];
+      if (failure === 'index-http') f.setIndexStatus(404);
+      if (failure === 'schema') f.setChannels({ schemaVersion: 999 });
+      if (failure === 'downgrade') f.setChannels({ schemaVersion: 1, stable: null, preview: { version: '9.0.0', manifest: `${base}v9.0.0/updater.json` } });
+      if (failure === 'api') f.setApiStatus(403);
+      await assert.rejects(publishRelease(f.options)); assert.equal(f.calls.length, 0);
+    });
+  }
 });
 
 test('main creates the missing version tag at its event commit and skips an existing version', async t => {
@@ -67,14 +136,14 @@ test('manual retries use existing matching tags without creating or moving them'
     calls.push({ url, ...options });
     return new Response(null, { status: 200 });
   });
-  assert.equal((await prepareRelease({ ...options, operation: 'build-draft' })).build, true);
-  assert.equal((await prepareRelease({ ...options, operation: 'promote' })).build, false);
-  await assert.rejects(prepareRelease({ ...options, tag: 'v9.9.9', operation: 'build-draft' }), /Tag and source version differ/);
+  assert.equal((await prepareRelease({ ...options, operation: 'release' })).build, true);
+  assert.equal((await prepareRelease({ ...options, operation: 'publish' })).build, false);
+  await assert.rejects(prepareRelease({ ...options, tag: 'v9.9.9', operation: 'release' }), /Tag and source version differ/);
   assert.equal(calls.length, 2);
   assert(calls.every(call => !call.method));
   t.mock.restoreAll();
   t.mock.method(globalThis, 'fetch', async () => new Response(null, { status: 404 }));
-  await assert.rejects(prepareRelease({ ...options, operation: 'build-draft' }), /does not exist/);
+  await assert.rejects(prepareRelease({ ...options, operation: 'release' }), /does not exist/);
 });
 
 test('channel promotion validates versions, fixed origin and prevents downgrade', () => {
