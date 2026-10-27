@@ -1,4 +1,4 @@
-//! The manager's launcher is independent of the optional MPV media association.
+//! The manager owns its desktop launcher; media associations belong to the MPV package.
 use crate::{
     deploy::{self, DeploymentPlan, Payload},
     error::{AppError, Result},
@@ -20,6 +20,26 @@ fn conflict() -> AppError {
         "管理器桌面入口或图标存在手改/未知内容，已保留；请检查用户级应用目录。",
         "desktop",
     )
+}
+
+fn exec_argument(value: &str) -> Result<String> {
+    if value.chars().any(char::is_control) {
+        return Err(conflict());
+    }
+    // Exec quoting first, desktop-entry string escaping second (no shell involved).
+    let mut quoted = String::from("\"");
+    for c in value.chars() {
+        match c {
+            '\\' | '"' | '`' | '$' => {
+                quoted.push('\\');
+                quoted.push(c);
+            }
+            '%' => quoted.push_str("%%"),
+            _ => quoted.push(c),
+        }
+    }
+    quoted.push('"');
+    Ok(quoted.replace('\\', "\\\\"))
 }
 
 struct Plan {
@@ -52,8 +72,7 @@ fn prepare(root: &Path, applications: &Path, executable: &Path) -> Result<Plan> 
     let link = applications.join(ENTRY);
     let target = root.join(SOURCE);
     let linked = linked(&link, &target)?;
-    let executable =
-        super::desktop_entry::exec_argument(executable.to_str().ok_or_else(conflict)?)?;
+    let executable = exec_argument(executable.to_str().ok_or_else(conflict)?)?;
     let icon = root.join(ICON);
     super::validate_local_path(&icon)?;
     let icon = icon.to_str().ok_or_else(conflict)?.replace('\\', "\\\\");
@@ -155,6 +174,16 @@ pub fn ensure() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn quoting_preserves_spaces_field_codes_and_special_characters() {
+        assert_eq!(exec_argument("/tmp/a b%f").unwrap(), "\"/tmp/a b%%f\"");
+        assert_eq!(
+            exec_argument("a\"$`\\").unwrap(),
+            "\"a\\\\\"\\\\$\\\\`\\\\\\\\\""
+        );
+        assert!(exec_argument("/tmp/a\nExec=bad").is_err());
+    }
 
     #[test]
     fn manager_launcher_updates_owned_files_without_media_configuration() {

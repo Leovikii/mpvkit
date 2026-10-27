@@ -28,7 +28,6 @@ export const messages = {
   openDirectory: ["打开", "Open"],
   applyChanges: ["应用更改","Apply changes"],
   fileChanges: ["文件变更（{count}）","File changes ({count})"],
-  registrationDetails: ["系统登记详情","Registration details"],
   writeHint: ["写入以下位置，请核对文件变更；不保留历史备份。","Review changes at this location. No historical backups are kept."],
   sources: ["组件来源","Component sources"],
   balancedHint: ["推荐日常使用，兼顾画质与性能。","Recommended for everyday use."],
@@ -41,7 +40,7 @@ export const messages = {
   systemMpvHint: ["使用系统 MPV。请先安装 mpv 和 Vulkan 驱动；核心更新由系统包管理器负责。", "Uses system MPV. Install mpv and a Vulkan driver first; update the player with your package manager."],
   systemInstalled: ["已安装（系统）", "Installed (system)"],
   systemMpvUpdates: ["系统 MPV 由包管理器更新。", "Update system MPV with your package manager."],
-  uninstallHint: ["移除未修改的预设和播放增强、相关生成项及自身打开方式。手改文件、续播记录和系统 MPV 保留。", "Remove unchanged presets, enhancements, generated files and its Open with entry. Modified files, playback positions and system MPV are retained."],
+  uninstallHint: ["移除未修改的预设和播放增强及相关生成项。手改文件、续播记录和系统 MPV 保留。", "Remove unchanged presets, enhancements and generated files. Modified files, playback positions and system MPV are retained."],
   installPlayer: ["安装播放器", "Install player"],
   repairPlayer: ["修复组件", "Repair components"],
   generateConfig: ["生成配置", "Generate configuration"],
@@ -54,11 +53,8 @@ export const messages = {
   manuallyEdited: ["已手动修改", "Manually edited"],
   configRetained: ["核心未安装，配置已保留", "Player removed; configuration retained"],
   openFolder: ["打开文件夹", "Open folder"],
-  integrate: ["添加到系统打开方式", "Add to system Open with"],
   waitingConfig: ["等待配置", "Waiting for configuration"],
   waitingCore: ["等待播放器", "Waiting for player"],
-  integrationOff: ["未启用", "Off"],
-  integrationIncomplete: ["文件已保存，系统打开方式未完成。请重试登记或恢复操作。", "Files saved; Open with did not complete. Retry registration or recover the interrupted operation."],
   checkUpdates: ["检查更新", "Check for updates"],
   supportedVersion: ["已是当前支持版本", "Current supported version"],
   supportedUpdate: ["可安装当前支持版本", "Supported version available"],
@@ -86,7 +82,6 @@ export const messages = {
   status: ["状态", "Status"],
   location: ["安装位置", "Location"],
   playback: ["播放设置", "Playback settings"],
-  integration: ["系统打开方式","Open with"],
   maintenance: ["维护", "Maintenance"],
   settings: ["应用设置","App settings"],
 
@@ -125,12 +120,8 @@ export const messages = {
   hdrOff: ["关闭（SDR）","Off (SDR)"],
   hdrHint: ["需支持 HDR 的屏幕，并在系统中开启 HDR。","Requires an HDR display with system HDR enabled."],
   openConfig: ["打开配置文件夹","Open configuration folder"],
-  integrationHint: ["添加到系统打开方式，不更改默认应用。", "Add to Open with without changing the default application."],
   detectedConfigDirectory: ["检测到的 MPV 配置目录", "Detected MPV configuration directory"],
   linuxPlaybackHint: ["保存后，系统 MPV 下次启动使用此配置。", "After saving, system MPV uses this configuration on its next start."],
-  registered: ["已添加到打开方式", "Added to Open with"],
-  notRegistered: ["尚未添加", "Not added"],
-  changedRegistration: ["打开方式已失效", "Open with needs repair"],
   defaultApps: ["设置默认应用", "Open Default apps"],
   recover: ["恢复操作","Recover"],
   recovery: ["需要恢复", "Recovery required"],
@@ -179,7 +170,6 @@ export function errorKey(error: unknown): Key {
   const code = (error as {code?: string})?.code ?? "";
   if (code === "winget_missing") return "wingetMissing";
   if (code.startsWith("winget_") || code === "mpv_install_incomplete") return "wingetFailure";
-  if (code === "integration_incomplete") return "integrationIncomplete";
   if (code === "cancelled") return "downloadCancelled";
   if (code.includes("stale") || code.includes("changed")) return "stale";
   if (code.includes("conflict")) return "conflict";

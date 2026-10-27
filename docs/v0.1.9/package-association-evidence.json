@@ -1,0 +1,85 @@
+{
+  "date": "2026-10-27",
+  "method": "Pinned upstream code plus read-only queries of 12 known HKCR extension keys; installer not executed",
+  "package": "shinchiro.mpv",
+  "version": "0.41.0",
+  "packageSha256": "159441c52fd74755cb74c830f661fcd9517c77056887c27ac0569876b600f0c9",
+  "upstreamCommit": "d41f49759acd340e37a3737cf48c899b64692d91",
+  "upstreamSourceSha256": "327ff405c81dddb36da6ccec0ad1094d6df788f610fd74093322947d897668cf",
+  "sourceUrl": "https://github.com/0GMou/mpv2winget/blob/d41f49759acd340e37a3737cf48c899b64692d91/build_mpv.iss",
+  "registrationTrigger": "ssPostInstall",
+  "selection": "existing extension with PerceivedType audio or video",
+  "writes": [
+    "HKLM MPV Player Capabilities/FileAssociations: extension -> mpv.file",
+    "HKCR extension/OpenWithProgids: mpv.file"
+  ],
+  "defaultUserChoiceWritten": false,
+  "commonFormats": [
+    {
+      "extension": ".mkv",
+      "perceivedType": "video",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".mp4",
+      "perceivedType": "video",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".webm",
+      "perceivedType": "video",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".avi",
+      "perceivedType": "video",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".mov",
+      "perceivedType": "video",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".mp3",
+      "perceivedType": "audio",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".flac",
+      "perceivedType": "audio",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".wav",
+      "perceivedType": "audio",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".m4v",
+      "perceivedType": "video",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".ts",
+      "perceivedType": "video",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".m4a",
+      "perceivedType": "audio",
+      "upstreamWillRegister": true
+    },
+    {
+      "extension": ".ogg",
+      "perceivedType": "audio",
+      "upstreamWillRegister": true
+    }
+  ],
+  "passed": true,
+  "limitations": [
+    "Does not execute installer or validate UAC",
+    "Unclassified or absent extensions are skipped by upstream",
+    "Source verification does not replace a clean-system shell/UI acceptance test"
+  ]
+}

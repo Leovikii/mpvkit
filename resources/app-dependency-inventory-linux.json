@@ -10,9 +10,9 @@
     "随受管理启动入口保留原文；无安装包，完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "097916f237f39e633eb8bbbfccdb012a692e6824be762d65a6e45ef9be138b7f",
-    "src-tauri/Cargo.lock": "d1967a6cd316cc9c013691014beb50b715761f11fafbc8e4b73839496a461fa9",
-    "package.json": "a1e25a9201f149d5496f90f14ed71e6f52d0784f8d1f99f164b464aca1ae445c",
+    "src-tauri/Cargo.toml": "10b3a81c54f7b10f92ad247b6898be0be6c4f6b7facb2c2d4d3a9332097fed2c",
+    "src-tauri/Cargo.lock": "79d0062657fbfe7dbddb2fc9ce902eabf5d7470634cb5410ef7ec059dd3cc0b0",
+    "package.json": "917c61b8b4324b49ca15e0dcd683a4630ff24bf8f32a763e057bbadd6cfffef9",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
     "resources/app-license-supplements.json": "3dc313feb68a0b7b667eee062f337d25560317087bed4d4e1d096259ec00c7fe"
   },

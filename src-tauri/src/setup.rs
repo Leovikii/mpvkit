@@ -1,7 +1,7 @@
 use crate::{
     config, deploy,
     error::{AppError, Result},
-    integration, mpv,
+    mpv,
 };
 use serde::Serialize;
 use std::path::{Path, PathBuf};
@@ -32,15 +32,11 @@ pub struct Report {
     pub configuration_installed: bool,
     pub configuration_modified: bool,
     pub config_modified_at: Option<u64>,
-    pub integration_enabled: bool,
     pub recovery_required: bool,
-    pub integration: integration::Status,
     pub issues: Vec<String>,
 }
 pub fn status(root: &Path) -> Result<Report> {
     let deployment = deploy::status(root)?;
-    let integration = integration::status(root)?;
-    let state = config::portable::read_state(root)?;
     let config_directory = config::directory(root)?;
     crate::platform::validate_local_path(&config_directory)?;
     let mut report = Report {
@@ -68,9 +64,7 @@ pub fn status(root: &Path) -> Result<Report> {
         configuration_installed: false,
         configuration_modified: false,
         config_modified_at: None,
-        integration_enabled: state.integration_enabled,
-        recovery_required: deployment.recovery_required || integration.recovery_required,
-        integration,
+        recovery_required: deployment.recovery_required,
         issues: vec![],
     };
     {
@@ -254,66 +248,30 @@ volume=20
 pub struct ChangePreview {
     #[serde(flatten)]
     pub files: deploy::DeploymentPreview,
-    pub integration: Option<integration::Preview>,
     pub retained: Vec<String>,
 }
 pub struct ChangePlan {
     pub files: deploy::DeploymentPlan,
-    pub integration: Option<integration::Plan>,
-    pub unregister_first: bool,
     pub retained: Vec<String>,
 }
 impl ChangePlan {
     pub fn preview(&self) -> ChangePreview {
         ChangePreview {
             files: self.files.preview.clone(),
-            integration: self.integration.as_ref().map(|p| p.preview.clone()),
             retained: self.retained.clone(),
         }
     }
 }
-pub fn with_integration(files: deploy::DeploymentPlan, enabled: bool) -> Result<ChangePlan> {
-    let root = &files.preview.root;
-    let current = integration::status(root)?;
-    let registration = if enabled {
-        Some(integration::prepare_after_files(&files)?)
-    } else if current.registered {
-        Some(integration::prepare(root, "unregister")?)
-    } else {
-        None
-    };
-    Ok(ChangePlan {
-        files,
-        integration: registration,
-        unregister_first: !enabled,
-        retained: vec![],
-    })
-}
 pub fn files_only(files: deploy::DeploymentPlan) -> ChangePlan {
     ChangePlan {
         files,
-        integration: None,
-        unregister_first: false,
         retained: vec![],
     }
-}
-#[cfg(all(test, target_os = "windows"))]
-pub fn prepare_configuration(
-    root: &Path,
-    settings: config::Settings,
-    replace: bool,
-) -> Result<ChangePlan> {
-    let files = config::prepare_portable(root, settings, replace)?;
-    with_integration(
-        files,
-        config::portable::read_state(root)?.integration_enabled,
-    )
 }
 pub fn prepare_draft(
     root: &Path,
     settings: config::Settings,
     replace: bool,
-    enabled: bool,
     expected: &str,
 ) -> Result<ChangePlan> {
     if config::portable::fingerprint(root)? != expected {
@@ -323,7 +281,7 @@ pub fn prepare_draft(
             "config",
         ));
     }
-    let files = config::portable::prepare_draft(root, settings, replace, enabled)?;
+    let files = config::prepare_portable(root, settings, replace)?;
     if config::portable::fingerprint(root)? != expected {
         return Err(AppError::new(
             "stale_preview",
@@ -331,28 +289,16 @@ pub fn prepare_draft(
             "config",
         ));
     }
-    with_integration(files, enabled)
-}
-pub fn prepare_intent(root: &Path, enabled: bool) -> Result<ChangePlan> {
-    let files = config::portable::prepare_intent(root, enabled)?;
-    if config::portable::ready(root)? || !enabled {
-        if enabled {
-            require_components(root)?;
-        }
-        with_integration(files, enabled)
-    } else {
-        Ok(files_only(files))
-    }
+    Ok(files_only(files))
 }
 pub fn prepare_uninstall(root: &Path) -> Result<ChangePlan> {
     let m = deploy::status(root)?
         .manifest
         .ok_or_else(|| AppError::new("not_installed", "尚未安装播放增强。", "setup"))?;
-    // The integration record is removed first by execute(); the plan itself remains read-only.
     let files = deploy::prepare_install(root, vec![], false, Default::default())?;
     let mut files = files.for_uninstall();
     files.remove_generated_logs(crate::logs::uninstall_files(root)?)?;
-    let mut plan = with_integration(files, false)?;
+    let mut plan = files_only(files);
     for file in &m.files {
         if deploy::file_hash(&root.join(&file.path))?.is_some_and(|hash| hash != file.sha256) {
             plan.retained.push(file.path.clone());
@@ -371,28 +317,7 @@ pub fn execute(plan: ChangePlan) -> Result<deploy::DeploymentStatus> {
             "setup",
         ));
     }
-    plan.files.validate_before_integration()?;
-    if let Some(registration) = &plan.integration {
-        integration::validate_pending(registration)?;
-    }
-    if plan.unregister_first {
-        if let Some(registration) = plan.integration {
-            integration::execute(registration)?;
-        }
-        deploy::execute(plan.files)
-    } else {
-        let result = deploy::execute(plan.files)?;
-        if let Some(registration) = plan.integration {
-            integration::execute(registration).map_err(|_| {
-                AppError::new(
-                    "integration_incomplete",
-                    "文件已保存，系统打开方式未完成。请重试登记或恢复。",
-                    "integration",
-                )
-            })?;
-        }
-        Ok(result)
-    }
+    deploy::execute(plan.files)
 }
 
 #[cfg(test)]
@@ -440,15 +365,14 @@ mod transaction_tests {
         );
         assert!(!root.exists());
         assert_eq!(
-            prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint)
+            prepare_draft(&root, settings.clone(), false, &preview.fingerprint)
                 .err()
                 .unwrap()
                 .code,
             "components_required"
         );
         core(&root);
-        let plan =
-            prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint).unwrap();
+        let plan = prepare_draft(&root, settings.clone(), false, &preview.fingerprint).unwrap();
         execute(plan).unwrap();
         let preview = config::portable::preview(&root, &settings, false).unwrap();
         assert!(
@@ -457,12 +381,11 @@ mod transaction_tests {
                 .iter()
                 .all(|f| f.retained && f.modified_at.is_some())
         );
-        let plan =
-            prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint).unwrap();
+        let plan = prepare_draft(&root, settings.clone(), false, &preview.fingerprint).unwrap();
         std::fs::remove_file(root.join(crate::config::relative!("scripts/thumbfast.lua"))).unwrap();
         assert!(execute(plan).is_err());
         assert_eq!(
-            prepare_draft(&root, settings.clone(), false, false, &preview.fingerprint)
+            prepare_draft(&root, settings.clone(), false, &preview.fingerprint)
                 .err()
                 .unwrap()
                 .code,
@@ -474,7 +397,7 @@ mod transaction_tests {
         )
         .unwrap();
         assert_eq!(
-            prepare_draft(&root, settings, false, false, &preview.fingerprint)
+            prepare_draft(&root, settings, false, &preview.fingerprint)
                 .err()
                 .unwrap()
                 .code,
@@ -483,90 +406,38 @@ mod transaction_tests {
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
-    #[cfg(target_os = "windows")]
-    fn registration_failure_keeps_configuration_and_uninstall_failure_keeps_helper() {
-        let root = std::env::temp_dir().join(format!("mpvkit-combined-{}", deploy::operation_id()));
-        core(&root);
-        let plan = prepare_configuration(&root, Default::default(), false).unwrap();
-        assert_eq!(plan.preview().integration.unwrap().values.len(), 15);
-        assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
-        crate::platform::registry::FAIL_WRITE.with(|f| f.set(true));
-        assert_eq!(execute(plan).err().unwrap().code, "integration_incomplete");
-        assert!(status(&root).unwrap().settings_ready);
-        assert!(!status(&root).unwrap().integration.registered);
-        let conf = deploy::read_bytes(&root.join(crate::config::relative!("mpv.conf"))).unwrap();
-        execute(prepare_intent(&root, true).unwrap()).unwrap();
-        assert!(status(&root).unwrap().integration.valid);
-        assert_eq!(
-            deploy::read_bytes(&root.join(crate::config::relative!("mpv.conf"))).unwrap(),
-            conf
-        );
-        let removal = prepare_uninstall(&root).unwrap();
-        crate::platform::registry::FAIL_WRITE.with(|f| f.set(true));
-        assert!(execute(removal).is_err());
-        assert!(root.join(".mpvkit/launcher/mpvkit.exe").exists());
-        assert!(status(&root).unwrap().integration.valid);
-        std::fs::write(root.join(crate::config::relative!("private.txt")), "mine").unwrap();
-        std::fs::create_dir(root.join(crate::config::relative!("watch_later"))).unwrap();
-        std::fs::write(
-            root.join(crate::config::relative!("watch_later/position")),
-            "start=10",
-        )
-        .unwrap();
-        let removal = prepare_uninstall(&root).unwrap();
-        assert!(!removal.preview().retained.is_empty());
-        execute(removal).unwrap();
-        assert!(root.join("mpv.exe").exists());
-        assert!(!status(&root).unwrap().integration.registered);
-        assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
-        assert!(root.join(crate::config::relative!("private.txt")).exists());
-        assert!(
-            root.join(crate::config::relative!("watch_later/position"))
-                .exists()
-        );
-        assert!(deploy::status(&root).unwrap().manifest.is_none());
-        std::fs::remove_dir_all(root).unwrap();
-    }
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn standalone_registration_rejects_a_modified_helper() {
-        let root = std::env::temp_dir().join(format!("mpvkit-helper-{}", deploy::operation_id()));
-        core(&root);
-        execute(prepare_configuration(&root, Default::default(), false).unwrap()).unwrap();
-        execute(prepare_intent(&root, false).unwrap()).unwrap();
-        std::fs::write(config::helper_path(&root), "changed helper").unwrap();
-        assert_eq!(
-            integration::prepare(&root, "register").err().unwrap().code,
-            "helper_changed"
-        );
-        assert!(!status(&root).unwrap().integration.registered);
-        std::fs::remove_dir_all(root).unwrap();
-    }
-    #[test]
-    #[cfg(target_os = "windows")]
-    fn stale_registration_preview_cannot_write_files_and_stale_uninstall_cannot_unregister() {
+    fn uninstall_preserves_user_content_and_rejects_changed_helper() {
         let root =
-            std::env::temp_dir().join(format!("mpvkit-stale-combined-{}", deploy::operation_id()));
+            std::env::temp_dir().join(format!("mpvkit-files-only-{}", deploy::operation_id()));
         core(&root);
-        let plan = prepare_configuration(&root, Default::default(), false).unwrap();
-        let registry = crate::platform::registry::Registry::test(&root);
-        registry
-            .write(
-                "Software\\RegisteredApplications",
-                "MpvKit",
-                Some(&crate::platform::registry::RegistryData::string("other")),
-            )
+        let preview = config::portable::preview(&root, &Default::default(), false).unwrap();
+        execute(prepare_draft(&root, Default::default(), false, &preview.fingerprint).unwrap())
             .unwrap();
-        assert!(execute(plan).is_err());
-        assert!(!root.join(crate::config::relative!("mpv.conf")).exists());
-        registry
-            .write("Software\\RegisteredApplications", "MpvKit", None)
-            .unwrap();
-        execute(prepare_configuration(&root, Default::default(), false).unwrap()).unwrap();
-        let plan = prepare_uninstall(&root).unwrap();
-        std::fs::write(config::helper_path(&root), "changed").unwrap();
-        assert!(execute(plan).is_err());
-        assert!(status(&root).unwrap().integration.registered);
+        let report = serde_json::to_value(status(&root).unwrap()).unwrap();
+        assert!(report.get("integration").is_none());
+        assert!(report.get("integrationEnabled").is_none());
+        let state = serde_json::to_value(config::portable::read_state(&root).unwrap()).unwrap();
+        assert!(state.get("integrationEnabled").is_none());
+        let helper = root.join(crate::platform::HELPER);
+        let original = std::fs::read(&helper).unwrap();
+        let stale = prepare_uninstall(&root).unwrap();
+        std::fs::write(&helper, "changed").unwrap();
+        assert_eq!(execute(stale).unwrap_err().code, "stale_preview");
+        std::fs::write(&helper, original).unwrap();
+        std::fs::write(root.join("private.txt"), "mine").unwrap();
+        std::fs::create_dir(root.join("watch_later")).unwrap();
+        std::fs::write(root.join("watch_later/position"), "start=10").unwrap();
+        execute(prepare_uninstall(&root).unwrap()).unwrap();
+        assert!(!helper.exists());
+        assert!(!root.join("mpv.conf").exists());
+        assert_eq!(
+            std::fs::read_to_string(root.join("private.txt")).unwrap(),
+            "mine"
+        );
+        assert!(root.join("watch_later/position").is_file());
+        assert!(deploy::status(&root).unwrap().manifest.is_none());
+        #[cfg(target_os = "windows")]
+        assert!(root.join("mpv.exe").is_file());
         std::fs::remove_dir_all(root).unwrap();
     }
 }

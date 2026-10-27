@@ -110,7 +110,6 @@ fn arch_wayland_install_playback_and_uninstall() {
     platform::validate_local_path(&media).unwrap();
     let player_hash = deploy::file_hash(Path::new("/usr/bin/mpv")).unwrap();
     let initial = setup::status(&root).unwrap();
-    assert!(!initial.integration_enabled);
     let system_player = initial.components.iter().find(|c| c.id == "mpv").unwrap();
     assert!(system_player.ready);
     assert!(
@@ -145,7 +144,7 @@ fn arch_wayland_install_playback_and_uninstall() {
     assert_eq!(preview.files.len(), 4);
     assert!(preview.files[0].after.contains("gpu-context=waylandvk"));
     assert_eq!(
-        setup::prepare_draft(&root, draft.clone(), false, true, &preview.fingerprint)
+        setup::prepare_draft(&root, draft.clone(), false, &preview.fingerprint)
             .err()
             .unwrap()
             .code,
@@ -153,18 +152,16 @@ fn arch_wayland_install_playback_and_uninstall() {
     );
     assert!(!root.exists());
     let plan =
-        components::prepare_install(&root, false, false, &AtomicBool::new(false), &mut |_| {})
-            .unwrap();
+        components::prepare_install(&root, false, &AtomicBool::new(false), &mut |_| {}).unwrap();
     assert!(!root.exists());
     deploy::execute(plan).unwrap();
     let core = setup::status(&root).unwrap();
     assert!(core.player_ready && core.components_ready && !core.settings_ready);
-    assert!(!core.integration.registered);
     let helper = root.clone().join(platform::UOSC_HELPER);
     let held = helper.with_extension("held");
     fs::rename(&helper, &held).unwrap();
     assert_eq!(
-        setup::prepare_draft(&root, draft.clone(), false, true, &preview.fingerprint)
+        setup::prepare_draft(&root, draft.clone(), false, &preview.fingerprint)
             .err()
             .unwrap()
             .code,
@@ -172,10 +169,8 @@ fn arch_wayland_install_playback_and_uninstall() {
     );
     fs::rename(held, helper).unwrap();
     fs::write(root.join("notes.txt"), "unmanaged user file").unwrap();
-    let plan = setup::prepare_draft(&root, draft, false, false, &preview.fingerprint).unwrap();
-    assert!(plan.preview().integration.is_none());
+    let plan = setup::prepare_draft(&root, draft, false, &preview.fingerprint).unwrap();
     setup::execute(plan).unwrap();
-    assert!(!setup::status(&root).unwrap().integration.registered);
     let entry = root.join(".mpvkit/test-applications/io.github.mpvkit.player.desktop");
     assert!(!entry.exists());
     let config_file = root.join(crate::config::relative!("mpv.conf"));
@@ -263,24 +258,20 @@ fn arch_wayland_install_playback_and_uninstall() {
     request(&socket, serde_json::json!(["quit"]));
     wait(|| UnixStream::connect(&socket).is_err());
     assert!(player.wait().unwrap().success());
-    // Optional Open with registration is independent of native configuration loading.
-    setup::execute(setup::prepare_intent(&root, true).unwrap()).unwrap();
-    assert!(setup::status(&root).unwrap().integration.valid);
-    assert!(
-        platform::command(Path::new("/usr/bin/desktop-file-validate"))
-            .arg(&entry)
-            .status()
-            .unwrap()
-            .success()
-    );
     let watch = root.join(crate::config::relative!("watch_later"));
     assert!(fs::read_dir(&watch).unwrap().next().is_some());
-    let mut helper = platform::command(&config::helper_path(&root))
-        .arg("--open")
+    let mut reopened = platform::command(Path::new("/usr/bin/mpv"))
+        .env("XDG_CONFIG_HOME", test_root.join("config"))
+        .env("HOME", test_root.join("home"))
+        .env("XDG_CACHE_HOME", test_root.join("cache"))
+        .env("XDG_STATE_HOME", test_root.join("state"))
+        .env_remove("MPV_HOME")
+        .arg("--player-operation-mode=pseudo-gui")
+        .arg("--no-terminal")
+        .arg("--")
         .arg(&media)
         .spawn()
         .unwrap();
-    assert!(helper.wait().unwrap().success());
     wait(|| UnixStream::connect(&socket).is_ok());
     // MPV accepts IPC before the reopened file has a time position.
     wait(|| {
@@ -305,6 +296,7 @@ fn arch_wayland_install_playback_and_uninstall() {
     );
     request(&socket, serde_json::json!(["quit"]));
     wait(|| UnixStream::connect(&socket).is_err());
+    assert!(reopened.wait().unwrap().success());
     playback::verify(&root, &media);
     uosc::verify(&root, &media);
     // All profile/HDR modes must parse in the actual target MPV; this does not certify HDR hardware output.
@@ -324,7 +316,7 @@ fn arch_wayland_install_playback_and_uninstall() {
             };
             let preview = config::portable::preview(&root, &settings, false).unwrap();
             setup::execute(
-                setup::prepare_draft(&root, settings, false, true, &preview.fingerprint).unwrap(),
+                setup::prepare_draft(&root, settings, false, &preview.fingerprint).unwrap(),
             )
             .unwrap();
             let args = vec![
@@ -341,7 +333,6 @@ fn arch_wayland_install_playback_and_uninstall() {
     assert!(launch::prepare_managed(&root, media.to_str().unwrap()).is_ok());
     setup::execute(setup::prepare_uninstall(&root).unwrap()).unwrap();
     assert!(!config_file.exists());
-    assert!(!root.join(platform::DESKTOP_ICON).exists());
     assert!(deploy::status(&root).unwrap().manifest.is_none());
     assert!(watch.exists());
     for name in ["staging", "recovery", "pending.json"] {
@@ -353,7 +344,7 @@ fn arch_wayland_install_playback_and_uninstall() {
     assert!(system_player_after.ready);
     assert_eq!(system_player.version, system_player_after.version);
     assert!(!entry.exists());
-    assert!(!config::helper_path(&root).exists());
+    assert!(!root.join(platform::HELPER).exists());
     assert_eq!(fs::read(manager_entry).unwrap(), manager_before);
     assert_eq!(
         fs::read(manager_root.join("desktop/mpvkit.png")).unwrap(),

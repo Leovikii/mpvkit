@@ -13,7 +13,6 @@ mod config;
 pub mod deploy;
 mod diagnostics;
 mod error;
-mod integration;
 mod launch;
 #[cfg(all(test, target_os = "linux"))]
 mod linux_tests;
@@ -29,20 +28,6 @@ fn main() {
     let args: Vec<String> = std::env::args().collect();
     if args.get(1).is_some_and(|a| a == "--save-playback") {
         std::process::exit(preferences::helper(&args));
-    }
-    if args.get(1).is_some_and(|a| a == "--open") {
-        let result = (|| {
-            let media = args.get(2).filter(|_| args.len() == 3).ok_or_else(|| {
-                error::AppError::new("media_required", "请选择一个本地媒体文件。", "launch")
-            })?;
-            let root = platform::app_root()?;
-            launch::execute(launch::prepare_managed(&root, media)?)
-        })();
-        if let Err(e) = result {
-            platform::show_error(e.message);
-            std::process::exit(1);
-        }
-        return;
     }
     #[cfg(target_os = "linux")]
     {
@@ -74,7 +59,6 @@ fn main() {
         .manage(commands::PendingDeployment::default())
         .manage(commands::ComponentJob::default())
         .manage(commands::PendingExport::default())
-        .manage(commands::PendingIntegration::default())
         .manage(commands::PendingLogCleanup::default())
         .invoke_handler(tauri::generate_handler![
             commands::setup_status,
@@ -87,14 +71,10 @@ fn main() {
             commands::apply_appearance,
             commands::open_config_directory,
             commands::open_player_directory,
-            commands::preview_integration_intent,
             commands::app_information,
             commands::license_text,
             commands::preview_log_cleanup,
             commands::clean_logs,
-            commands::integration_status,
-            commands::preview_integration,
-            commands::apply_integration,
             commands::open_default_apps,
             #[cfg(target_os = "windows")]
             commands::open_app_installer,

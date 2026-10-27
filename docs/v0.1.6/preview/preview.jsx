@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { MantineProvider, AppShell, NavLink, Tooltip, Paper, Group, Stack, Text, Title, Button, Accordion, NativeSelect, Checkbox, Switch, Modal, Alert, Transition, createTheme } from '@mantine/core';
+import { MantineProvider, AppShell, NavLink, Tooltip, Paper, Group, Stack, Text, Title, Button, Accordion, NativeSelect, Switch, Modal, Alert, Transition, createTheme } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import '@mantine/core/styles.css';
 import './preview.css';
@@ -16,7 +16,7 @@ function PageEntrance({ children }) {
   return <Transition mounted={mounted} transition="fade-up" duration={200} timingFunction="ease-out">{styles => <div className="page-content" style={styles}>{children}</div>}</Transition>;
 }
 import { sampleFiles } from './sample-config';
-const initialDraft = { quality: 'balanced', hdr: 'auto', keepOpen: false, autoPlaylist: true, integrate: true };
+const initialDraft = { quality: 'balanced', hdr: 'auto', keepOpen: false, autoPlaylist: true };
 function App() {
   const [lang, setLang] = useState('zh');
   const [dark, setDark] = useState(false);
@@ -88,7 +88,7 @@ function App() {
     <AppShell header={{height:88}} navbar={{width:compact?64:216,breakpoint:0}} padding={0} withBorder={false}>
       <AppShell.Header className="shell-header">
         <Group className="preview-tools" justify="space-between" gap={8} wrap="nowrap">
-          <Text size="xs" c="dimmed" className="preview-label">{t('0.1.8 设计预览 · 模拟操作', '0.1.8 design preview · simulated actions')}</Text>
+          <Text size="xs" c="dimmed" className="preview-label">{t('0.1.9 设计预览 · 模拟操作', '0.1.9 design preview · simulated actions')}</Text>
           <Group gap={8} wrap="nowrap"><NativeSelect aria-label="预览场景 / Scenario" size="xs" disabled={busy} value={scenario} onChange={e=>selectScenario(e.currentTarget.value)} data={[
             ['fresh','未安装','Not installed'],['no-core','核心未安装','Core not installed'],['update','有更新','Update available'],['core','组件已安装','Components ready'],['ready','配置已保存','Configured'],['broken','组件损坏','Damaged components'],['conflict','配置手改','Manual edits'],['download-error','安装失败演示','Install failure'],['config-error','保存失败演示','Save failure']
           ].map(([value,zh,en])=>({value,label:t(zh,en)}))}/><Button size="xs" variant="default" onClick={()=>setLang(lang==='zh'?'en':'zh')}>{lang==='zh'?'English':'简体中文'}</Button><Button size="xs" variant="default" onClick={()=>setDark(!dark)}>{dark?t('浅色','Light'):t('深色','Dark')}</Button></Group>
@@ -100,7 +100,7 @@ function App() {
         <div className="page-scroll"><Title order={1} size={28} fw={600} mb={24}>{names[page]}</Title>
           {page==='player'?<>
             <Paper className="status-card">
-              <Row title="MPV" description={coreReady?'v0.41.0 (WinGet)':t('尚未安装','Not installed')}><Group>{!coreReady?button('安装','Install',()=>open('core'),busy):coreUpdate?button('更新','Update',()=>open('core'),busy):button('检查更新','Check for updates',()=>{setCoreUpdate(false);setNotice(t('暂无更新。','No updates available.'));},busy)}{coreReady&&button('卸载 MPV 核心','Uninstall MPV core',()=>open('uninstall-core'),busy)}</Group></Row>
+              <Row title="MPV" description={coreReady?'v0.41.0 (WinGet)':t('尚未安装','Not installed')}><Group>{!coreReady?button('安装','Install',()=>open('core'),busy):coreUpdate?button('更新','Update',()=>open('core'),busy):button('检查更新','Check for updates',()=>{setCoreUpdate(false);setNotice(t('暂无更新。','No updates available.'));},busy)}{button('设置默认应用','Open Default apps',mock,!coreReady||busy)}{coreReady&&button('卸载 MPV 核心','Uninstall MPV core',()=>open('uninstall-core'),busy)}</Group></Row>
               <Row title={t('播放器组件','Player components')}><Group>{!ready&&button(scenario==='broken'?'仅修复组件':'仅安装组件',scenario==='broken'?'Repair components only':'Install components only',()=>open('components'),busy)}{ready&&scenario==='update'&&button('更新组件','Update components',()=>open('components'),busy)}{ready&&button('移除播放增强','Remove enhancements',()=>open('uninstall'),busy)}</Group></Row>
               <Expand title={t('组件明细','Component details')}><Stack gap={12}>{[['uosc','5.13.0'],['thumbfast','0f711de'],[t('文楷字体','WenKai font'),'1.530']].map(([name,version])=><Group justify="space-between" key={name}><Text size="sm">{name}</Text><Text size="xs" c="dimmed">{ready?version:t('待安装','Not installed')}</Text></Group>)}</Stack></Expand>
               <Row title="mpv.conf" description={saved?modifiedTime('mpv.conf'):t('配置尚未保存','Configuration not saved')}>{saved&&button('重置配置','Reset configuration',()=>open('reset'),busy)}</Row>
@@ -113,7 +113,7 @@ function App() {
               <Row title={t('全部播放结束后','After all playback ends')}><NativeSelect aria-label={t('全部播放结束后','After all playback ends')} value={draft.keepOpen?'keep':'close'} disabled={busy} onChange={e=>setDraft({...draft,keepOpen:e.currentTarget.value==='keep'})} data={[{value:'close',label:t('关闭播放器','Close player')},{value:'keep',label:t('保留窗口','Keep window')}]}/></Row>
             </Paper>
             <Paper className="section-gap"><Expand title={t('高级选项','Advanced options')}>
-              <Stack gap={16}><Checkbox label={t('添加到系统打开方式','Add to system Open with')} checked={draft.integrate} disabled={busy} onChange={e=>setDraft({...draft,integrate:e.currentTarget.checked})}/>
+              <Stack gap={16}>
                 <div className="setting-row"><div><Text>{t('打开安装目录','Open installation folder')}</Text><Text size="sm" c="dimmed" className="path">C:/Program Files/MPV Player</Text></div>{button('打开','Open',mock,!ready||busy)}</div>
                 <div className="setting-row"><div><Text>{t('打开配置目录','Open configuration folder')}</Text><Text size="sm" c="dimmed" className="path">%APPDATA%/mpv</Text></div>{button('打开','Open',mock,!ready||busy)}</div><Group gap={8}>{button('刷新状态','Refresh status',()=>setNotice(t('状态已刷新（示例）。','Status refreshed (sample).')),busy)}</Group>
               </Stack>
@@ -122,7 +122,7 @@ function App() {
             {notice&&<Text role="status" mt={16} size="sm">{notice==='components'?t('组件已安装，草稿尚未保存。','Components installed. Draft not saved.'):notice==='saved'?t('配置已保存。','Configuration saved.'):notice}</Text>}
           </>:<>
             <Paper><Row title={t('界面语言','App language')}><NativeSelect aria-label={t('界面语言','App language')} value={lang} onChange={e=>setLang(e.currentTarget.value)} data={[{value:'zh',label:'简体中文'},{value:'en',label:'English'}]}/></Row><Row title={t('主题','Theme')}><NativeSelect aria-label={t('主题','Theme')} value={dark?'dark':'light'} onChange={e=>setDark(e.currentTarget.value==='dark')} data={[{value:'light',label:t('浅色','Light')},{value:'dark',label:t('深色','Dark')}]}/></Row></Paper>
-            <Title order={2} size="sm" mt={24} mb={8}>{t('关于','About')}</Title><Paper><Row title="MpvKit" description={t('0.1.8 设计预览','0.1.8 design preview')}><img src={logo} width={36} height={36} alt=""/></Row><Row title={t('项目仓库','Repository')}><a href="https://github.com/Leovikii/mpvkit" target="_blank" rel="noreferrer">GitHub ↗</a></Row><Row title={t('许可证','License')} description="GPL-3.0-or-later">{button('查看许可','View licenses',mock)}</Row></Paper>
+            <Title order={2} size="sm" mt={24} mb={8}>{t('关于','About')}</Title><Paper><Row title="MpvKit" description={t('0.1.9 设计预览','0.1.9 design preview')}><img src={logo} width={36} height={36} alt=""/></Row><Row title={t('项目仓库','Repository')}><a href="https://github.com/Leovikii/mpvkit" target="_blank" rel="noreferrer">GitHub ↗</a></Row><Row title={t('许可证','License')} description="GPL-3.0-or-later">{button('查看许可','View licenses',mock)}</Row></Paper>
             <Paper className="section-gap"><Expand title={t('高级选项','Advanced options')}><Group>{button('导出诊断','Export diagnostics',mock)}{button('清理日志','Clean logs',mock)}</Group></Expand></Paper>
             {notice&&<Text role="status" mt={16}>{notice==='components'?t('组件已安装，草稿尚未保存。','Components installed. Draft not saved.'):notice==='saved'?t('配置已保存。','Configuration saved.'):notice}</Text>}
           </>}
@@ -131,8 +131,8 @@ function App() {
       </PageEntrance></main></AppShell.Main>
     </AppShell>
     <Modal opened={dialog!==null} onClose={()=>setDialog(null)} title={dialog==='uninstall-core'?t('卸载 MPV 核心','Uninstall MPV core'):dialog==='reset'?t('重置配置','Reset configuration'):dialog==='core'?(coreReady?t('更新','Update'):t('安装','Install')):dialog==='components'?(scenario==='update'?t('更新组件','Update components'):scenario==='broken'?t('修复组件','Repair components'):t('仅安装组件','Install components only')):dialog==='uninstall'?t('移除播放增强','Remove enhancements'):t('预览配置','Preview configuration')} size={720} centered radius={8} closeButtonProps={{'aria-label':t('关闭','Close')}} classNames={{body:'dialog-body',title:'dialog-title'}}>
-      {dialog==='uninstall-core'?<Text>{t('通过 WinGet 卸载核心，影响所有使用此核心的程序。配置保留。','Uninstall the core through WinGet. All apps using it are affected. Configuration is retained.')}</Text>:dialog==='reset'?<Text>{t('恢复全部默认预设，包括设置、快捷键和脚本选项。覆盖手改内容，不保留历史备份。','Restore all preset settings, keys and script options. Overwrites manual edits without historical backups.')}</Text>:dialog==='core'?<><Text size="sm">{t('使用 WinGet 源中的 shinchiro.mpv，接受源及包协议。系统可能请求管理员授权并添加 MPV 打开方式；不会设为默认播放器。','Use shinchiro.mpv from winget and accept source and package agreements. Windows may request administrator approval and add MPV to Open with; it does not set your default player.')}</Text><Text mt={12}>shinchiro.mpv · winget · 0.41.0</Text><Text className="path">C:/Program Files/MPV Player/mpv.exe</Text><Text className="path">%APPDATA%/mpv</Text></>:dialog==='components'?<><Text size="sm">MPV · uosc · thumbfast · {t('文楷字体','WenKai font')}</Text><Text size="sm" mt={12}>{t('仅安装组件，不写入播放配置。','Install components without writing playback configuration.')}</Text></>:dialog==='uninstall'?<Text size="sm">{t('移除未修改的预设、增强及自身登记。手改文件、续播和系统核心保留；临时生成项自动清理。','Remove unchanged presets, enhancements and its registration. Retain modified files, playback positions and system core; clean temporary files automatically.')}</Text>:<>
-        <Text size="sm" mb={16}>{ready?t('保存以下配置。','Save the configuration below.'):t('先安装组件，成功后保存以下配置。','Install components first, then save the configuration below.')}{draft.integrate?' '+t('添加到系统打开方式。','Add to system Open with.'):''}</Text>
+      {dialog==='uninstall-core'?<Text>{t('通过 WinGet 卸载核心，影响所有使用此核心的程序。配置保留。','Uninstall the core through WinGet. All apps using it are affected. Configuration is retained.')}</Text>:dialog==='reset'?<Text>{t('恢复全部默认预设，包括设置、快捷键和脚本选项。覆盖手改内容，不保留历史备份。','Restore all preset settings, keys and script options. Overwrites manual edits without historical backups.')}</Text>:dialog==='core'?<><Text size="sm">{t('使用 WinGet 源中的 shinchiro.mpv，接受源及包协议。系统可能请求管理员授权并添加 MPV 打开方式；不会设为默认播放器。','Use shinchiro.mpv from winget and accept source and package agreements. Windows may request administrator approval and add MPV to Open with; it does not set your default player.')}</Text><Text mt={12}>shinchiro.mpv · winget · 0.41.0</Text><Text className="path">C:/Program Files/MPV Player/mpv.exe</Text><Text className="path">%APPDATA%/mpv</Text></>:dialog==='components'?<><Text size="sm">MPV · uosc · thumbfast · {t('文楷字体','WenKai font')}</Text><Text size="sm" mt={12}>{t('仅安装组件，不写入播放配置。','Install components without writing playback configuration.')}</Text></>:dialog==='uninstall'?<Text size="sm">{t('移除未修改的预设及增强。手改文件、续播和系统核心保留；临时生成项自动清理。','Remove unchanged presets and enhancements. Retain modified files, playback positions and system core; clean temporary files automatically.')}</Text>:<>
+        <Text size="sm" mb={16}>{ready?t('保存以下配置。','Save the configuration below.'):t('先安装组件，成功后保存以下配置。','Install components first, then save the configuration below.')}</Text>
         <NativeSelect aria-label={t('配置文件','Configuration file')} value={file} onChange={e=>setFile(e.currentTarget.value)} data={Object.keys(files)}/>
         <Text size="xs" c="dimmed" mt={8}>{t('上次修改：','Last modified: ')}{modifiedTime(file)}</Text>
         <pre className="config-preview" tabIndex={0} aria-label={t('待生成配置内容','Pending configuration content')}>{files[file]}</pre>

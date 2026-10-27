@@ -128,7 +128,7 @@ pub fn profiles() -> BTreeMap<String, BTreeMap<String, String>> {
 }
 
 pub(crate) mod portable;
-pub use portable::{editable, helper_path, modified, player_path, prepare_portable};
+pub use portable::{editable, modified, player_path, prepare_portable};
 #[cfg(test)]
 pub fn generate(root: &Path, player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
     portable::generate(root, player, settings)
@@ -234,11 +234,6 @@ pub fn runtime_files() -> Result<Vec<Payload>> {
     files.push(Payload {
         path: crate::platform::HELPER.into(),
         bytes: deploy::read_bytes(&executable)?,
-    });
-    #[cfg(target_os = "linux")]
-    files.push(Payload {
-        path: crate::platform::DESKTOP_ICON.into(),
-        bytes: include_bytes!("../icons/icon.png").to_vec(),
     });
     for (name, bytes) in [
         ("LICENSE.txt", include_bytes!("../../LICENSE").as_slice()),

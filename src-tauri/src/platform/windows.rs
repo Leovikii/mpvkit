@@ -294,19 +294,6 @@ pub fn playback_config(hardware_decoding: bool) -> &'static str {
     }
 }
 
-pub fn show_error(message: &str) {
-    let message: Vec<u16> = message.encode_utf16().chain(Some(0)).collect();
-    let title: Vec<u16> = "MpvKit".encode_utf16().chain(Some(0)).collect();
-    unsafe {
-        windows_sys::Win32::UI::WindowsAndMessaging::MessageBoxW(
-            std::ptr::null_mut(),
-            message.as_ptr(),
-            title.as_ptr(),
-            0x10,
-        );
-    }
-}
-
 pub fn open_default_apps() -> Result<()> {
     open_system_uri("ms-settings:defaultapps")
 }

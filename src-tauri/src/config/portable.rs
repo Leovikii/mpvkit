@@ -10,7 +10,6 @@ pub struct State {
     pub owner: String,
     pub revision: u64,
     pub settings: Settings,
-    pub integration_enabled: bool,
     pub manual_config: bool,
 }
 impl Default for State {
@@ -20,7 +19,6 @@ impl Default for State {
             owner: "MpvKit".into(),
             revision: 0,
             settings: Settings::default(),
-            integration_enabled: cfg!(target_os = "windows"),
             manual_config: false,
         }
     }
@@ -52,9 +50,6 @@ pub fn player_path(root: &Path) -> Result<PathBuf> {
         let _ = root;
         Ok(PathBuf::from("/usr/bin/mpv"))
     }
-}
-pub fn helper_path(root: &Path) -> PathBuf {
-    root.join(crate::platform::HELPER)
 }
 pub fn editable(path: &str) -> bool {
     path.strip_prefix(crate::config::relative!(""))
@@ -378,25 +373,16 @@ pub fn prepare_portable(
     settings: Settings,
     replace: bool,
 ) -> Result<deploy::DeploymentPlan> {
-    prepare_portable_mode(root, settings, replace, false, None)
+    prepare_portable_mode(root, settings, replace, false)
 }
 pub fn reset(root: &Path) -> Result<deploy::DeploymentPlan> {
-    prepare_portable_mode(root, Settings::default(), true, true, None)
-}
-pub fn prepare_draft(
-    root: &Path,
-    settings: Settings,
-    replace: bool,
-    integration_enabled: bool,
-) -> Result<deploy::DeploymentPlan> {
-    prepare_portable_mode(root, settings, replace, false, Some(integration_enabled))
+    prepare_portable_mode(root, Settings::default(), true, true)
 }
 fn prepare_portable_mode(
     root: &Path,
     settings: Settings,
     replace: bool,
     reset: bool,
-    integration_enabled: Option<bool>,
 ) -> Result<deploy::DeploymentPlan> {
     crate::setup::require_components(root)?;
     settings.validate()?;
@@ -416,17 +402,6 @@ fn prepare_portable_mode(
         .map(|p| deploy::file_hash(p))
         .collect::<Result<Vec<_>>>()?;
     let mut files = generate_inner(root, &player_path(root)?, &settings, replace, reset)?;
-    if let Some(enabled) = integration_enabled {
-        let payload = files
-            .iter_mut()
-            .find(|p| p.path == ".mpvkit/settings.json")
-            .unwrap();
-        let mut state: State = serde_json::from_slice(&payload.bytes)
-            .map_err(|_| error("settings_invalid", "设置记录无效。"))?;
-        state.integration_enabled = enabled;
-        payload.bytes = serde_json::to_vec_pretty(&state)
-            .map_err(|_| error("settings_encode", "无法保存设置。"))?;
-    }
     for p in &files {
         if !replace
             && !m.files.iter().any(|f| f.path == p.path)
@@ -443,25 +418,6 @@ fn prepare_portable_mode(
     for (path, hash) in watched.into_iter().zip(hashes) {
         plan.guard(path, hash);
     }
-    Ok(plan)
-}
-pub fn prepare_intent(root: &Path, enabled: bool) -> Result<deploy::DeploymentPlan> {
-    let state_path = root.join(".mpvkit/settings.json");
-    let state_hash = deploy::file_hash(&state_path)?;
-    let m = deploy::status(root)?
-        .manifest
-        .ok_or_else(|| error("not_installed", "请先安装播放器。"))?;
-    let mut state = read_state(root)?;
-    state.integration_enabled = enabled;
-    state.manual_config |= modified(root)?;
-    let mut files = vec![Payload {
-        path: ".mpvkit/settings.json".into(),
-        bytes: serde_json::to_vec_pretty(&state)
-            .map_err(|_| error("settings_encode", "无法保存设置。"))?,
-    }];
-    retain_files(root, &m, &mut files)?;
-    let mut plan = deploy::prepare_install(root, files, false, m.components)?;
-    plan.guard(state_path, state_hash);
     Ok(plan)
 }
 #[cfg(test)]

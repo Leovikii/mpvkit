@@ -350,9 +350,6 @@ pub fn prepare_install(
     components: BTreeMap<String, String>,
 ) -> Result<DeploymentPlan> {
     let old_text = manifest_text(root)?;
-    if read_optional(&control(root, "association-pending.json")?)?.is_some() {
-        return Err(error("recovery_required", "请先恢复未完成的系统集成操作。"));
-    }
     if status(root)?.recovery_required {
         return Err(error("recovery_required", "有未完成操作，请先预览恢复。"));
     }
@@ -551,12 +548,6 @@ fn make_plan(
 }
 
 pub fn prepare_uninstall(root: &Path) -> Result<DeploymentPlan> {
-    if read_optional(&control(root, "associations.json")?)?.is_some() {
-        return Err(error(
-            "integration_registered",
-            "请先在系统集成区预览并移除打开方式登记，再移除播放器环境。",
-        ));
-    }
     let mut plan = prepare_install(root, vec![], false, BTreeMap::new())?;
     plan.journal.new_manifest = None;
     plan.preview.no_changes = plan.journal.old_manifest.is_none();
@@ -658,7 +649,7 @@ pub(crate) fn acquire(root: &Path) -> Result<TargetLock> {
     Ok(TargetLock(file))
 }
 
-fn validate_plan(plan: &DeploymentPlan, before_unregister: bool) -> Result<()> {
+fn validate_plan(plan: &DeploymentPlan) -> Result<()> {
     for (path, hash) in &plan.guards {
         if file_hash(path)? != *hash {
             return Err(error("stale_preview", "配置在预览后改变，请重新预览。"));
@@ -672,23 +663,6 @@ fn validate_plan(plan: &DeploymentPlan, before_unregister: bool) -> Result<()> {
                 "自动脚本目录出现未管理内容，请保留并使用独立目录，或先手动移出冲突脚本。",
             ));
         }
-    }
-    if read_optional(&control(&plan.preview.root, "association-pending.json")?)?.is_some() {
-        return Err(error("recovery_required", "请先恢复系统集成操作。"));
-    }
-    let removes_runtime = plan
-        .journal
-        .changes
-        .iter()
-        .any(|c| c.path == ".mpvkit/launcher/mpvkit.exe" && c.after.is_none());
-    if !before_unregister
-        && (plan.journal.new_manifest.is_none() || removes_runtime)
-        && read_optional(&control(&plan.preview.root, "associations.json")?)?.is_some()
-    {
-        return Err(error(
-            "integration_registered",
-            "请先移除打开方式登记，再移除或恢复为空环境。",
-        ));
     }
     if plan.created.elapsed() > Duration::from_secs(300) {
         return Err(error("stale_preview", "部署预览已过期，请重新预览。"));
@@ -802,43 +776,19 @@ impl DeploymentPlan {
         self
     }
 
-    pub(crate) fn validate_before_integration(&self) -> Result<()> {
-        validate_plan(self, true)
-    }
-
-    pub(crate) fn expected_files(&self) -> Result<Vec<(PathBuf, Option<String>)>> {
-        let mut result = Vec::new();
-        let manifest_text = if self.preview.no_changes {
-            &self.journal.old_manifest
-        } else {
-            &self.journal.new_manifest
-        };
-        if let Some(text) = manifest_text {
-            let manifest: InstallManifest = decode(text)?;
-            for file in manifest.files {
-                result.push((self.preview.root.join(file.path), Some(file.sha256)));
-            }
-            result.push((
-                self.preview.root.join(".mpvkit/install.json"),
-                Some(hash_bytes(text.as_bytes())),
-            ));
-        }
-        Ok(result)
-    }
-
     pub(crate) fn guard(&mut self, path: PathBuf, hash: Option<String>) {
         self.guards.push((path, hash));
     }
 }
 
 pub fn execute(plan: DeploymentPlan) -> Result<DeploymentStatus> {
-    validate_plan(&plan, false)?;
+    validate_plan(&plan)?;
     let root = &plan.preview.root;
     let _lock = acquire(root)?;
     if status(root)?.recovery_required {
         return Err(error("recovery_required", "请先恢复未完成操作。"));
     }
-    validate_plan(&plan, false)?;
+    validate_plan(&plan)?;
     if plan.preview.no_changes {
         return status(root);
     }

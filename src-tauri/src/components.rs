@@ -413,7 +413,6 @@ mod tests;
 
 pub fn prepare_install(
     root: &std::path::Path,
-    integration_enabled: bool,
     replace_existing: bool,
     cancel: &AtomicBool,
     progress: &mut impl FnMut(Progress),
@@ -457,7 +456,6 @@ pub fn prepare_install(
     let state_path = root.join(".mpvkit/settings.json");
     let state_hash = deploy::file_hash(&state_path)?;
     let mut state = crate::config::portable::read_state(root)?;
-    state.integration_enabled = integration_enabled;
     state.manual_config |= crate::config::modified(root)?;
     payloads.push(Payload {
         path: ".mpvkit/settings.json".into(),

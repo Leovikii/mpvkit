@@ -76,7 +76,6 @@ impl PendingOperation {
             Self::Deployment(plan) => plan.preview(),
             Self::Recovery(plan) => crate::setup::ChangePreview {
                 files: plan.preview.clone(),
-                integration: None,
                 retained: vec![],
             },
         }
@@ -102,12 +101,7 @@ pub async fn preview_maintenance(
     let root = platform::app_root()?;
     let operation = tauri::async_runtime::spawn_blocking(move || match action.as_str() {
         "reset-config" => crate::config::portable::reset(&root)
-            .and_then(|p| {
-                crate::setup::with_integration(
-                    p,
-                    crate::config::portable::read_state(&root)?.integration_enabled,
-                )
-            })
+            .map(crate::setup::files_only)
             .map(Box::new)
             .map(PendingOperation::Deployment),
         "uninstall" => crate::setup::prepare_uninstall(&root)
@@ -196,7 +190,6 @@ pub fn cancel_component_download(state: State<'_, ComponentJob>) -> Result<()> {
 
 #[tauri::command]
 pub async fn preview_install(
-    integration_enabled: bool,
     replace_existing: bool,
     on_progress: tauri::ipc::Channel<crate::components::Progress>,
     job: State<'_, ComponentJob>,
@@ -219,15 +212,9 @@ pub async fn preview_install(
         *current = Some(cancel.clone());
     }
     let result = tauri::async_runtime::spawn_blocking(move || {
-        crate::components::prepare_install(
-            &root,
-            integration_enabled,
-            replace_existing,
-            &cancel,
-            &mut |progress| {
-                let _ = on_progress.send(progress);
-            },
-        )
+        crate::components::prepare_install(&root, replace_existing, &cancel, &mut |progress| {
+            let _ = on_progress.send(progress);
+        })
     })
     .await
     .map_err(|_| {
@@ -241,11 +228,7 @@ pub async fn preview_install(
         .lock()
         .map_err(|_| AppError::new("state_unavailable", "获取状态不可用。", "components"))? = None;
     let files = result??;
-    let plan = if crate::config::portable::ready(&files.preview.root)? {
-        crate::setup::with_integration(files, integration_enabled)?
-    } else {
-        crate::setup::files_only(files)
-    };
+    let plan = crate::setup::files_only(files);
     let preview = plan.preview();
     *state
         .0
@@ -278,19 +261,12 @@ pub async fn preview_configuration(
 pub async fn preview_settings(
     settings: crate::config::Settings,
     replace_manual: bool,
-    integration_enabled: bool,
     expected_fingerprint: String,
     state: State<'_, PendingDeployment>,
 ) -> Result<crate::setup::ChangePreview> {
     let root = platform::app_root()?;
     let plan = tauri::async_runtime::spawn_blocking(move || {
-        crate::setup::prepare_draft(
-            &root,
-            settings,
-            replace_manual,
-            integration_enabled,
-            &expected_fingerprint,
-        )
+        crate::setup::prepare_draft(&root, settings, replace_manual, &expected_fingerprint)
     })
     .await
     .map_err(|_| AppError::new("worker_failed", "设置预览异常结束。", "config"))??;
@@ -348,61 +324,6 @@ pub async fn export_diagnostics(
         .map_err(|_| AppError::new("worker_failed", "诊断导出异常结束。", "diagnostics"))?
 }
 
-#[derive(Default)]
-pub struct PendingIntegration(Mutex<Option<crate::integration::Plan>>);
-#[tauri::command]
-pub async fn integration_status() -> Result<crate::integration::Status> {
-    let root = platform::app_root()?;
-    tauri::async_runtime::spawn_blocking(move || crate::integration::status(&root))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "系统集成状态读取异常。", "integration"))?
-}
-#[tauri::command]
-pub async fn preview_integration(
-    action: String,
-    state: State<'_, PendingIntegration>,
-) -> Result<crate::integration::Preview> {
-    let root = platform::app_root()?;
-    let plan =
-        tauri::async_runtime::spawn_blocking(move || crate::integration::prepare(&root, &action))
-            .await
-            .map_err(|_| AppError::new("worker_failed", "系统集成预览异常。", "integration"))??;
-    let preview = plan.preview.clone();
-    *state
-        .0
-        .lock()
-        .map_err(|_| AppError::new("state_unavailable", "系统集成状态不可用。", "integration"))? =
-        Some(plan);
-    Ok(preview)
-}
-#[tauri::command]
-pub async fn apply_integration(
-    preview_id: String,
-    state: State<'_, PendingIntegration>,
-) -> Result<crate::integration::Status> {
-    let plan = {
-        let mut pending = state.0.lock().map_err(|_| {
-            AppError::new("state_unavailable", "系统集成状态不可用。", "integration")
-        })?;
-        if pending.as_ref().is_none_or(|p| p.preview.id != preview_id) {
-            return Err(AppError::new(
-                "stale_preview",
-                "系统集成预览不匹配。",
-                "integration",
-            ));
-        }
-        pending.take().expect("matched integration")
-    };
-    tauri::async_runtime::spawn_blocking(move || crate::integration::execute(plan))
-        .await
-        .map_err(|_| {
-            AppError::new(
-                "worker_failed",
-                "系统集成执行异常，请检查恢复状态。",
-                "integration",
-            )
-        })?
-}
 #[tauri::command]
 pub fn open_default_apps() -> Result<()> {
     platform::open_default_apps()
@@ -523,26 +444,6 @@ pub fn license_text(kind: String) -> Result<&'static str> {
     }
 }
 
-#[tauri::command]
-pub async fn preview_integration_intent(
-    enabled: bool,
-    state: State<'_, PendingDeployment>,
-) -> Result<crate::setup::ChangePreview> {
-    let root = platform::app_root()?;
-    let plan =
-        tauri::async_runtime::spawn_blocking(move || crate::setup::prepare_intent(&root, enabled))
-            .await
-            .map_err(|_| {
-                AppError::new("worker_failed", "无法预览打开方式设置。", "integration")
-            })??;
-    let preview = plan.preview();
-    *state
-        .0
-        .lock()
-        .map_err(|_| AppError::new("state_unavailable", "操作状态不可用。", "integration"))? =
-        Some(PendingOperation::Deployment(Box::new(plan)));
-    Ok(preview)
-}
 #[tauri::command]
 pub async fn open_player_directory() -> Result<()> {
     tauri::async_runtime::spawn_blocking(|| {

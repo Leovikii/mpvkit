@@ -1,0 +1,152 @@
+{
+  "date": "2026-10-27",
+  "timezone": "Asia/Hong_Kong",
+  "baselineCommit": "63945b3",
+  "version": "0.1.9",
+  "releaseReady": false,
+  "environment": {
+    "platform": "Windows x64",
+    "osVersion": "10.0.26200.0",
+    "rust": "1.98.1",
+    "node": "24.22.1",
+    "declaredNode": "24.19.0",
+    "pnpm": "11.25.0"
+  },
+  "build": {
+    "command": "pnpm tauri build --debug --no-bundle",
+    "path": "src-tauri/target/debug/mpvkit.exe",
+    "bytes": 30242304,
+    "sha256": "420bfaa61275be3814cd56987c5d7d5b21c6a10659a697a72788c716480b04bf",
+    "bundleActive": false
+  },
+  "checks": {
+    "rustDefault": {
+      "passed": 60,
+      "failed": 0,
+      "ignored": 5,
+      "seconds": 7.08
+    },
+    "frontend": {
+      "passed": 3,
+      "failed": 0
+    },
+    "fmt": "passed",
+    "clippyAllTargetsDenyWarnings": "passed",
+    "typeScriptVite": "passed",
+    "offlinePreview": "passed",
+    "windowsDependencyMaterials": {
+      "packages": 319,
+      "materials": 565,
+      "missing": 0
+    },
+    "linuxDependencyMaterials": {
+      "packages": 356,
+      "materials": 618,
+      "missing": 0
+    },
+    "nativeFull": {
+      "passed": 8,
+      "failed": 0,
+      "milliseconds": 269829.2169,
+      "cases": [
+        {
+          "name": "native WinGet core install, failures, retry, upgrade and ownership boundary",
+          "passed": true,
+          "milliseconds": 63555.5315
+        },
+        {
+          "name": "native v018 startup window sizing and stable resize",
+          "passed": true,
+          "milliseconds": 23750.4411
+        },
+        {
+          "name": "native v018 uosc layout, actual playback modes and stats",
+          "passed": true,
+          "milliseconds": 41588.2728
+        },
+        {
+          "name": "native auto continue, natural folder queue and subtitle language suffixes",
+          "passed": true,
+          "milliseconds": 21229.3591
+        },
+        {
+          "name": "native v016 install, manual configuration, native profiles and unified save",
+          "passed": true,
+          "milliseconds": 43547.4245
+        },
+        {
+          "name": "native sidebar, language, theme and fixed paths",
+          "passed": true,
+          "milliseconds": 3891.1406
+        },
+        {
+          "name": "native v016 real playback: keys, menu, position-only resume and font",
+          "passed": true,
+          "milliseconds": 34601.5825
+        },
+        {
+          "name": "native pre-edit, combined save, timestamps, stale plans and responsive layout",
+          "passed": true,
+          "milliseconds": 37346.8861
+        }
+      ]
+    },
+    "realTrackSubcases": {
+      "passed": 52
+    },
+    "finalExeSidebar": {
+      "passed": 1,
+      "failed": 0,
+      "milliseconds": 4992.7104
+    },
+    "packageAssociation": {
+      "passed": 12,
+      "failed": 0,
+      "method": "Pinned upstream source and read-only HKCR classifications",
+      "details": "package-association-evidence.json"
+    },
+    "testWindowsClosed": true
+  },
+  "artifacts": {
+    "core": ".local/e2e-artifacts/mpvkit-winget-Ahkyqc",
+    "windowSizing": ".local/e2e-artifacts/mpvkit-v018-window-M3VJfx",
+    "uosc": ".local/e2e-artifacts/mpvkit-v018-psmq2V",
+    "autoplaySubtitles": ".local/e2e-artifacts/mpvkit-v018-autoplay-1PJvEd",
+    "installationProfilesTracks": ".local/e2e-artifacts/mpvkit-v016-aHTTcv",
+    "sidebar": ".local/e2e-artifacts/mpvkit-v016-ui-JqUxY8",
+    "draftLayoutProtection": ".local/e2e-artifacts/mpvkit-v016-draft-owFXcq",
+    "sidebarSmoke": ".local/e2e-artifacts/mpvkit-v016-ui-kFdDSV",
+    "trackCases": "C:\\Users\\Vki\\AppData\\Local\\Temp\\mpvkit-v015-tracks-aizlAW",
+    "logs": ".local/windows-v019"
+  },
+  "logs": {
+    "unit": ".local/windows-v019/unit-final.log",
+    "clippy": ".local/windows-v019/clippy-final.log",
+    "build": ".local/windows-v019/build-final.log",
+    "preview": ".local/windows-v019/preview.log",
+    "native": ".local/windows-v019/native-release-check.log",
+    "sidebar": ".local/windows-v019/sidebar-final.log"
+  },
+  "priorRuns": [
+    {
+      "log": ".local/windows-v019/native.log",
+      "passed": 6,
+      "failed": 2,
+      "reason": "New test locators used incorrect English label; product label Open Default apps retained"
+    },
+    {
+      "log": ".local/windows-v019/native-final.log",
+      "passed": 7,
+      "failed": 1,
+      "reason": "New IPC instrumentation attempted to replace non-writable Tauri invoke; replaced by actual IPC check"
+    }
+  ],
+  "boundaries": [
+    "No real WinGet installer, UAC or post-install Shell click acceptance",
+    "Default apps button exercised in isolated debug mode; host Settings launch suppressed",
+    "No host configuration, default application or media registry writes",
+    "Linux source and test callers updated but not compiled or run in this batch",
+    "Physical mouse, full assistive technology, multi-monitor/mixed DPI, HDR/high refresh/power not newly accepted",
+    "No CI, installer build, historical configuration migration, commit or push"
+  ]
+}

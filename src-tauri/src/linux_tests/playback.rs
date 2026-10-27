@@ -60,10 +60,8 @@ pub(super) fn verify(root: &Path, media: &Path) {
         settings.playback.auto_playlist = auto_playlist;
         settings.playback.keep_open = keep_open;
         let preview = config::portable::preview(root, &settings, false).unwrap();
-        setup::execute(
-            setup::prepare_draft(root, settings, false, true, &preview.fingerprint).unwrap(),
-        )
-        .unwrap();
+        setup::execute(setup::prepare_draft(root, settings, false, &preview.fingerprint).unwrap())
+            .unwrap();
     };
     let play = |files: &[&Path]| {
         let _ = fs::remove_file(&socket);

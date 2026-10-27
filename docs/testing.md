@@ -1,6 +1,6 @@
 # 本地开发与测试入口
 
-当前 v0.1.8，更新：2026-10-27。先读 [AGENTS](../AGENTS.md)、[当前交接](v0.1.8/plan.md) 与 [目录边界](current.md#当前目录)。本页为命令索引，不授予真实配置/默认应用/包管理器写入权限。无 CI、历史版兼容/迁移或安装包，不执行旧 NSIS 测试。
+当前 v0.1.9，更新：2026-10-27。先读 [AGENTS](../AGENTS.md)、[当前交接](v0.1.9/plan.md) 与 [目录边界](current.md#当前目录)。本页为命令索引，不授予真实配置/默认应用/包管理器写入权限。无 CI、历史版兼容/迁移或安装包，不执行旧 NSIS 测试。
 
 ## 工具与最小检查
 
@@ -37,7 +37,7 @@ GDK_BACKEND=wayland cargo test --manifest-path src-tauri/Cargo.toml --locked \
 kde_session_preferences_are_available -- --ignored --nocapture
 ```
 
-资产与视频路径是本机夹具；缺失时先按 [原生准备记录](v0.1.8/evidence.md#复验入口)准备并校验来源，不从任意 URL 下载后直接执行。套件会在测试根内部署资源、运行系统 MPV，验证预览/手改/过期、连播/字幕/续播、uosc/窗口、注册/重置/卸载/清理，包管理器实际写操作被阻断。脚本注入指针不等于物理鼠标或完整 WebKit GUI 验收。
+资产与视频路径是本机夹具；缺失时先按 [原生准备记录](v0.1.8/evidence.md#复验入口)准备并校验来源，不从任意 URL 下载后直接执行。套件会在测试根内部署资源、运行系统 MPV，验证预览/手改/过期、连播/字幕/续播、uosc/窗口、重置/卸载/清理及独立管理器入口，包管理器实际写操作被阻断。脚本注入指针不等于物理鼠标或完整 WebKit GUI 验收。
 
 默认忽略的 real_mpv_contract 另需明确指定 MPVKIT_REAL_MPV / MPVKIT_REAL_TEST_ROOT，见 src-tauri/src/launch/real_tests.rs；不要用一个全局 `--ignored` 运行所有真实进程测试。
 
@@ -51,7 +51,9 @@ Linux 图标专项：隔离模式只写私有 applications，不足以证明真�
 
 完整套件须显式提供 MPVKIT_TEST_ASSETS、MPVKIT_CORE_SOURCE（已经核验并提取的 WinGet MPV 包目录）与 MPVKIT_FFMPEG（固定摘要的研究用生成器）；可用 MPVKIT_TEST_EXECUTABLE 选择当前 EXE。脚本创建私有临时根，以本地 Rust fixture 模拟 WinGet，绝不执行真实安装器。缺少这些资源应记录未测，不能替换为任意系统工具绕过校验。来源、包版本/实际提交差异及边界见 [WinGet 证据](v0.1.8/evidence.md#winget-核心与控制台2026-10-26当前批)。
 
-2026-10-27 本机回归已完成，见 [Windows 证据](v0.1.8/evidence.md#windows-当前批实机回归2026-10-27)。本机 Cargo 需将 `$env:USERPROFILE + '\.cargo\bin'` 加入 PATH；普通沙箱阻止回环连接/文件替换时，应在获准进程复验，不能把批量 replace_failed 判作产品故障或改写替换保护。列表回绕后的下一步 seek 需同时等 playlist-pos 和 time-pos 就绪；固定品牌色与偏好字段断言已纳入侧栏专项。
+v0.1.8 的 2026-10-27 本机回归已完成，见 [历史 Windows 证据](v0.1.8/evidence.md#windows-当前批实机回归2026-10-27)。本机 Cargo 需将 `$env:USERPROFILE + '\.cargo\bin'` 加入 PATH；普通沙箱阻止回环连接/文件替换时，应在获准进程复验，不能把批量 replace_failed 判作产品故障或改写替换保护。列表回绕后的下一步 seek 需同时等 playlist-pos 和 time-pos 就绪；固定品牌色与偏好字段断言已纳入侧栏专项。
+
+本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。当前完整原生结果以 [本版交接](v0.1.9/plan.md)为准。
 
 scripts/test-process.ps1、test-media-preferences.mjs、make-media-fixtures.mjs 为现有套件辅助；test-window.ps1 为独立原生窗口/DPI/截图探针，使用时先核对精确 PID/映像。截图仅为测试取证，不是已删除的产品截图功能。
 
@@ -76,4 +78,4 @@ node docs/v0.1.6/preview/check.mjs
 - scripts/verify-uosc-sources.py：固定本地源码归档；verify-uosc-icons.mjs：固定字体映射；verify-scroll-bar-license.py、collect-go-notices.py：对应来源/许可。先读参数及原证据，不把这些脚本删成“无人调用”。
 - scripts/rebuild-uosc-helper.py、inspect-uosc-buildinfo.mjs、compare-uosc-links.go：固定 helper 的构建/核验链；用途和未完成发布审阅在 [验收台账](v0.1.0/acceptance.md)。
 
-最新一次通过范围统一记在 [交接](v0.1.8/plan.md)，原始命令/日志路径/产物摘要记在 [证据](v0.1.8/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
+最新一次通过范围统一记在 [交接](v0.1.9/plan.md)，原始命令/日志路径/产物摘要记在 [证据](v0.1.9/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
