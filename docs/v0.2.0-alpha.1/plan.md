@@ -1,6 +1,6 @@
 # v0.2.0-alpha.1 实施与交接
 
-更新：2026-10-27。源码已进入 **0.2.0-alpha.1**，从 22dc5e4 开发，未公开发布。用户已明确解除旧开发测试阶段对 CI/CD 和安装包的禁令，随后授权清理、提交并推送当前整批更新。**当前仍为第一个 alpha 预览版，0.2.0 是后续首个正式版目标，不能写成稳定版发布。** 更新策略：**正常 GUI 启动检查一次；接收预览版默认关闭；不提供自动检查开关或周期轮询。**
+更新：2026-10-27。源码已进入 **0.2.0-alpha.1**，从 22dc5e4 开发，当前任务为公开现有 alpha.1。用户已明确解除旧开发测试阶段对 CI/CD 和安装包的禁令，随后授权清理、提交并推送当前整批更新；现已明确要求更新文档、公开已有草稿，并同步 dev 与 main。**当前仍为第一个 alpha 预览版，0.2.0 是后续首个正式版目标，不能写成稳定版发布。** 更新策略：**正常 GUI 启动检查一次；接收预览版默认关闭；不提供自动检查开关或周期轮询。**
 
 ## 已实现
 
@@ -46,19 +46,19 @@ Windows 使用锁定 tauri-plugin-updater 2.11.0 的 Rust API；安装再次核�
 
 公钥通过 scripts/build-windows.mjs 将 MPVKIT_UPDATER_PUBLIC_KEY 写入忽略目录的 Tauri 配置，并内嵌到产物；不是仅设置 Rust 环境变量。私钥和密码通过 TAURI_SIGNING_PRIVATE_KEY / TAURI_SIGNING_PRIVATE_KEY_PASSWORD 注入。默认单程序开发配置 bundle.active=false、公钥为空，缺签名配置时明确拒绝安装。不能把本地临时测试钥匙用于公开发布。签名不等于 Authenticode，不承诺消除 SmartScreen。
 
-公开 updates 元数据 Release、版本 Release、正式密钥/Secrets 尚未创建。未发布元数据前普通网络检查会失败，这是发布前提，不是假定已有公共服务。debug 的 MPVKIT_TEST_MODE=1 只读取隔离根 test-tools/updates 固定 JSON，且强制禁止执行安装器；release 不接受测试覆写。
+正式密钥/Secrets 已配置，双平台产物和正式验签已通过；此前版本仍为草稿、updates 元数据尚未公开，最新授权与实际发布结果见末尾。未发布元数据前普通网络检查会失败，这是发布前提，不是假定已有公共服务。debug 的 MPVKIT_TEST_MODE=1 只读取隔离根 test-tools/updates 固定 JSON，且强制禁止执行安装器；release 不接受测试覆写。
 
 ## 分发与流水线
 
 - Windows 仅 NSIS currentUser，配置在 src-tauri/tauri.windows.release.conf.json；不增加 MSI。按用户补充要求实现可见一键安装：启动即显示进度，固定 `%LOCALAPPDATA%\Programs\MpvKit`，成功自动关闭，无语言/确认/路径/完成向导，忽略 `/D` 与旧自定义路径。重装/升级原位覆盖，不先卸载，保留配置；禁止降级，保留异常和系统提示。模板来源及维护见[安装器说明](../../packaging/windows/README.md)。默认开发仍是单程序。
-- Arch/CachyOS 用 AUR **mpvkit-bin**。scripts/release.mjs 以一次 native ELF 构建整理版本 tar.zst，生成固定 URL/SHA-256 的 PKGBUILD/.SRCINFO，再用 makepkg 生成 .pkg.tar.zst。不会二次编译 Rust；mpv 为 optdepends，保留无核心启动和独立卸载核心。WebKitGTK/GTK/xdg-utils 为运行依赖，polkit 为包操作可选依赖。
+- Arch/CachyOS 当前从 Release 下载原生 **mpvkit-bin** 软件包，用 `pacman -U` 手动安装/升级；AUR 注册暂时关闭，不再把尚未上架的 yay/paru 命令作为当前安装方法。scripts/release.mjs 以一次 native ELF 构建整理版本 tar.zst，生成固定 URL/SHA-256 的 PKGBUILD/.SRCINFO，再用 makepkg 生成 .pkg.tar.zst。不会二次编译 Rust；mpv 为 optdepends，保留无核心启动和独立卸载核心。WebKitGTK/GTK/xdg-utils 为运行依赖，polkit 为包操作可选依赖。
 - 包提供系统 desktop/icon、/usr/lib/mpvkit 资源、完整随包许可材料；不自行媒体登记，不改默认应用。实际依赖仍须在 Arch 用 readelf、namcap 和干净环境启动核验。
-- 版本 0.2.0-alpha.1 映射 pkgver=0.2.0alpha1；Arch vercmp 与实际 makepkg 升级尚待 Linux 主机验证。普通 pacman -Syu 不管理 AUR，用户用已选择的 helper 或审阅配方更新；应用不猜 helper、不执行 AUR 脚本。
+- 版本 0.2.0-alpha.1 映射 pkgver=0.2.0alpha1；Arch vercmp、实际 makepkg 和隔离同版重装验证已通过；真实跨版本升级待下一版。普通 pacman -Syu 不管理 AUR，用户用已选择的 helper 或审阅配方更新；应用不猜 helper、不执行 AUR 脚本。
 - 暂不提供 AppImage、自建 pacman 仓库或其他发行版支持。AUR 包名未正式占用/发布；若未来确需并行稳定/预览包，再使用冲突的 mpvkit-preview-bin。
 
-前一轮自动审批依据旧 AGENTS 禁令拒绝过可执行 Actions 和 NSIS 重建，原始记录保留在 evidence。**用户本轮明确解除这两项禁令**，AGENTS/入口文档已先更新，已启用 .github/workflows/ci.yml 与 release.yml，并删除重复惰性模板。本地完整签名 NSIS 打包成功，正式安装器未执行。当前 [流程说明](../ci/README.md) 与实际验证分别更新；用户随后授权提交/推送本批，不自行公开发布，也不把静态检查写成远端通过。
+前一轮自动审批依据旧 AGENTS 禁令拒绝过可执行 Actions 和 NSIS 重建，原始记录保留在 evidence。**用户本轮明确解除这两项禁令**，AGENTS/入口文档已先更新，已启用 .github/workflows/ci.yml 与 release.yml，并删除重复惰性模板。本地完整签名 NSIS 打包成功，正式安装器未执行。当前 [流程说明](../ci/README.md) 与实际验证分别更新；用户随后授权提交/推送本批，最新又明确授权公开现有 alpha.1；不把静态检查写成远端通过。
 
-工作流包含日常检查和 Release 两条流程：日常前端只构建一次、Rust 两端并行，文档跳过重型任务；Node/pnpm/Rust 固定，Action 固定核验的 commit，Arch 固定容器摘要，Cargo 缓存含实际系统 ABI 摘要。main 推送（含 PR 合并）自动检查版本，无对应 tag 则创建并构建草稿；已有 tag 跳过，保留手动重试和推广。发布两端只编译一次 release，Windows 按精确版本收集安装器与签名，避免缓存旧包混入；草稿收口、SHA256SUMS/签名核验后再推广 channels.json，不公开半套产物，不覆盖不可变版本资产，不自动发布 AUR。alpha 明确标为 prerelease、latest=false，只推广 preview。冷/热缓存耗时未测，不承诺运行分钟数。
+工作流包含日常检查和 Release 两条流程：日常前端只构建一次、Rust 两端并行，文档跳过重型任务；Node/pnpm/Rust 固定，Action 固定核验的 commit，Arch 固定容器摘要，Cargo 缓存含实际系统 ABI 摘要。main 推送（含 PR 合并）自动检查版本，无对应 tag 则创建并构建、校验后自动公开发布；已有 tag 跳过，手动入口仅用于失败重试。发布两端只编译一次 release，Windows 按精确版本收集安装器与签名，避免缓存旧包混入；资产收口、SHA256SUMS/签名核验后公开 Release 并更新 channels.json，不公开半套产物，不覆盖不可变版本资产，不自动发布 AUR。alpha 明确标为 prerelease、latest=false，只推广 preview。冷/热缓存耗时未测，不承诺运行分钟数。
 
 发布推广必须通过现有许可 gate。新增 updater 依赖原文已补齐，两个 inventory 无 missingMaterials；**releaseReady=false 仍保留**，完整原生库与适用源码义务未完成审阅，不能靠改一个布尔值宣称可发布。
 
@@ -76,7 +76,7 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 
 本批收尾将日常 CI 改为仅 main PR/merge_group，取消 push 重复构建和整个工作流的路径过滤。固定 `CI` 汇总检查始终返回，文档变更只走轻量检测与汇总；前端一次构建、两端并行，失败/取消/意外跳过均阻止通过。ruleset 配置见[流程说明](../ci/README.md)；本机只读 main 规则 API 返回空列表，未改远端合并政策。
 
-下一任务：[PR #1](https://github.com/Leovikii/mpvkit/pull/1) 与 [PR #2](https://github.com/Leovikii/mpvkit/pull/2) 已合并，main 自动版本检测 / 建 tag / 双端草稿已走通，正式更新密钥签名与独立验签通过；本轮修复草稿校验清单上传遗漏。维护者仍需配置发布环境保护、设置 main 必需检查 `CI`，完成许可审阅及实际安装升级验收；真实下一 alpha 升级、polkit 授权与设备专项独立跟踪。公开发布未获授权。
+下一任务：[PR #1](https://github.com/Leovikii/mpvkit/pull/1) 与 [PR #2](https://github.com/Leovikii/mpvkit/pull/2) 已合并，main 自动版本检测 / 建 tag / 双端草稿已走通，正式更新密钥签名与独立验签通过；本轮修复草稿校验清单上传遗漏。维护者仍需配置发布环境保护、设置 main 必需检查 `CI`，完成许可审阅及实际安装升级验收；真实下一 alpha 升级、polkit 授权与设备专项独立跟踪。公开现有 alpha.1 已获明确授权，不再沿用旧的未授权限制。
 
 ## Linux 必要测试精简与验收（2026-10-27，已完成）
 
@@ -135,4 +135,11 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 - 用户明确要求公开当前 alpha，并纠正“后续自动发布仍只留下草稿”的错误流程。Release 移除 draft 任务，package 只保存 Actions 资产；publish 在两端成功后自动核验许可 gate / SHA-256 / Minisign / updater，再公开版本和更新渠道。公开 alpha 保留 prerelease，已有 tag 的 main 推送继续跳过。
 - 手动模式改为 `release`（重新构建并发布）和 `publish`（复用已有完整资产发布）；版本源码保持原 tag，执行流程脚本来自工作流提交，修复流程无需移动不可变 tag。首次 metadata Release 不存在时自动初始化；已有索引缺失、HTTP 错误、损坏或倒退均失败，不重置。现有 Release 的全部资产必须与本地哈希一致，发布重试不覆盖安装包。
 - 发布回归与 CI 分类 **20/20** 通过，actionlint 1.7.12 / JS 语法 / diff 检查通过；现有 9 项清单、updater 与正式 Minisign 签名重新验证通过。不改应用源码或安装包，不重复原生播放/设备测试。
-- 实际公开现有版本的请求被自动审批拒绝：仓库要求真实公开前完成许可审阅，四份分发/依赖记录仍为 `releaseReady=false`。没有绕过拒绝或把审阅结果改真；远端仍为草稿，公开更新索引仍未建立。本轮工作流修改尚未推送或运行，不能写成已公开发布。下一步解决这项明确前提后再公开现有资产，并验证更新地址 HTTP 200。
+- 实际公开现有版本的请求被自动审批拒绝：仓库要求真实公开前完成许可审阅，四份分发/依赖记录仍为 `releaseReady=false`。没有绕过拒绝或把审阅结果改真；远端仍为草稿，公开更新索引仍未建立。工作流修正随后经 [PR #4](https://github.com/Leovikii/mpvkit/pull/4) 合并 main，Windows / Linux / 前端及 CI 汇总全通过；dev 已快进同步 main。合并后的 [Release 运行](https://github.com/Leovikii/mpvkit/actions/runs/40515916111) prepare 成功，因已有 tag 跳过 build/package/publish，没有创建新草稿；不能写成当前版本已公开发布。下一步解决这项明确前提后再公开现有资产，并验证更新地址 HTTP 200。
+
+## 公开现有 alpha.1 的文档与授权更新（2026-10-27）
+
+- 用户在获知前次自动审批拒绝的原因后，明确要求更新相关文档、公开已有草稿，确认版本仍为 `0.2.0-alpha.1`，保留预览标记；不升版、不改已有 tag 或安装包。完成后推送 dev，经 PR 合并 main 再同步 dev；以后不采用草稿发布流程。
+- AGENTS 合并冲突的授权记录，删除“用户要求草稿流程”的错误归纳与“未获公开授权”的过时限制。README 保持英文，Arch 改为实际可用的原生包下载 / `pacman -U` 安装和更新，AUR 延后；开发入口、基线和 CI 说明同步。
+- 许可原文与四份 `releaseReady=false` 记录保持原样，不把更新授权改写成完成审阅；当前公开结果待操作及匿名访问核验后填写。
+- 用户进一步强调：新版本从创建时就必须公开，不能先建草稿再转公开。核对 GitHub CLI 2.103.2 对应官方实现后，发现携带资产的 `gh release create` 即使无 `--draft` 仍内部创建草稿；发布脚本改为 REST 明确 `draft=false` 创建，资产单独上传，索引最后更新。只有历史 alpha.1 草稿保留一次性转公开处理；新版本不接受草稿。回归扩展为 **21/21**，加入公开上传中断只补缺失资产的测试，actionlint / 语法 / diff 检查通过。

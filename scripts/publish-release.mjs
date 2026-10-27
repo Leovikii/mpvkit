@@ -40,27 +40,41 @@ export async function publishRelease({ tag, token, repository, directory, archPa
   assert(files.includes('SHA256SUMS') && files.includes('updater.json'), 'Verified release assets required');
   if (existing) {
     assert.equal(existing.prerelease, Boolean(parseVersion(version).pre), 'Existing release channel differs');
-    assert.equal(existing.assets.length, files.length, 'Existing release assets differ');
-    for (const file of files) {
-      assert.equal(existing.assets.find(a => a.name === file)?.digest, `sha256:${digest(fs.readFileSync(path.join(directory, file)))}`, `Existing asset differs: ${file}`);
+    for (const asset of existing.assets) {
+      assert(files.includes(asset.name), `Unexpected existing asset: ${asset.name}`);
+      assert.equal(asset.digest, `sha256:${digest(fs.readFileSync(path.join(directory, asset.name)))}`, `Existing asset differs: ${asset.name}`);
     }
+    assert(!existing.draft || tag === 'v0.2.0-alpha.1', 'Unexpected draft: new releases must be public from creation');
   }
   const prerelease = Boolean(parseVersion(version).pre);
-  const flags = prerelease ? ['--prerelease', '--latest=false'] : ['--latest'];
   const gh = args => run('gh', args, { stdio: 'inherit' });
+  const createPublic = (releaseTag, name, body, preview) => {
+    const payload = path.join(path.dirname(directory), 'release-create.json');
+    fs.writeFileSync(payload, JSON.stringify({ tag_name: releaseTag, target_commitish: tag,
+      name, body, draft: false, prerelease: preview, make_latest: preview ? 'false' : 'true' }) + '\n');
+    // gh release create with assets internally creates a draft, even without --draft.
+    gh(['api', '--method', 'POST', `repos/${repository}/releases`, '--input', payload]);
+  };
   if (!existing) {
-    gh(['release', 'create', tag, ...files.map(f => path.join(directory, f)), '--verify-tag', ...flags,
-      '--title', `MpvKit ${version}`, '--notes-file', `docs/v${version}/notes.md`]);
-  } else if (existing.draft) {
+    await api(`git/ref/tags/${tag}`);
+    createPublic(tag, `MpvKit ${version}`, fs.readFileSync(`docs/v${version}/notes.md`, 'utf8'), prerelease);
+  }
+  const missing = files.filter(file => !existing?.assets.some(a => a.name === file));
+  if (missing.length) gh(['release', 'upload', tag, ...missing.map(f => path.join(directory, f))]);
+  if (existing?.draft) {
+    const flags = prerelease ? ['--prerelease', '--latest=false'] : ['--latest'];
     gh(['release', 'edit', tag, '--draft=false', ...flags]);
   }
   const published = await api(`releases/tags/${tag}`);
   assert(!published.draft && published.tag_name === tag && published.prerelease === prerelease, 'Release was not published correctly');
+  assert.equal(published.assets.length, files.length, 'Published asset list is incomplete');
+  for (const file of files) assert.equal(published.assets.find(a => a.name === file)?.digest,
+    `sha256:${digest(fs.readFileSync(path.join(directory, file)))}`, `Published asset differs: ${file}`);
   const channelsFile = path.join(path.dirname(directory), 'channels.json');
   fs.writeFileSync(channelsFile, JSON.stringify(next, null, 2) + '\n');
   if (!channelsRelease) {
-    gh(['release', 'create', 'updates', channelsFile, '--target', tag, '--prerelease', '--latest=false',
-      '--title', 'Update channels', '--notes', 'Application update metadata.']);
+    createPublic('updates', 'Update channels', 'Application update metadata.', true);
+    gh(['release', 'upload', 'updates', channelsFile]);
   } else {
     gh(['release', 'upload', 'updates', channelsFile, '--clobber']);
   }
