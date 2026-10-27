@@ -62,7 +62,7 @@ test('automatic publication uploads all assets publicly and bootstraps update ch
   assert.equal(f.created.length, 2);
   assert(f.created.every(payload => payload.draft === false));
   assert.equal(f.created[0].tag_name, f.options.tag);
-  assert.equal(f.created[0].target_commitish, f.options.tag);
+  assert.equal(f.created[0].target_commitish, 'main');
   assert.equal(f.created[0].prerelease, true); assert.equal(f.created[0].make_latest, 'false');
   assert.equal(f.created[1].tag_name, 'updates');
   assert.equal(f.created[1].target_commitish, 'main');

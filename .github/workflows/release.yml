@@ -11,6 +11,9 @@ on:
         type: choice
         options: [release, publish]
         default: release
+      build_run:
+        description: Optional run ID containing publish-assets for a publish retry
+        required: false
       arch_package:
         description: Select only after the recipe is available on AUR
         type: choice
@@ -185,6 +188,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
+      actions: read
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -210,8 +214,14 @@ jobs:
         with:
           name: publish-assets
           path: .local/release
+      - name: Reuse completed build artifacts
+        if: needs.package.result == 'skipped' && inputs.build_run != ''
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        run: gh run download "$BUILD_RUN" --name publish-assets --dir .local/release
       - name: Reuse existing release assets
-        if: needs.package.result == 'skipped'
+        if: needs.package.result == 'skipped' && inputs.build_run == ''
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}

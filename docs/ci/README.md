@@ -19,11 +19,11 @@ main 的 ruleset 如启用，应要求 PR 和 GitHub Actions 的 `CI`；不要�
 
 不要使用 `gh release create <tag> <assets...>`：它会[隐式先建草稿](https://github.com/cli/cli/blob/v2.103.2/pkg/cmd/release/create/create.go)。唯一历史例外是将已有 alpha.1 草稿公开；新版本发现意外草稿则失败。
 
-失败后在 Actions → Release → Run workflow，选择 main、既有 tag：`release` 重建并公开，`publish` 复用完整资产。也可只重跑失败任务；整个自动流程重跑会因 tag 已存在而跳过。源码取 tag，prepare/publish/验证脚本取工作流提交，允许修复流程而不改历史资产。
+失败后在 Actions → Release → Run workflow，选择 main、既有 tag：`release` 重建并公开，`publish` 复用完整资产；如尚未创建版本 Release，填 `build_run` 为已有完整 publish-assets 的运行 ID，直接复用 Actions 产物。也可只重跑失败任务；整个自动流程重跑会因 tag 已存在而跳过。源码取 tag，prepare/publish/验证脚本取工作流提交，允许修复流程而不改历史资产。
 
 已有资产逐项核对 GitHub SHA-256，重试只补传缺项，不覆盖版本资产。更新任务串行，保留另一渠道并拒绝倒退；仅认证 API 确认 updates Release 不存在才初始化。已有索引缺失、损坏或不可读时失败，不能清空重建。
 
-首次创建 updates 元数据 tag 以 main 为目标；不要指向旧版本提交，否则 GITHUB_TOKEN 为旧工作流提交隐式创建新 tag 时可能返回 403。不为此增加 PAT 或扩大密钥权限。
+创建 Release 的 `target_commitish` 固定为 main（API 只接受分支或 SHA，不接受 tag 名）；版本 tag 已经校验存在，不受该字段影响。首次创建 updates 元数据 tag 也锚定 main，避免 GITHUB_TOKEN 为旧工作流提交隐式创建新 tag 时的权限限制。不为此增加 PAT；跨运行读取构建产物仅需 actions:read。
 
 ## Secrets 与有效检查
 

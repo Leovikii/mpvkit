@@ -50,7 +50,7 @@ export async function publishRelease({ tag, token, repository, directory, archPa
   const gh = args => run('gh', args, { stdio: 'inherit' });
   const createPublic = (releaseTag, name, body, preview) => {
     const payload = path.join(path.dirname(directory), 'release-create.json');
-    fs.writeFileSync(payload, JSON.stringify({ tag_name: releaseTag, target_commitish: releaseTag === 'updates' ? 'main' : tag,
+    fs.writeFileSync(payload, JSON.stringify({ tag_name: releaseTag, target_commitish: 'main',
       name, body, draft: false, prerelease: preview, make_latest: preview ? 'false' : 'true' }) + '\n');
     // gh release create with assets internally creates a draft, even without --draft.
     gh(['api', '--method', 'POST', `repos/${repository}/releases`, '--input', payload]);
