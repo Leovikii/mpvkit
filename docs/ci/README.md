@@ -23,6 +23,8 @@ main 的 ruleset 如启用，应要求 PR 和 GitHub Actions 的 `CI`；不要�
 
 已有资产逐项核对 GitHub SHA-256，重试只补传缺项，不覆盖版本资产。更新任务串行，保留另一渠道并拒绝倒退；仅认证 API 确认 updates Release 不存在才初始化。已有索引缺失、损坏或不可读时失败，不能清空重建。
 
+首次创建 updates 元数据 tag 以 main 为目标；不要指向旧版本提交，否则 GITHUB_TOKEN 为旧工作流提交隐式创建新 tag 时可能返回 403。不为此增加 PAT 或扩大密钥权限。
+
 ## Secrets 与有效检查
 
 | 环境 | 配置 |

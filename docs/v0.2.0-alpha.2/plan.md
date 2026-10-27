@@ -24,6 +24,8 @@
 
 ## 待完成与边界
 
-更新 PR #5 后等待新提交 CI，通过后合并 main、同步 dev，观察 alpha.2 自动 tag、签名包、直接公开 Release 和匿名更新索引。远端结果待实查，不能以本地通过代替。
+[PR #5](https://github.com/Leovikii/mpvkit/pull/5) 已合并，dev/main 同步于 e2727bb；[双平台 CI](https://github.com/Leovikii/mpvkit/actions/runs/40520587280) 全通过（Arch 5m1s、Windows 6m55s）。自动创建 alpha.2 tag 精确指向该合并提交，[CD](https://github.com/Leovikii/mpvkit/actions/runs/40521873592) 构建中。
+
+历史 alpha.1 已由[复用资产流程](https://github.com/Leovikii/mpvkit/actions/runs/40521938107)公开，draft=false / prerelease=true，10 个资产保留。初始化 updates Release 时返回 403：新元数据 tag 的目标由旧版本 tag 改为 main，避免 GITHUB_TOKEN 隐式标记旧工作流提交；无需 PAT。索引修复和 alpha.2 公开结果待实查。
 
 本轮未重跑 Windows 原生激活、完整播放矩阵或真实安装升级；这些代码未改，基础结果见 [alpha.1](../v0.2.0-alpha.1/plan.md) 和[证据](../v0.2.0-alpha.1/evidence.md)。Wayland 聚焦受合成器策略约束；WebKit 子进程和播放期 helper 不算重复管理器 GUI。跨用户/桌面会话不互锁。许可完整审阅仍未完成，记录不变。真实 NSIS 跨版本安装、polkit/物理输入/HDR 不冒称通过。

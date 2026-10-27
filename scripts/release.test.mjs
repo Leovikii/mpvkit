@@ -62,8 +62,10 @@ test('automatic publication uploads all assets publicly and bootstraps update ch
   assert.equal(f.created.length, 2);
   assert(f.created.every(payload => payload.draft === false));
   assert.equal(f.created[0].tag_name, f.options.tag);
+  assert.equal(f.created[0].target_commitish, f.options.tag);
   assert.equal(f.created[0].prerelease, true); assert.equal(f.created[0].make_latest, 'false');
   assert.equal(f.created[1].tag_name, 'updates');
+  assert.equal(f.created[1].target_commitish, 'main');
   assert(f.reads.some(url => url.endsWith(`/git/ref/tags/${f.options.tag}`)));
   assert(!f.calls.some(args => args[0] === 'release' && args[1] === 'create'));
   const upload = f.calls.find(args => args[1] === 'upload' && args[2] === f.options.tag);
