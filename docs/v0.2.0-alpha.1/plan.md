@@ -113,6 +113,7 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 - 对 [Release #40502127238](https://github.com/Leovikii/mpvkit/actions/runs/40502127238) 执行仅失败任务重试，第二次执行成功；Windows NSIS / updater 签名及 draft 通过，复用第一次成功的 Arch 结果，不重建 tag、不公开推广。
 - 实际成品验收发现上传 glob `*.*` 漏掉 `SHA256SUMS`。新增真实 Bash 展开回归先复现缺失，再显式补上传文件参数；本地分发 / CI 分类 **11/11**、actionlint 与 diff / 文档链接检查通过。
 - 当前草稿原有 9 个资产先与 GitHub 上传摘要逐一对照，再按原算法重建并补传遗漏清单，未替换原有资产。全部 9 项 SHA-256、updater 元数据及独立 Minisign 安装器 / 注释签名通过；草稿保持 prerelease、未公开。证据见[本轮记录](evidence.md#正式签名重试与草稿验收2026-10-27)。
+- README 的 Arch 安装按用户要求优先给出 `yay -S mpvkit-bin` / `paru -S mpvkit-bin`；只读 AUR RPC 确认尚未公开，保留简短可用性说明。本次文档不升版、不改 tag；用户授权推送 dev、CI 通过后合并 main，再将 dev 快进同步 main，采用极简英文 commit。main 的版本检查应因已有 tag 跳过 CD 构建，结果以实际运行核对。
 
 ## 核验来源
 

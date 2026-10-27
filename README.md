@@ -15,17 +15,19 @@ See [Preset Design](docs/presets.md) for defaults and configuration choices.
 
 ## Installation
 
-Download packages from [Releases](https://github.com/Leovikii/mpvkit/releases). No public packages are available yet; the steps below apply once the first preview is published. Preview builds are marked **Pre-release**.
+Public packages are not available yet; the steps below apply once the first preview is published. Preview builds are marked **Pre-release**.
 
-**Windows:** Run `MpvKit_<version>_x64-setup.exe` to install automatically for the current user. Open MpvKit, install the MPV core and enhancements as needed, then preview and save your settings. Core management uses WinGet and requires Windows App Installer.
+**Windows:** Download `MpvKit_<version>_x64-setup.exe` from [Releases](https://github.com/Leovikii/mpvkit/releases) and run it to install for the current user. Open MpvKit, install the MPV core and enhancements as needed, then preview and save your settings. Core management uses WinGet and requires Windows App Installer.
 
-**Arch / CachyOS:** Download the `.pkg.tar.zst` package and install it:
+**Arch Linux / CachyOS (recommended):** Install the AUR package with your preferred helper:
 
 ```sh
-sudo pacman -U ./mpvkit-bin-0.2.0alpha1-1-x86_64.pkg.tar.zst
+yay -S mpvkit-bin
 ```
 
-Launch MpvKit from the application menu. Install the MPV core through the app if needed; package operations require polkit authorization. The AUR recipe is not public yet. Once available, use your AUR helper to update MpvKit; the app will notify you of updates.
+Or use `paru -S mpvkit-bin`. The package is not on AUR yet; these commands become available after it is published.
+
+Launch MpvKit from the application menu. Install the MPV core through the app if needed; package operations require polkit authorization. Use your AUR helper for future updates; the app will notify you when an update is available.
 
 After saving your settings, open media with system MPV as usual. MpvKit does not change your default player.
 
