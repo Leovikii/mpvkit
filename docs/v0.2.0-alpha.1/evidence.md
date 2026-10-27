@@ -205,7 +205,7 @@ Arch pacman 安装列表没有 `mpv`。失败包括配置保护、设置事务�
 
 首次建 tag 后构建失败，不自动移动 / 删除 tag；手动选择同 tag 的 build-draft 或重跑失败任务。并发 API 创建冲突需重新确认 tag 存在才跳过。自动版本流程使用每个 main 事件独立的 concurrency group，避免不同待执行版本被新提交取消；公开推广另设全局串行 group，防止 channels.json 并发覆盖。
 
-日志 `docs/v0.2.0-alpha.1/notes.md` 改为 `# 0.2.0-alpha.1` 与四条英文要点，Release / updater 仍共用一个来源。README 删除开发栈、测试命令、历史授权和 agent 接手说明，保留用户功能、Windows / Arch 安装及许可；`docs/presets.md` 解释三档预设、默认行为、配置预览 / 手改 / 重置边界。开发入口继续由 AGENTS 和 docs/README 提供，不删除历史证据。
+日志 `docs/v0.2.0-alpha.1/notes.md` 改为 `# 0.2.0-alpha.1` 与四条英文要点，Release / updater 仍共用一个来源。README 按用户补充要求改用英文，删除开发栈、测试命令、历史授权和 agent 接手说明，保留用户功能、Windows / Arch 安装及许可；`docs/presets.md` 解释三档预设、默认行为、配置预览 / 手改 / 重置边界。开发入口继续由 AGENTS 和 docs/README 提供，不删除历史证据。
 
 本地验证：
 

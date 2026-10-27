@@ -1,34 +1,34 @@
 # MpvKit
 
-为 MPV 提供简洁的安装、配置与更新界面。支持 **Windows x64** 和 **Arch Linux / CachyOS x86_64（KDE Wayland）**。
+A simple interface for installing, configuring and updating MPV on **Windows x64** and **Arch Linux / CachyOS x86_64 (KDE Wayland)**.
 
-当前版本为 **0.2.0-alpha.1**，仍处于预览阶段。
+Current version: **0.2.0-alpha.1**, an early preview.
 
-## 功能特色
+## Features
 
-- 一处管理 MPV 核心、uosc 控制栏、进度条缩略图和播放配置。
-- 三档画质预设、HDR 选项、同目录自然排序连播、字幕搜索与位置续播。
-- 保存前预览变更，保护手动修改；移除增强时保留系统 MPV 和用户内容。
-- 简体中文 / English，支持系统、浅色与深色主题。
+- Manage the MPV core, uosc controls, seek previews and playback settings in one place.
+- Three playback presets, HDR options, naturally sorted folder playlists, subtitle discovery and playback resume.
+- Preview configuration changes and protect manual edits. Removing enhancements preserves system MPV and user content.
+- Simplified Chinese and English, with system, light and dark themes.
 
-预设的取舍与默认行为见[预设配置设计](docs/presets.md)。
+See [Preset Design](docs/presets.md) for defaults and configuration choices.
 
-## 安装
+## Installation
 
-从 [Releases](https://github.com/Leovikii/mpvkit/releases) 获取安装包。当前尚无公开安装包，以下步骤适用于首个预览版发布后；预览版请认准 **Pre-release** 标记。
+Download packages from [Releases](https://github.com/Leovikii/mpvkit/releases). No public packages are available yet; the steps below apply once the first preview is published. Preview builds are marked **Pre-release**.
 
-**Windows**：下载并运行 `MpvKit_<版本>_x64-setup.exe`，自动安装到当前用户目录。打开 MpvKit 后安装 MPV 核心与播放增强，再预览并保存配置；核心由 WinGet 管理，需要可用的 Windows 应用安装程序。
+**Windows:** Run `MpvKit_<version>_x64-setup.exe` to install automatically for the current user. Open MpvKit, install the MPV core and enhancements as needed, then preview and save your settings. Core management uses WinGet and requires Windows App Installer.
 
-**Arch / CachyOS**：下载 `.pkg.tar.zst` 后安装：
+**Arch / CachyOS:** Download the `.pkg.tar.zst` package and install it:
 
 ```sh
 sudo pacman -U ./mpvkit-bin-0.2.0alpha1-1-x86_64.pkg.tar.zst
 ```
 
-从应用菜单打开 MpvKit。MPV 核心可在应用内通过系统包管理器安装，授权需要 polkit。AUR 配方尚未公开；发布后可通过 AUR 助手更新，应用内会提示可用更新。
+Launch MpvKit from the application menu. Install the MPV core through the app if needed; package operations require polkit authorization. The AUR recipe is not public yet. Once available, use your AUR helper to update MpvKit; the app will notify you of updates.
 
-保存后，用系统 MPV 正常打开媒体即可。MpvKit 不更改默认播放器。
+After saving your settings, open media with system MPV as usual. MpvKit does not change your default player.
 
-## 许可证
+## License
 
-[GPL-3.0-or-later](COPYING.md)。第三方组件、字体与依赖保留各自许可证及署名。
+[GPL-3.0-or-later](COPYING.md). Third-party components, fonts and dependencies retain their own licenses and notices.

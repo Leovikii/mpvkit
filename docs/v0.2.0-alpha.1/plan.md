@@ -103,7 +103,7 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 
 - Release 增加 main push 触发，每次核对源码版本与本版日志，查询 `v<版本>`；仅真实 404 才创建 tag，绑定本次事件的精确 SHA，并在同一工作流继续双端构建、签名与草稿收集。已有 tag 正常跳过；网络 / 权限失败停止，并发建同一版本只允许成功创建者进入构建。不同 main 提交互不取消，公开推广任务仍串行。
 - `build-draft` 手动入口保留，用于已有 tag 的失败重试；`promote` 仍需显式手动触发及原有许可 / 签名校验。预览草稿明确 prerelease、latest=false。没有依赖 GITHUB_TOKEN 建 tag 再触发工作流，也没有引入 PAT。
-- 当前 notes 改为版本标题与四条英文变更，仍由同一文件供 Release 和 updater.json 使用；后续版本沿用此格式。README 精简为用户功能、两端安装和许可证，另增[预设配置设计](../presets.md)，agent 与开发入口留在 AGENTS / docs 索引。
+- 当前 notes 改为版本标题与四条英文变更，仍由同一文件供 Release 和 updater.json 使用；后续版本沿用此格式。README 按用户补充要求使用英文，精简为用户功能、两端安装和许可证，另增[预设配置设计](../presets.md)，agent 与开发入口留在 AGENTS / docs 索引。
 - 针对性 Node 测试 **10/10**（含 CI 分类、分发及 API 反例子用例）；actionlint 1.7.12、JS 语法、英文日志 / 本地链接 / diff 检查通过。未改 Rust 或前端行为，不重复设备、图形和安装包套件。证据见[本轮记录](evidence.md#main-自动-cd-与用户文档2026-10-27)。
 - 只读远端环境查询仍为空；需由维护者设置受保护 `release-build` / `release-publish` 和正式签名材料。自动流程在合并后生效，本地测试不创建真实远端 tag 或 Release，不能写成自动 CD 已实际打包通过。
 
