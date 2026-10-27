@@ -50,7 +50,7 @@ Windows 使用用户级 NSIS：启动即显示进度并自动安装到 `%LOCALAP
 
 Linux 管理器入口由 Arch 包维护 packaging/io.github.mpvkit.desktop 与系统图标；Exec=mpvkit，无媒体 MIME、--open 或用户 applications 链接。GTK app_id 为 io.github.mpvkit。移除增强不会删除系统包入口。
 
-应用设置 → 关于：正常 GUI 界面就绪 3 秒后检查一次；提前手动检查则合并，无周期检查或自动检查开关。接收预览版默认 false；切换废弃旧结果，保存后可立即重查，迟到响应无效。结果/进度只在内存。弹窗显示纯文本日志、版本和日期；Windows 签名下载/安装，草稿未保存时禁止；Linux 提示用户通过 yay/paru 等 AUR 助手手动更新本程序后重启，仅链接已发布配方，不执行 helper 或写 /usr/bin。预览开关只控制应用内提醒，不限制包管理器的更新渠道。关于区采用 WinUI 3 设置行，更新弹窗操作区固定。公共元数据尚未发布时检查失败可重试。
+应用设置 → 关于：正常 GUI 界面就绪 3 秒后检查一次；提前手动检查则合并，无周期检查或自动检查开关。接收预览版默认 false；切换废弃旧结果，保存后可立即重查，迟到响应无效。结果/进度只在内存。弹窗显示纯文本日志、版本和日期；Windows 签名下载/安装，草稿未保存时禁止；Linux 提示用户通过 yay/paru 等 AUR 助手手动更新本程序后重启，仅链接已发布配方，不执行 helper 或写 /usr/bin。预览开关只控制应用内提醒，不限制包管理器的更新渠道。关于区采用 WinUI 3 设置行，更新弹窗操作区固定。公开渠道已提供 alpha.2 预览；接收预览后同版检查返回最新，关闭预览且尚无稳定版时正常提示无稳定版。
 
 Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写根；配置位于其 config/mpv；更新元数据只读其 test-tools/updates，禁止测试安装器。Release 忽略测试覆写。Windows 隔离核心/WinGet 仅来自 system-mpv/test-tools；不得回退调用本机包管理器。
 
