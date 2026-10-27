@@ -1,5 +1,5 @@
 //! Optional integration checks against the installed Arch MPV and a real Wayland session.
-use crate::{components, config, deploy, launch, platform, setup};
+use crate::{components, config, deploy, platform, setup};
 use std::{
     fs,
     io::{BufRead, BufReader, Write},
@@ -47,10 +47,7 @@ fn linux_configuration_has_no_windows_runtime_paths() {
         content(crate::config::relative!("script-opts/thumbfast.conf"))
             .contains("mpv_path=/usr/bin/mpv\n")
     );
-    assert!(
-        content(crate::config::relative!("scripts/mpvkit.lua"))
-            .contains(".mpvkit/launcher/mpvkit'")
-    );
+    assert!(content(crate::config::relative!("scripts/mpvkit.lua")).contains("local helper = "));
     assert!(!files.iter().any(|p| p.path.ends_with(".exe")
         || p.path.ends_with(".dll")
         || p.path.ends_with("fonts.conf")));
@@ -98,11 +95,6 @@ fn wait(mut condition: impl FnMut() -> bool) {
 #[ignore = "requires fixed local assets, built native executable, synthetic video, ffmpeg and Wayland"]
 fn arch_wayland_install_playback_and_uninstall() {
     assert_eq!(std::env::var("MPVKIT_TEST_MODE").as_deref(), Ok("1"));
-    platform::manager_entry::ensure().unwrap();
-    let manager_root = platform::default_root().unwrap();
-    let manager_entry = manager_root.join("applications/io.github.mpvkit.desktop");
-    let manager_before = fs::read(&manager_entry).unwrap();
-    assert!(!String::from_utf8_lossy(&manager_before).contains("--open"));
     let root = platform::app_root().unwrap();
     assert!(!root.exists(), "use a fresh isolated MPVKIT_TEST_ROOT");
     let media =
@@ -330,7 +322,7 @@ fn arch_wayland_install_playback_and_uninstall() {
             crate::mpv::capture(Path::new("/usr/bin/mpv"), &args, Duration::from_secs(8)).unwrap();
         }
     }
-    assert!(launch::prepare_managed(&root, media.to_str().unwrap()).is_ok());
+    assert!(config::portable::ready(&root).unwrap());
     setup::execute(setup::prepare_uninstall(&root).unwrap()).unwrap();
     assert!(!config_file.exists());
     assert!(deploy::status(&root).unwrap().manifest.is_none());
@@ -344,12 +336,7 @@ fn arch_wayland_install_playback_and_uninstall() {
     assert!(system_player_after.ready);
     assert_eq!(system_player.version, system_player_after.version);
     assert!(!entry.exists());
-    assert!(!root.join(platform::HELPER).exists());
-    assert_eq!(fs::read(manager_entry).unwrap(), manager_before);
-    assert_eq!(
-        fs::read(manager_root.join("desktop/mpvkit.png")).unwrap(),
-        include_bytes!("../icons/icon.png")
-    );
+    assert!(!root.join(".mpvkit/launcher").exists());
     assert_eq!(
         fs::read_to_string(root.join("notes.txt")).unwrap(),
         "unmanaged user file"

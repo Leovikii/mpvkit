@@ -51,15 +51,6 @@ pub const CATALOG: &str = include_str!("../../resources/catalog.json");
 pub const CATALOG: &str = include_str!("../../resources/catalog-linux.json");
 
 #[cfg(target_os = "windows")]
-pub const APP_NOTICES: &str = include_str!("../../resources/app-dependency-notices.txt");
-#[cfg(target_os = "linux")]
-pub const APP_NOTICES: &str = include_str!("../../resources/app-dependency-notices-linux.txt");
-#[cfg(target_os = "windows")]
-pub const APP_INVENTORY: &str = include_str!("../../resources/app-dependency-inventory.json");
-#[cfg(target_os = "linux")]
-pub const APP_INVENTORY: &str = include_str!("../../resources/app-dependency-inventory-linux.json");
-
-#[cfg(target_os = "windows")]
 pub const SOURCE_MATERIALS: &str = include_str!("../../resources/source-materials.json");
 #[cfg(target_os = "linux")]
 pub const SOURCE_MATERIALS: &str = include_str!("../../resources/source-materials-linux.json");

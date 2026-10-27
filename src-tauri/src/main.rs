@@ -13,14 +13,13 @@ mod config;
 pub mod deploy;
 mod diagnostics;
 mod error;
-mod launch;
 #[cfg(all(test, target_os = "linux"))]
 mod linux_tests;
-mod logs;
 mod mpv;
 mod platform;
 mod preferences;
 mod setup;
+mod updates;
 
 use tauri::Manager;
 
@@ -32,11 +31,10 @@ fn main() {
     #[cfg(target_os = "linux")]
     {
         platform::desktop::initialize_identity();
-        if let Err(error) = platform::manager_entry::ensure() {
-            platform::show_error(error.message);
-        }
     }
     let builder = tauri::Builder::default();
+    #[cfg(target_os = "windows")]
+    let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     let builder = builder.manage(commands::PendingCore::default());
     builder
         .setup(|app| {
@@ -55,11 +53,10 @@ fn main() {
                 platform::appearance::apply(&webview);
             }
         })
-        .manage(commands::PendingLaunch::default())
         .manage(commands::PendingDeployment::default())
         .manage(commands::ComponentJob::default())
         .manage(commands::PendingExport::default())
-        .manage(commands::PendingLogCleanup::default())
+        .manage(updates::Pending::default())
         .invoke_handler(tauri::generate_handler![
             commands::setup_status,
             commands::preview_core,
@@ -73,8 +70,8 @@ fn main() {
             commands::open_player_directory,
             commands::app_information,
             commands::license_text,
-            commands::preview_log_cleanup,
-            commands::clean_logs,
+            updates::check_app_update,
+            updates::install_app_update,
             commands::open_default_apps,
             #[cfg(target_os = "windows")]
             commands::open_app_installer,
@@ -88,9 +85,7 @@ fn main() {
             commands::preview_install,
             commands::deployment_status,
             commands::preview_maintenance,
-            commands::apply_deployment,
-            commands::preview_launch,
-            commands::launch_mpv
+            commands::apply_deployment
         ])
         .run(tauri::generate_context!())
         .expect("MpvKit 无法启动桌面窗口");

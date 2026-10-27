@@ -11,6 +11,7 @@ pub struct AppSettings {
     pub schema_version: u32,
     pub language: String,
     pub theme: String,
+    pub preview_updates: bool,
 }
 impl Default for AppSettings {
     fn default() -> Self {
@@ -18,6 +19,7 @@ impl Default for AppSettings {
             schema_version: 1,
             language: "system".into(),
             theme: "system".into(),
+            preview_updates: false,
         }
     }
 }

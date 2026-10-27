@@ -26,6 +26,120 @@ async function prepareSystemCore(root,{missingCore=false,missingWinget=false}={}
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const exists = async (p) => fs.access(p).then(() => true, () => false);
 
+test("native application updates: startup once, preview preference, logs, retry and channel races", {timeout:180000}, async()=>{
+  const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-updates-')),root=path.join(sandbox,'data');
+  const fixtures=path.join(root,'test-tools/updates'); await fs.mkdir(fixtures,{recursive:true});
+  const prefix='https://github.com/Leovikii/mpvkit/releases/download/';
+  const version='0.2.0-alpha.2',release={version,manifest:`${prefix}v${version}/updater.json`,archPackage:null};
+  const writeIndex=value=>fs.writeFile(path.join(fixtures,'channels.json'),JSON.stringify(value));
+  await writeIndex({schemaVersion:1,stable:null,preview:release});
+  await fs.writeFile(path.join(fixtures,`v${version}.json`),JSON.stringify({version,notes:'更新日志 <script>must stay text</script>\n'+'- Preview fix / 改进更新与配置保存。\n'.repeat(60),pub_date:'2026-10-27T00:00:00Z',platforms:{'windows-x86_64':{url:`${prefix}v${version}/MpvKit-setup.exe`,signature:'isolated-fixture-not-an-installer'}}}));
+  let session;
+  try {
+    session=await startApp(sandbox,root); const p=session.page; await english(p); await settled(p);
+    const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
+    await p.getByRole('button',{name:'App settings',exact:true}).click();
+    const toggle=p.getByRole('switch',{name:'Include preview releases',exact:true});
+    const check=()=>p.getByRole('button',{name:'Check for updates',exact:true});
+    assert(!await toggle.isChecked());
+    for(const theme of ['light','dark']){
+      await p.getByRole('combobox',{name:'Appearance mode',exact:true}).selectOption(theme);
+      await p.waitForFunction(()=>!document.querySelector('#preview-update-switch')?.disabled);
+      await toggle.scrollIntoViewIfNeeded();await p.screenshot({path:path.join(artifacts,`update-settings-${theme}.png`)});
+    }
+    await toggle.scrollIntoViewIfNeeded();
+    await p.screenshot({path:path.join(artifacts,'update-settings.png')});
+    for(const width of [1040,640]) {
+      await p.setViewportSize({width,height:760});
+      await p.evaluate(()=>document.documentElement.style.fontSize='200%');
+      await toggle.scrollIntoViewIfNeeded();
+      const fits=await p.locator('.update-setting').evaluateAll(rows=>rows.every(row=>row.scrollWidth<=row.clientWidth+1));
+      assert(fits,'update settings fit at 200% text');
+      await p.screenshot({path:path.join(artifacts,`update-settings-${width}-200.png`)});
+      await p.evaluate(()=>document.documentElement.style.fontSize='');
+    }
+    await p.setViewportSize({width:1040,height:760});
+    await p.getByText('No stable release published yet',{exact:true}).waitFor(); // startup check, no button clicked
+    await fs.writeFile(path.join(fixtures,'channels.json'),'invalid');
+    await sleep(3800); await p.getByRole('button',{name:'Player settings',exact:true}).click();
+    await p.getByRole('button',{name:'App settings',exact:true}).click();
+    await p.getByText('No stable release published yet',{exact:true}).waitFor();
+    await check().click(); await p.getByText('Update check failed. Try again.',{exact:true}).waitFor(); assert(await check().isEnabled());
+    await writeIndex({schemaVersion:1,stable:null,preview:release});
+    await toggle.focus(); await p.keyboard.press('Space'); await p.waitForFunction(()=>document.querySelector('#preview-update-switch')?.checked); await p.waitForFunction(()=>!document.querySelector('#preview-update-switch')?.disabled); assert((await ipc(p,'read_app_settings')).previewUpdates);
+    await check().click(); const modal=p.getByRole('dialog'); await modal.waitFor();
+    assert.match(await modal.locator('pre').innerText(),/<script>must stay text<\/script>/);
+    assert.equal(await modal.locator('script').count(),0);
+    await p.screenshot({path:path.join(artifacts,'update-dialog.png')});
+    const buttons=await modal.locator('.update-dialog-actions button').evaluateAll(nodes=>nodes.map(node=>({text:node.textContent,x:node.getBoundingClientRect().x,bottom:node.getBoundingClientRect().bottom})));
+    assert(buttons[0].x<buttons[1].x && buttons[1].text==='Later','primary left, safe dismiss right');
+    assert(buttons.every(button=>button.bottom<=760));
+    await p.setViewportSize({width:640,height:760});await p.evaluate(()=>document.documentElement.style.fontSize='200%');
+    assert(await modal.locator('.update-notes').evaluate(element=>element.scrollHeight>element.clientHeight));
+    assert(await modal.locator('.update-dialog-actions').evaluate(element=>element.getBoundingClientRect().bottom<=window.innerHeight));
+    assert(await modal.evaluate(element=>element.scrollWidth<=element.clientWidth+1));
+    await p.screenshot({path:path.join(artifacts,'update-dialog-640-200.png')});
+    await p.evaluate(()=>document.documentElement.style.fontSize='');await p.setViewportSize({width:1040,height:760});
+    for(let i=0;i<8;i++){await p.keyboard.press('Tab');assert(await modal.evaluate(element=>element.contains(document.activeElement)));}
+    await modal.getByRole('button',{name:'Later',exact:true}).click(); await modal.waitFor({state:'hidden'});
+    await sleep(500); assert.equal(await modal.count(),0);
+    await p.getByRole('button',{name:'View update',exact:true}).click(); await modal.waitFor();
+    await modal.getByRole('button',{name:'Download and update',exact:true}).click();
+    await modal.waitFor({state:'hidden'}); await p.getByRole('alert').waitFor();
+    assert.equal(session.app.exitCode,null,'test mode never starts an installer');
+    // Delay an old preview response after the backend has completed. Switching channels must
+    // reenable the button and ignore the response, even if it arrives after the new check.
+    await p.evaluate(()=>{
+      const original=window.fetch.bind(window);let once=true;window.__delayedUpdateReplies=0;
+      const endpoint=window.__TAURI_INTERNALS__.convertFileSrc('check_app_update','ipc');
+      window.fetch=async(input,init)=>{
+        const response=await original(input,init);
+        if(input===endpoint&&once){once=false;window.__delayedUpdateReplies++;await new Promise(resolve=>setTimeout(resolve,2200));}
+        return response;
+      };
+    });
+    await check().click(); await toggle.focus(); await p.keyboard.press('Space'); await p.waitForFunction(()=>!document.querySelector('#preview-update-switch')?.checked); await p.waitForFunction(()=>!document.querySelector('#preview-update-switch')?.disabled); assert(await check().isEnabled());
+    await check().click(); await p.getByText('No stable release published yet',{exact:true}).waitFor();
+    await sleep(2500); assert.equal(await modal.count(),0); assert(await check().isEnabled());
+    assert.equal(await p.evaluate(()=>window.__delayedUpdateReplies),1,'the old response was actually delayed');
+    assert(!(await ipc(p,'read_app_settings')).previewUpdates);
+    await toggle.focus(); await p.keyboard.press('Space'); await p.waitForFunction(()=>document.querySelector('#preview-update-switch')?.checked); await settled(p); await check().click(); await modal.waitFor();
+    await modal.getByRole('button',{name:'Later',exact:true}).click();
+    await p.getByRole('button',{name:'Player settings',exact:true}).click();
+    await p.getByLabel('Quality',{exact:true}).selectOption('high-quality');
+    await p.getByRole('button',{name:'App settings',exact:true}).click();
+    await p.getByRole('button',{name:'View update',exact:true}).click();
+    assert(await modal.getByRole('button',{name:'Download and update',exact:true}).isDisabled());
+    await modal.getByText('Save or reset your draft before installing the update.',{exact:true}).waitFor();
+    await modal.getByRole('button',{name:'Later',exact:true}).click();
+    // Exercise the Linux UI response on Windows without running a package manager.
+    await p.evaluate(()=>{
+      const original=window.fetch.bind(window);
+      const endpoint=command=>window.__TAURI_INTERNALS__.convertFileSrc(command,'ipc');
+      window.__updatePackage='mpvkit-bin'; window.__installCalls=0;
+      window.fetch=async(input,init)=>{
+        if(input===endpoint('install_app_update')) window.__installCalls++;
+        const response=await original(input,init);
+        if(input!==endpoint('check_app_update')) return response;
+        const result=await response.json();
+        if(result.update) {result.update.method='aur';result.update.package=window.__updatePackage;}
+        return new Response(JSON.stringify(result),{status:response.status,headers:response.headers});
+      };
+    });
+    await check().click();await modal.waitFor();
+    await modal.getByText('Update MpvKit manually with your AUR helper, such as yay or paru, then restart the application.',{exact:true}).waitFor();
+    assert.equal(await modal.getByRole('link',{name:'View on AUR',exact:true}).getAttribute('href'),'https://aur.archlinux.org/packages/mpvkit-bin');
+    assert.equal(await modal.getByRole('button',{name:'Download and update',exact:true}).count(),0);
+    await modal.getByRole('button',{name:'Later',exact:true}).click();
+    await p.evaluate(()=>window.__updatePackage=null);await check().click();await modal.waitFor();
+    await modal.getByText('The AUR recipe for this version is not available yet.',{exact:true}).waitFor();
+    assert.equal(await modal.getByRole('link',{name:'View on AUR',exact:true}).count(),0);
+    assert.equal(await p.evaluate(()=>window.__installCalls),0);
+    await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({passed:true,checks:['startup once','default preview off','no stable','offline retry','preview preference','plain text release notes','later/reopen','test install blocked','channel late response','dirty draft protection','Linux manual package update UI only']},null,2));
+    assert.deepEqual(session.errors,[]);
+  } finally {if(session)await session.stop();}
+});
+
 test("native WinGet core install, failures, retry, upgrade and ownership boundary", {timeout:300000}, async()=>{
   const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),"mpvkit-winget-")),global=path.join(sandbox,"data"),root=path.join(global,"config/mpv");
   const artifacts=path.join(repository,".local/e2e-artifacts",path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});let session;
@@ -371,17 +485,6 @@ async function probeMpv(pipe, commands) {
   } finally { socket.destroy(); }
   return results;
 }
-async function latestPlayer(root) {
-  const directory = path.join(root,".mpvkit/cache/sessions");
-  const sessions = await fs.readdir(directory);
-  const records = [];
-  for (const id of sessions) {
-    const log = await fs.readFile(path.join(directory,id,"session.log"),"utf8").catch(()=>"");
-    const pid = log.match(/status=started pid=(\d+)/);
-    if (pid) records.push({pid:Number(pid[1]), modified:(await fs.stat(path.join(directory,id,"session.log"))).mtimeMs});
-  }
-  records.sort((a,b)=>b.modified-a.modified); assert.ok(records.length); return records[0].pid;
-}
 function wav() {
   const data = Buffer.alloc(8000 * 2 * 60);
   const header = Buffer.alloc(44);
@@ -428,7 +531,7 @@ async function ipc(page,command,args={}) {
   }
   return rawIpc(page,command,args);
 }
-async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Save configuration|Apply changes|Clean logs|Reset configuration|Uninstall core|Remove enhancements|Update|Update components|Repair components)$/,exact:true}).click();}
+async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Save configuration|Apply changes|Reset configuration|Uninstall core|Remove enhancements|Update|Update components|Repair components)$/,exact:true}).click();}
 async function settled(page) { await page.locator("main[aria-busy=false]").waitFor(); }
 async function english(page) {
   await page.getByRole("button",{name:/^(应用设置|App settings)$/}).click();
@@ -440,7 +543,7 @@ async function heading(page,name) {await page.getByRole("heading",{name,exact:tr
 test("native v016 install, manual configuration, native profiles and unified save", {timeout:900000}, async()=>{
  const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-v016-')); const global=path.join(sandbox,'data'); const root=path.join(global,'config/mpv');
  const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});let session;const children=[];
- const copied=path.join(sandbox,'mpvkit.exe');await fs.copyFile(executable,copied);
+ const copied=path.join(sandbox,'中文 空格','mpvkit.exe');await fs.mkdir(path.dirname(copied),{recursive:true});await fs.copyFile(executable,copied);
  try{
   session=await startApp(sandbox,global,copied);const p=session.page;await english(p);
   await heading(p,"Player settings");assert.equal(await p.getByLabel("Custom install folder",{exact:true}).count(),0);
@@ -449,7 +552,7 @@ test("native v016 install, manual configuration, native profiles and unified sav
   await p.getByRole('dialog').locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);await heading(p,'Player settings');
   let report=await ipc(p,'setup_status');assert.equal(report.componentsReady,true);assert.equal(report.root,root);
   assert(!await exists(path.join(root,'mpv.conf'))); assert(!report.settingsReady); assert(!("integration" in report));
-  for(const name of ['.mpvkit/settings.json','.mpvkit/launcher/mpvkit.exe'])assert(await exists(path.join(root,name)),name);
+  for(const name of ['.mpvkit/settings.json','scripts/mpvkit.lua'])assert(await exists(path.join(root,name)),name);
   for(const name of ['config','runtime','state','launcher','user.conf','mpvkit-context.json','mpvkit-profiles.json'])assert(!await exists(path.join(root,name)),name);
 
   await p.getByRole('button',{name:'Save configuration',exact:true}).click();await p.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert(!await exists(path.join(root,'mpv.conf')));
@@ -490,7 +593,7 @@ test("native v016 install, manual configuration, native profiles and unified sav
   assert(!await exists(path.join(root,'.mpvkit/playback.json')));await probeMpv(direct,[['quit']]);children.pop();
   session=await startApp(sandbox,global);await heading(session.page,'Player settings');assert.equal((await ipc(session.page,'read_settings')).profile,'high-quality');
   const q=session.page;const managedPipe='\\\\.\\pipe\\mpvkit-v016-'+crypto.randomUUID();await fs.appendFile(confPath,'\ninput-ipc-server='+managedPipe+'\nao=null\nidle=yes\n');
-  const launch=await ipc(q,'preview_launch',{media});assert(!launch.arguments.some(a=>a.startsWith('--include=')||a.startsWith('--scale=')));const launched=await ipc(q,'launch_mpv',{previewId:launch.id});children.push({pid:launched.processId,mpv});
+  const launched=spawn(mpv,['--config-dir='+root,'--',media],{windowsHide:true,stdio:'ignore',env:{...process.env,MPV_HOME:root}});children.push({pid:launched.pid,mpv});
   assert.equal((await probeMpv(managedPipe,[['get_property','scale']]))[0],'ewa_lanczossharp');assert.equal((await probeMpv(managedPipe,[['get_property','volume']]))[0],23);
   await probeMpv(managedPipe,[['quit']]);children.pop();
   assert.equal((await ipc(q,'setup_status')).configurationModified,true);
@@ -507,7 +610,7 @@ test("native v016 install, manual configuration, native profiles and unified sav
   assert.equal(await q.getByLabel('Quality',{exact:true}).inputValue(),'balanced');
   await fs.writeFile(confPath,prior);
   await q.screenshot({animations:"disabled",path:path.join(artifacts,'status.png')});assert.deepEqual(session.errors,[]);
-  await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({sandbox,root,checks:['native install','no MpvKit media registration','direct config','manual edits','preview cancel','native profile','GUI-closed save','managed launch'],passed:true},null,2));
+  await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({sandbox,root,checks:['native install','no MpvKit media registration','direct config','manual edits','preview cancel','native profile','GUI-closed save','system MPV direct launch'],passed:true},null,2));
  }catch(error){console.error(error);throw error;}finally{for(const c of children)try{controlProcess(c.pid,c.mpv,'stop');}catch{}if(session)await session.stop();console.log('v016 evidence: '+artifacts);}
 });
 
@@ -531,7 +634,7 @@ test("native sidebar, language, theme and fixed paths",{timeout:90000},async()=>
   await p.getByRole('button',{name:'Player settings',exact:true}).focus();await p.keyboard.press('Tab');await p.keyboard.press('Enter');await heading(p,'App settings');
   await p.getByRole('combobox',{name:'Appearance mode',exact:true}).selectOption('dark');await settled(p);
   assert.equal((await p.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--mantine-color-brand-6'))).trim().toLowerCase(),'#a84bd6');
-  assert.deepEqual(Object.keys(await ipc(p,'read_app_settings')).sort(),['language','schemaVersion','theme']);
+  assert.deepEqual(Object.keys(await ipc(p,'read_app_settings')).sort(),['language','previewUpdates','schemaVersion','theme']);
   await p.setViewportSize({width:640,height:600});assert(await p.evaluate(()=>document.documentElement.scrollWidth<=window.innerWidth));await p.screenshot({animations:"disabled",path:path.join(artifacts,'settings-dark.png')});
   await p.getByRole('combobox',{name:'Display language',exact:true}).selectOption('zh-Hans');await heading(p,'应用设置');
   await p.getByRole('combobox',{name:'明暗模式',exact:true}).selectOption('light');await p.screenshot({animations:"disabled",path:path.join(artifacts,'settings-light-zh.png')});
@@ -579,7 +682,7 @@ test("native v016 real playback: keys, menu, position-only resume and font", {ti
   let session,playerId;const player=path.join(global,"system-mpv/mpv.exe"),pipe=String.raw`\\.\pipe\mpvkit-player-`+path.basename(sandbox);
   const call=async(...commands)=>probeMpv(pipe,commands);const get=async key=>(await call(["get_property",key]))[0];
   async function waitFor(check){for(let i=0;i<80;i++){try{if(await check())return;}catch{}await sleep(100);}assert.fail("player condition timed out");}
-  async function launch(){const preview=await ipc(session.page,"preview_launch",{media});await ipc(session.page,"launch_mpv",{previewId:preview.id});playerId=await latestPlayer(root);await waitFor(async()=>{try{return await get("duration")>=29;}catch{return false;}});await sleep(500);}
+  async function launch(){const child=spawn(player,["--config-dir="+root,"--",media],{windowsHide:true,stdio:"ignore",env:{...process.env,MPV_HOME:root}});playerId=child.pid;await waitFor(async()=>{try{return await get("duration")>=29;}catch{return false;}});await sleep(500);}
   async function quit(){await call(["quit"]);for(let n=0;n<60;n++){try{await get("pid");}catch{playerId=null;return;}await sleep(100);}assert.fail("player did not quit");}
   try {
     session=await startApp(sandbox,global);const p=session.page;await p.getByRole("heading",{name:/播放器|Player/}).waitFor();await english(p);

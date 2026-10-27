@@ -14,7 +14,7 @@ pub struct Environment {
 }
 pub fn initialize_identity() {
     // GTK's Wayland fallback uses the program name; set it before GTK initializes.
-    gtk::glib::set_prgname(Some(super::manager_entry::APP_ID));
+    gtk::glib::set_prgname(Some("io.github.mpvkit"));
 }
 fn locale_languages<'a>(preferences: impl IntoIterator<Item = &'a str>) -> Vec<String> {
     for value in preferences {

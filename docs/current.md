@@ -1,8 +1,8 @@
-# 当前开发基线：v0.1.9
+# 当前开发基线：v0.2.0-alpha.1
 
-更新：2026-10-27。本版从 63945b3 进入开发，用户已授权取消两端专属媒体登记并优先完成 Windows 完整测试。当前进度与证据见 [交接](v0.1.9/plan.md)、[测试入口](testing.md)及[证据](v0.1.9/evidence.md)；v0.1.8 的两端实测属于历史基线。
+更新：2026-10-27。源码已进入 v0.2.0-alpha.1，用户已批准首发代码、目录精简、应用更新与分发流程。实际进度、验证和限制见 [当前交接](v0.2.0-alpha.1/plan.md)、[证据](v0.2.0-alpha.1/evidence.md)及[测试入口](testing.md)。尚未公开发布；无历史版迁移或自动清理旧数据。
 
-尚未正式发布；无 CI/CD、开发版兼容/迁移或安装包。仅构建 Windows 单 EXE / Linux 单 ELF。用户一次性授权清理过本机不兼容配置，已完成；不得把它当作后续自动清理真实数据的授权。
+当前版本仍是 0.2.0-alpha.1，第一个 alpha 预览版；0.2.0 为后续首个正式版目标。用户已解除旧 CI/CD 与安装包禁令，允许启用 [工作流配置](ci/README.md) 和构建 NSIS/Arch 包，随后授权提交并推送当前整批更新；公开发布未获授权。日常 CI 只在 main PR/合并队列运行，固定 `CI` 汇总检查供 ruleset 使用。默认开发 bundle.active=false，分发配置单独启用打包。公开更新渠道、正式签名/AUR 与安装升级验收未完成。
 
 ## 当前界面与操作
 
@@ -17,7 +17,7 @@ Windows 用 WinGet 固定 `shinchiro.mpv` / winget 源；缺少 WinGet 给出 Ap
 
 核心安装状态独立于增强清单，核心卸载保留配置，增强移除保留系统核心。重置恢复默认结构化设置及四个完整预设文件；普通保存只改 GUI 管理区域，保留默认区手改。移除增强按归属/摘要删未改的自有文件、设置/安装记录，保留未知/手改、续播和应用偏好。
 
-无历史备份、撤销、回退、手动缓存清理。当前操作 staging/recovery 只供失败恢复，成功或恢复后自动清理；完成清理中断可重试。卸载仅清理已退出且有归属的生成日志、未用记录与空目录；owner.json/operation.lock 保留，不能删除正在持有的锁。不递归删除根或清空 WinGet/pacman 共享缓存。完整决定见 [maintenance](v0.1.8/maintenance.md)。
+无历史备份、撤销、回退、手动缓存清理。当前操作 staging/recovery 只供失败恢复，成功或恢复后自动清理；完成清理中断可重试。卸载仅清理未改动的自有文件、未用记录与空目录；owner.json/operation.lock 保留，不能删除正在持有的锁。不递归删除根或清空 WinGet/pacman 共享缓存。完整决定见 [maintenance](v0.1.8/maintenance.md)。
 
 ## 播放器默认与交互
 
@@ -33,26 +33,26 @@ uosc 左侧仅上下集/播放暂停（44/48/44 逻辑像素），右侧轨道�
 
 ## 当前目录
 
-管理器程序由用户放置，不规定安装目录。两端配置均直接包含 mpv.conf、input.conf、script-opts/、scripts/、fonts/、licenses/；没有 user.conf。
+Windows 使用用户级 NSIS：启动即显示进度并自动安装到 `%LOCALAPPDATA%\Programs\MpvKit`，成功自动关闭，无确认/目录选择向导，非静默；异常和系统提示保留。见[安装器来源与边界](../packaging/windows/README.md)。Arch 原生包安装到 /usr/bin/mpvkit。默认开发仍可直接运行单程序。两端配置均直接包含 mpv.conf、input.conf、script-opts/、scripts/、fonts/、licenses/；没有 user.conf。
 
 | 数据 | Windows | Linux |
 | --- | --- | --- |
 | 系统核心 | WinGet 精确登记及已知 Program Files 位置，不归 MpvKit 管理文件所有权 | /usr/bin/mpv，不复制系统核心 |
-| 应用偏好 | %LOCALAPPDATA%/MpvKit/mpvkit.json | $XDG_DATA_HOME/mpvkit/mpvkit.json，回退 ~/.local/share/mpvkit |
+| 应用偏好 | %LOCALAPPDATA%/io.github.mpvkit/mpvkit.json | 同 Windows 职责，$XDG_DATA_HOME/io.github.mpvkit/mpvkit.json，回退 ~/.local/share/io.github.mpvkit |
 | MPV 配置根 | MPV_HOME → 已存在的相邻 portable_config → %APPDATA%/mpv | MPV_HOME → XDG_CONFIG_HOME/mpv 或 ~/.config/mpv；标准目录不存在时识别原生 ~/.mpv |
-| 播放期保存 helper | 配置根/.mpvkit/launcher/mpvkit.exe | 配置根/.mpvkit/launcher/mpvkit |
+| 播放期保存 | scripts/mpvkit.lua 调用已部署时的管理器绝对路径 | 同左，Arch 固定程序为 /usr/bin/mpvkit |
 
 只检查已知本地位置。相对路径、符号链接、Windows 重解析点/多处核心或多个实际配置目录歧义均阻断，不合并、不迁移。Windows 无 MPV_HOME/portable_config 时，相邻实际配置与用户目录并存也阻断（包自带 fonts.conf 例外）。Linux 不部署 DLL、Windows helper 或 fonts.conf；普通系统 MPV 启动直接读取原生配置，不重设 MPV_HOME 到日志目录。
 
-配置根 `.mpvkit/` 保存 settings.json、owner.json/install.json、operation.lock、当前 pending.json、staging/recovery、cache/sessions 日志和 launcher/helper/许可；watch_later 为 MPV 按需生成的续播数据。不强制创建空目录。
+配置根 `.mpvkit/` 保存 settings.json、owner.json/install.json、operation.lock、当前 pending.json、staging/recovery；不生成 cache/sessions、launcher 或管理器许可副本；watch_later 为 MPV 按需生成的续播数据。不强制创建空目录。
 
 媒体打开方式由系统 MPV 包维护；不再生成或管理 MpvKit 媒体登记、意图字段或登记恢复记录。Windows 包在安装后按系统 audio/video 分类登记扩展名，Linux 包自带 mpv.desktop。默认应用由用户在系统设置选择；“设置默认应用”按钮放在顶部 MPV 核心操作行，核心未安装时禁用，不参与草稿/保存。见 [来源核验与限制](v0.1.9/evidence.md#windows-软件包的媒体登记核验)。
 
-Linux 管理器入口继续独立维护：
+Linux 管理器入口由 Arch 包维护 packaging/io.github.mpvkit.desktop 与系统图标；Exec=mpvkit，无媒体 MIME、--open 或用户 applications 链接。GTK app_id 为 io.github.mpvkit。移除增强不会删除系统包入口。
 
-- **MpvKit 管理器**：应用数据根 desktop/ 中保存同源 mpvkit.png 和 io.github.mpvkit.desktop，由该根部署清单管理；$XDG_DATA_HOME/applications/io.github.mpvkit.desktop 只接受指向它的固定自有符号链接。这是路径限制的限定例外，父目录和资产仍拒绝链接。GTK 程序名/app_id 同名；Exec 指向当前管理器，无 --open/MIME。移动程序后下次启动更新 Exec；未知入口/手改资产保留并记录错误，GUI 仍启动；更新时按可用性刷新 KDE 派生缓存。移除增强保留此入口。
+应用设置 → 关于：正常 GUI 界面就绪 3 秒后检查一次；提前手动检查则合并，无周期检查或自动检查开关。接收预览版默认 false；切换废弃旧结果，保存后可立即重查，迟到响应无效。结果/进度只在内存。弹窗显示纯文本日志、版本和日期；Windows 签名下载/安装，草稿未保存时禁止；Linux 提示用户通过 yay/paru 等 AUR 助手手动更新本程序后重启，仅链接已发布配方，不执行 helper 或写 /usr/bin。预览开关只控制应用内提醒，不限制包管理器的更新渠道。关于区采用 WinUI 3 设置行，更新弹窗操作区固定。公共元数据尚未发布时检查失败可重试。
 
-Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写根；配置位于其 config/mpv，管理器入口也隔离且不刷新实际 KDE 缓存。Release 忽略测试覆写。Windows 隔离核心/WinGet 仅来自 system-mpv/test-tools；不得回退调用本机包管理器。
+Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写根；配置位于其 config/mpv；更新元数据只读其 test-tools/updates，禁止测试安装器。Release 忽略测试覆写。Windows 隔离核心/WinGet 仅来自 system-mpv/test-tools；不得回退调用本机包管理器。
 
 ## 源码导航
 
@@ -61,9 +61,9 @@ Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写�
 | UI/动作/双语/品牌 | src/App.tsx、component-actions.ts、types.ts、i18n.ts、brand.ts；当前演示仍在 docs/v0.1.6/preview |
 | 命令与操作编排 | src-tauri/src/commands.rs（薄层）、setup.rs |
 | 配置与播放偏好 | config.rs、config/portable.rs、preferences.rs；resources/ 中共享预设/Lua |
-| 组件与安全文件事务 | components.rs、deploy.rs、logs.rs；下载/解压有界、摘要/锁/过期保护/当前恢复 |
+| 组件与安全文件事务 | components.rs、deploy.rs；下载/解压有界、摘要/锁/过期保护/当前恢复 |
 | 平台路径/核心/桌面 | platform/ 下 windows_mpv/linux_core、windows/linux、desktop/linux_desktop、appearance/linux_appearance |
-| 系统默认应用快捷入口 / 管理器桌面 | platform/windows.rs、linux.rs 只打开系统设置；独立管理器入口在 manager_entry.rs |
-| 启动/诊断 | launch.rs、mpv.rs、diagnostics.rs |
+| 系统默认应用快捷入口 / 管理器桌面 | platform/windows.rs、linux.rs 只打开系统设置；系统包入口在 packaging/ |
+| 更新/诊断/核心进程 | updates.rs、app-updates.tsx、mpv.rs、diagnostics.rs |
 
-业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。本版验证见 [交接](v0.1.9/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。
+业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。本版验证见 [交接](v0.2.0-alpha.1/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。

@@ -24,13 +24,7 @@ pub mod desktop;
 #[cfg(target_os = "linux")]
 #[path = "linux_desktop.rs"]
 pub mod desktop;
-#[cfg(target_os = "linux")]
-pub mod manager_entry;
 
-#[cfg(target_os = "windows")]
-pub const HELPER: &str = ".mpvkit/launcher/mpvkit.exe";
-#[cfg(target_os = "linux")]
-pub const HELPER: &str = ".mpvkit/launcher/mpvkit";
 #[cfg(target_os = "windows")]
 pub const UOSC_HELPER: &str = "scripts/uosc/bin/ziggy-windows.exe";
 #[cfg(target_os = "linux")]

@@ -63,7 +63,7 @@ pub fn default_root() -> Result<PathBuf> {
         validate_local_path(&root)?;
         return Ok(root);
     }
-    let root = known_folder(&FOLDERID_LocalAppData)?.join("MpvKit");
+    let root = known_folder(&FOLDERID_LocalAppData)?.join("io.github.mpvkit");
     validate_local_path(&root)?;
     Ok(root)
 }
@@ -197,95 +197,6 @@ pub fn replace_file(source: &Path, destination: &Path) -> Result<()> {
     Ok(())
 }
 
-// Only playback contract tests use these handles. Verify the image before
-// accepting ownership, so cleanup cannot terminate an unrelated reused PID.
-#[cfg(test)]
-pub struct TestPlayer {
-    handle: HANDLE,
-    verified: bool,
-}
-
-#[cfg(test)]
-impl TestPlayer {
-    pub fn open(process_id: u32, executable: &Path) -> Self {
-        use windows_sys::Win32::System::Threading::{
-            OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION, PROCESS_TERMINATE,
-            QueryFullProcessImageNameW,
-        };
-        let handle = unsafe {
-            OpenProcess(
-                PROCESS_QUERY_LIMITED_INFORMATION | PROCESS_TERMINATE | 0x0010_0000,
-                0,
-                process_id,
-            )
-        };
-        assert!(!handle.is_null(), "无法打开测试播放器进程");
-        let mut process = Self {
-            handle,
-            verified: false,
-        };
-        let mut buffer = vec![0u16; 32768];
-        let mut length = buffer.len() as u32;
-        assert_ne!(
-            unsafe { QueryFullProcessImageNameW(handle, 0, buffer.as_mut_ptr(), &mut length) },
-            0,
-            "无法核对测试播放器路径"
-        );
-        let actual = OsString::from_wide(&buffer[..length as usize]);
-        assert!(
-            actual
-                .to_string_lossy()
-                .eq_ignore_ascii_case(&executable.to_string_lossy()),
-            "PID 对应的程序不是本次测试播放器"
-        );
-        process.verified = true;
-        process
-    }
-
-    pub fn stop(self) {
-        use windows_sys::Win32::{
-            Foundation::WAIT_OBJECT_0,
-            System::Threading::{TerminateProcess, WaitForSingleObject},
-        };
-        if self.running() {
-            assert_ne!(
-                unsafe { TerminateProcess(self.handle, 0) },
-                0,
-                "无法结束测试播放器"
-            );
-        }
-        assert_eq!(
-            unsafe { WaitForSingleObject(self.handle, 1000) },
-            WAIT_OBJECT_0,
-            "测试播放器未在期限内退出"
-        );
-    }
-
-    pub fn running(&self) -> bool {
-        use windows_sys::Win32::{
-            Foundation::WAIT_TIMEOUT, System::Threading::WaitForSingleObject,
-        };
-        unsafe { WaitForSingleObject(self.handle, 0) == WAIT_TIMEOUT }
-    }
-}
-
-#[cfg(test)]
-impl Drop for TestPlayer {
-    fn drop(&mut self) {
-        use windows_sys::Win32::{
-            Foundation::CloseHandle,
-            System::Threading::{TerminateProcess, WaitForSingleObject},
-        };
-        unsafe {
-            if self.verified && self.running() {
-                TerminateProcess(self.handle, 0);
-                WaitForSingleObject(self.handle, 1000);
-            }
-            CloseHandle(self.handle);
-        }
-    }
-}
-
 pub fn playback_config(hardware_decoding: bool) -> &'static str {
     if hardware_decoding {
         "vo=gpu-next\ngpu-api=d3d11\nhwdec=auto-safe\nsub-fonts-dir=~~/fonts\nosd-fonts-dir=~~/fonts\n"
@@ -327,24 +238,6 @@ fn open_system_uri(target: &str) -> Result<()> {
         ));
     }
     Ok(())
-}
-
-pub fn process_active(pid: u32) -> bool {
-    use windows_sys::Win32::{
-        Foundation::{CloseHandle, STILL_ACTIVE},
-        System::Threading::{GetExitCodeProcess, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION},
-    };
-    // A denied query is treated as active; cleanup must not guess that a process ended.
-    unsafe {
-        let handle = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, 0, pid);
-        if handle.is_null() {
-            return windows_sys::Win32::Foundation::GetLastError() != 87;
-        }
-        let mut code = 0;
-        let ok = GetExitCodeProcess(handle, &mut code);
-        CloseHandle(handle);
-        ok == 0 || code == STILL_ACTIVE as u32
-    }
 }
 
 pub fn hdr_config(hdr: crate::config::Hdr) -> &'static str {

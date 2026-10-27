@@ -18,7 +18,7 @@ pub struct FileStamp {
     modified: SystemTime,
 }
 
-// ponytail: 启动预览仅核对长度/修改时间；M2 改写部署必须另做哈希与互斥。
+// Package operation previews recheck this stamp before invoking the system manager.
 pub fn file_stamp(path: &Path) -> Result<FileStamp> {
     platform::validate_local_path(path)?;
     let metadata = fs::metadata(path)
@@ -36,23 +36,6 @@ pub fn file_stamp(path: &Path) -> Result<FileStamp> {
             .modified()
             .map_err(|_| AppError::new("file_state", "无法读取文件修改时间。", "inspect"))?,
     })
-}
-
-#[cfg(all(test, target_os = "windows"))]
-pub fn executable_path(value: &str) -> Result<PathBuf> {
-    let path = PathBuf::from(value);
-    if !path
-        .file_name()
-        .is_some_and(|name| name.eq_ignore_ascii_case("mpv.exe"))
-    {
-        return Err(AppError::new(
-            "mpv_required",
-            "播放器名称无效；检查版本会执行该文件。",
-            "inspect",
-        ));
-    }
-    file_stamp(&path)?;
-    Ok(path)
 }
 
 /// Probe the system core without taking ownership of package-manager files.
@@ -234,20 +217,6 @@ pub fn inspect(executable: &Path) -> Result<MpvInfo> {
         executable: executable.to_path_buf(),
         version,
     })
-}
-
-#[cfg(all(test, target_os = "windows"))]
-pub fn launch_args(config: &Path, media: &Path) -> Vec<OsString> {
-    let mut config_arg = OsString::from("--config-dir=");
-    config_arg.push(config);
-    vec![
-        "--no-config".into(),
-        config_arg,
-        "--load-scripts=no".into(),
-        "--no-terminal".into(),
-        "--".into(),
-        media.as_os_str().to_owned(),
-    ]
 }
 
 pub fn ensure_managed_options(executable: &Path) -> Result<()> {

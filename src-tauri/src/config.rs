@@ -219,67 +219,24 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
 }
 
 pub fn runtime_files() -> Result<Vec<Payload>> {
-    let mut files = vec![Payload {
+    let executable =
+        std::env::current_exe().map_err(|_| error("helper_path", "无法取得管理器位置。"))?;
+    crate::platform::validate_local_path(&executable)?;
+    let path = executable
+        .to_str()
+        .ok_or_else(|| error("helper_path", "管理器路径不是 UTF-8。"))?;
+    if path.chars().any(char::is_control) {
+        return Err(error("helper_path", "管理器路径含不支持的控制字符。"));
+    }
+    // Without control characters JSON and Lua share quote/backslash escaping.
+    let literal =
+        serde_json::to_string(path).map_err(|_| error("helper_path", "无法编码管理器路径。"))?;
+    Ok(vec![Payload {
         path: crate::config::relative!("scripts/mpvkit.lua").into(),
         bytes: include_str!("../../resources/scripts/mpvkit.lua")
-            .replace(".mpvkit/launcher/mpvkit.exe", crate::platform::HELPER)
+            .replace("__MPVKIT_HELPER__", &literal)
             .into_bytes(),
-    }];
-    let executable =
-        std::env::current_exe().map_err(|_| error("helper_path", "无法取得启动入口。"))?;
-    #[cfg(test)]
-    let executable = std::env::var_os("MPVKIT_TEST_EXECUTABLE")
-        .map(std::path::PathBuf::from)
-        .unwrap_or(executable);
-    files.push(Payload {
-        path: crate::platform::HELPER.into(),
-        bytes: deploy::read_bytes(&executable)?,
-    });
-    for (name, bytes) in [
-        ("LICENSE.txt", include_bytes!("../../LICENSE").as_slice()),
-        (
-            "PROJECT-LICENSE.md",
-            include_bytes!("../../COPYING.md").as_slice(),
-        ),
-        (
-            "third-party/APP-DEPENDENCY-NOTICES.txt",
-            crate::components::APP_NOTICES.as_bytes(),
-        ),
-        (
-            "third-party/app-dependency-inventory.json",
-            crate::components::APP_INVENTORY.as_bytes(),
-        ),
-        ("third-party/app-distribution-materials.json", {
-            #[cfg(target_os = "windows")]
-            {
-                include_bytes!("../../resources/app-distribution-materials.json").as_slice()
-            }
-            #[cfg(target_os = "linux")]
-            {
-                include_bytes!("../../resources/app-distribution-materials-linux.json").as_slice()
-            }
-        }),
-        (
-            "third-party/RUST-COPYRIGHT-library.html",
-            include_bytes!("../../resources/licenses/rust-library-COPYRIGHT.txt").as_slice(),
-        ),
-        #[cfg(target_os = "windows")]
-        (
-            "third-party/WEBVIEW2-SDK-LICENSE.txt",
-            include_bytes!("../../resources/licenses/webview2-sdk-LICENSE.txt").as_slice(),
-        ),
-        #[cfg(target_os = "windows")]
-        (
-            "third-party/WEBVIEW2-SDK-NOTICE.txt",
-            include_bytes!("../../resources/licenses/webview2-sdk-NOTICE.txt").as_slice(),
-        ),
-    ] {
-        files.push(Payload {
-            path: format!(".mpvkit/launcher/{name}"),
-            bytes: bytes.to_vec(),
-        });
-    }
-    Ok(files)
+    }])
 }
 
 pub fn directory(root: &Path) -> Result<std::path::PathBuf> {

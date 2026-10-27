@@ -90,6 +90,24 @@
       "size": 10847,
       "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2",
       "evidence": "Linux依赖发布包.cargo_vcs_info.json固定提交的仓库根许可，保留原始字节；未据此宣称完整适用审阅。"
+    },
+    {
+      "id": "cargo:tauri-plugin@2.6.3",
+      "file": "tauri-plugin-LICENSE_MIT.txt",
+      "url": "https://raw.githubusercontent.com/tauri-apps/tauri/6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a/LICENSE_MIT",
+      "commit": "6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a",
+      "size": 1090,
+      "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+      "evidence": "发布包 .cargo_vcs_info.json 固定提交的工作区根许可证原文。"
+    },
+    {
+      "id": "cargo:tauri-plugin@2.6.3",
+      "file": "tauri-plugin-LICENSE_APACHE-2.0.txt",
+      "url": "https://raw.githubusercontent.com/tauri-apps/tauri/6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a/LICENSE_APACHE-2.0",
+      "commit": "6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a",
+      "size": 10174,
+      "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+      "evidence": "发布包 .cargo_vcs_info.json 固定提交的工作区根许可证原文。"
     }
   ]
 }

@@ -296,8 +296,7 @@ pub fn prepare_uninstall(root: &Path) -> Result<ChangePlan> {
         .manifest
         .ok_or_else(|| AppError::new("not_installed", "尚未安装播放增强。", "setup"))?;
     let files = deploy::prepare_install(root, vec![], false, Default::default())?;
-    let mut files = files.for_uninstall();
-    files.remove_generated_logs(crate::logs::uninstall_files(root)?)?;
+    let files = files.for_uninstall();
     let mut plan = files_only(files);
     for file in &m.files {
         if deploy::file_hash(&root.join(&file.path))?.is_some_and(|hash| hash != file.sha256) {
@@ -406,7 +405,7 @@ mod transaction_tests {
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
-    fn uninstall_preserves_user_content_and_rejects_changed_helper() {
+    fn uninstall_preserves_user_content_and_rejects_changed_script() {
         let root =
             std::env::temp_dir().join(format!("mpvkit-files-only-{}", deploy::operation_id()));
         core(&root);
@@ -418,7 +417,7 @@ mod transaction_tests {
         assert!(report.get("integrationEnabled").is_none());
         let state = serde_json::to_value(config::portable::read_state(&root).unwrap()).unwrap();
         assert!(state.get("integrationEnabled").is_none());
-        let helper = root.join(crate::platform::HELPER);
+        let helper = root.join("scripts/mpvkit.lua");
         let original = std::fs::read(&helper).unwrap();
         let stale = prepare_uninstall(&root).unwrap();
         std::fs::write(&helper, "changed").unwrap();

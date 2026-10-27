@@ -7,14 +7,14 @@
     "仅收集包内名称可识别的许可/NOTICE；源码内声明和附带原生库仍需审阅。",
     "未覆盖Rust工具链/标准库、系统GTK/WebKitGTK/Vulkan等原生库及组件uosc/thumbfast；系统MPV不随应用分发。",
     "缺失原文不得用其他包许可替代；SPDX多选表达式未代替维护者作选择。",
-    "随受管理启动入口保留原文；无安装包，完整声明与适用源码材料仍需审阅。"
+    "随应用分发保留原文；完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "10b3a81c54f7b10f92ad247b6898be0be6c4f6b7facb2c2d4d3a9332097fed2c",
-    "src-tauri/Cargo.lock": "79d0062657fbfe7dbddb2fc9ce902eabf5d7470634cb5410ef7ec059dd3cc0b0",
-    "package.json": "917c61b8b4324b49ca15e0dcd683a4630ff24bf8f32a763e057bbadd6cfffef9",
+    "src-tauri/Cargo.toml": "7cde52daf33c612a44f6adb54df668950302bcf18635c04eeac81e3ace08d029",
+    "src-tauri/Cargo.lock": "41ea576278083d20d482a4093eecac57075791c8eadc97be5cbc76a316febcff",
+    "package.json": "b3d24cdc028f1de29e6e2c44e3e6ebc27dc73e7f502a0607ad77c58e14de26a9",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
-    "resources/app-license-supplements.json": "3dc313feb68a0b7b667eee062f337d25560317087bed4d4e1d096259ec00c7fe"
+    "resources/app-license-supplements.json": "b94978d00b5b303a1da551dac94d38609248b11a8033a9272e3197ee573d6364"
   },
   "missingMaterials": [],
   "packages": [

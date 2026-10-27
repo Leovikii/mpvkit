@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Application
+Name=MpvKit
+Comment=MPV installation and configuration manager
+Comment[zh_CN]=MPV 安装与配置管理器
+Exec=mpvkit
+Icon=io.github.mpvkit
+Terminal=false
+Categories=AudioVideo;Settings;
+StartupWMClass=io.github.mpvkit

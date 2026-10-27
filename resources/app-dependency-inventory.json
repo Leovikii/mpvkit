@@ -7,14 +7,14 @@
     "仅收集包内名称可识别的许可/NOTICE；源码内声明和附带原生库仍需审阅。",
     "未覆盖Rust工具链/标准库、MSVC/Windows SDK、WebView2及组件MPV/uosc/thumbfast。",
     "缺失原文不得用其他包许可替代；SPDX多选表达式未代替维护者作选择。",
-    "随受管理启动入口保留原文；无安装包，完整声明与适用源码材料仍需审阅。"
+    "随应用分发保留原文；完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "10b3a81c54f7b10f92ad247b6898be0be6c4f6b7facb2c2d4d3a9332097fed2c",
-    "src-tauri/Cargo.lock": "79d0062657fbfe7dbddb2fc9ce902eabf5d7470634cb5410ef7ec059dd3cc0b0",
-    "package.json": "917c61b8b4324b49ca15e0dcd683a4630ff24bf8f32a763e057bbadd6cfffef9",
+    "src-tauri/Cargo.toml": "7cde52daf33c612a44f6adb54df668950302bcf18635c04eeac81e3ace08d029",
+    "src-tauri/Cargo.lock": "41ea576278083d20d482a4093eecac57075791c8eadc97be5cbc76a316febcff",
+    "package.json": "b3d24cdc028f1de29e6e2c44e3e6ebc27dc73e7f502a0607ad77c58e14de26a9",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
-    "resources/app-license-supplements.json": "3dc313feb68a0b7b667eee062f337d25560317087bed4d4e1d096259ec00c7fe"
+    "resources/app-license-supplements.json": "b94978d00b5b303a1da551dac94d38609248b11a8033a9272e3197ee573d6364"
   },
   "missingMaterials": [],
   "packages": [
@@ -185,6 +185,24 @@
           "file": "aws-lc/third_party/fiat/LICENSE",
           "size": 1161,
           "sha256": "43e358d7b6eb109d0f51f7b3a090fd82607965767c25fadee39e922475de2061"
+        }
+      ]
+    },
+    {
+      "id": "cargo:base64@0.22.1",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "repository": "https://github.com/marshallpierce/rust-base64",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE-APACHE",
+          "size": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "file": "LICENSE-MIT",
+          "size": 1076,
+          "sha256": "0dd882e53de11566d50f8e8e2d5a651bcf3fabee4987d70f306233cf39094ba7"
         }
       ]
     },
@@ -463,6 +481,19 @@
     },
     {
       "id": "cargo:cfb@0.14.0",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/mdsteele/rust-cfb",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE",
+          "size": 1074,
+          "sha256": "ebaac853b53fec0ed475796f533ce676912a4df9ad9d8a621fa76d5060591e10"
+        }
+      ]
+    },
+    {
+      "id": "cargo:cfb@0.7.3",
       "declaredLicense": "MIT",
       "repository": "https://github.com/mdsteele/rust-cfb",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -1816,6 +1847,19 @@
       ]
     },
     {
+      "id": "cargo:infer@0.19.0",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/bojand/infer",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE",
+          "size": 1062,
+          "sha256": "270b0d81891aa44c7e8726cf9432dade9556a01c848bacd2f3ef839c9c1a1859"
+        }
+      ]
+    },
+    {
       "id": "cargo:infer@0.22.0",
       "declaredLicense": "MIT",
       "repository": "https://github.com/bojand/infer",
@@ -2174,6 +2218,19 @@
           "file": "LICENSE-MIT",
           "size": 1058,
           "sha256": "df9cfd06d8a44d9a671eadd39ffd97f166481da015a30f45dfd27886209c5922"
+        }
+      ]
+    },
+    {
+      "id": "cargo:minisign-verify@0.2.5",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/jedisct1/rust-minisign-verify",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE",
+          "size": 2312,
+          "sha256": "42c8695fbc468866d9756be99af0ba4e37d733f8daa3c8827c8d80b8bec1b2f9"
         }
       ]
     },
@@ -3776,6 +3833,53 @@
       ]
     },
     {
+      "id": "cargo:tauri-plugin-updater@2.11.0",
+      "declaredLicense": "Apache-2.0 OR MIT",
+      "repository": "https://github.com/tauri-apps/plugins-workspace",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE.spdx",
+          "size": 888,
+          "sha256": "eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef"
+        },
+        {
+          "file": "LICENSE_APACHE-2.0",
+          "size": 10173,
+          "sha256": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9"
+        },
+        {
+          "file": "LICENSE_MIT",
+          "size": 1089,
+          "sha256": "89ff9689dcf9dd53968785d05a26f7898bb169dbfcada8d032b3e68cf0d55607"
+        }
+      ]
+    },
+    {
+      "id": "cargo:tauri-plugin@2.6.3",
+      "declaredLicense": "Apache-2.0 OR MIT",
+      "repository": "https://github.com/tauri-apps/tauri",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "upstream/tauri-plugin-LICENSE_MIT.txt",
+          "size": 1090,
+          "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d",
+          "url": "https://raw.githubusercontent.com/tauri-apps/tauri/6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a/LICENSE_MIT",
+          "commit": "6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a",
+          "evidence": "发布包 .cargo_vcs_info.json 固定提交的工作区根许可证原文。"
+        },
+        {
+          "file": "upstream/tauri-plugin-LICENSE_APACHE-2.0.txt",
+          "size": 10174,
+          "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
+          "url": "https://raw.githubusercontent.com/tauri-apps/tauri/6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a/LICENSE_APACHE-2.0",
+          "commit": "6f6ab1207bb3923c2721fbc67d2fdb1c8deb0c7a",
+          "evidence": "发布包 .cargo_vcs_info.json 固定提交的工作区根许可证原文。"
+        }
+      ]
+    },
+    {
       "id": "cargo:tauri-runtime-wry@2.12.2",
       "declaredLicense": "Apache-2.0 OR MIT",
       "repository": "https://github.com/tauri-apps/tauri",
@@ -3857,6 +3961,24 @@
           "file": "LICENSE-MIT",
           "size": 1090,
           "sha256": "9dd42ea92cff2ede5cd477cbfcce051b2d0115c0ac7f368ee88cb545055dff1d"
+        }
+      ]
+    },
+    {
+      "id": "cargo:tempfile@3.27.0",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "repository": "https://github.com/Stebalien/tempfile",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE-APACHE",
+          "size": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "file": "LICENSE-MIT",
+          "size": 1056,
+          "sha256": "8b427f5bc501764575e52ba4f9d95673cf8f6d80a86d0d06599852e1a9a20a36"
         }
       ]
     },
@@ -4802,7 +4924,43 @@
       ]
     },
     {
+      "id": "cargo:windows-sys@0.60.2",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "repository": "https://github.com/microsoft/windows-rs",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "license-apache-2.0",
+          "size": 11351,
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b"
+        },
+        {
+          "file": "license-mit",
+          "size": 1141,
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ]
+    },
+    {
       "id": "cargo:windows-sys@0.61.2",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "repository": "https://github.com/microsoft/windows-rs",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "license-apache-2.0",
+          "size": 11351,
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b"
+        },
+        {
+          "file": "license-mit",
+          "size": 1141,
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ]
+    },
+    {
+      "id": "cargo:windows-targets@0.53.5",
       "declaredLicense": "MIT OR Apache-2.0",
       "repository": "https://github.com/microsoft/windows-rs",
       "source": "registry+https://github.com/rust-lang/crates.io-index",
@@ -4857,6 +5015,24 @@
     },
     {
       "id": "cargo:windows@0.62.2",
+      "declaredLicense": "MIT OR Apache-2.0",
+      "repository": "https://github.com/microsoft/windows-rs",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "license-apache-2.0",
+          "size": 11351,
+          "sha256": "c16f8dcf1a368b83be78d826ea23de4079fe1b4469a0ab9ee20563f37ff3d44b"
+        },
+        {
+          "file": "license-mit",
+          "size": 1141,
+          "sha256": "c2cfccb812fe482101a8f04597dfc5a9991a6b2748266c47ac91b6a5aae15383"
+        }
+      ]
+    },
+    {
+      "id": "cargo:windows_x86_64_msvc@0.53.1",
       "declaredLicense": "MIT OR Apache-2.0",
       "repository": "https://github.com/microsoft/windows-rs",
       "source": "registry+https://github.com/rust-lang/crates.io-index",

@@ -30,7 +30,7 @@ pub fn default_root() -> Result<PathBuf> {
         validate_local_path(&root)?;
         return Ok(root);
     }
-    Ok(xdg_directory("XDG_DATA_HOME", ".local/share")?.join("mpvkit"))
+    Ok(xdg_directory("XDG_DATA_HOME", ".local/share")?.join("io.github.mpvkit"))
 }
 pub fn app_root() -> Result<PathBuf> {
     Ok(mpv_config_location()?.directory)
@@ -162,7 +162,7 @@ pub fn replace_file(source: &Path, destination: &Path) -> Result<()> {
     validate_local_path(source)?;
     validate_local_path(destination)?;
     let result = (|| {
-        if destination.ends_with(super::HELPER) || destination.ends_with(super::UOSC_HELPER) {
+        if destination.ends_with(super::UOSC_HELPER) {
             fs::set_permissions(source, fs::Permissions::from_mode(0o700))?;
         }
         fs::rename(source, destination)?;
@@ -204,14 +204,6 @@ pub fn open_default_apps() -> Result<()> {
         ))
     }
 }
-pub fn process_active(pid: u32) -> bool {
-    // SAFETY: signal zero only checks existence; permission denied is conservatively active.
-    unsafe {
-        libc::kill(pid as libc::pid_t, 0) == 0
-            || io::Error::last_os_error().raw_os_error() != Some(libc::ESRCH)
-    }
-}
-
 pub fn hdr_config(hdr: crate::config::Hdr) -> &'static str {
     match hdr {
         crate::config::Hdr::Auto => {

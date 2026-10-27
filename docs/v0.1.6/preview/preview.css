@@ -52,3 +52,15 @@ a { color: var(--mantine-color-anchor); }
 .draft-status { margin-right: auto; align-self: center; }
 .section-gap { margin-top: 24px; }
 @media (max-width: 899px) { .page-content { padding: 0; } .page-scroll { padding: 20px 16px; } .save-bar { padding: 12px 16px; } }
+
+.update-setting { display:grid; grid-template-columns:minmax(0,1fr) auto; }
+.setting-row.update-setting > :first-child { min-width:0; }
+.update-controls { max-width:100%; }
+.update-dialog-content { display:flex; flex-direction:column; max-height:calc(100dvh - 32px); }
+.update-dialog-header { flex-shrink:0; padding:20px 24px 12px; }
+.update-dialog-title { font-size:20px; font-weight:600; }
+.update-dialog-body { display:flex; flex-direction:column; min-height:0; overflow:hidden; }
+.update-dialog-scroll { padding:8px 24px 24px; overflow:auto; min-height:0; }
+.update-notes { white-space:pre-wrap; overflow-wrap:anywhere; max-height:36dvh; overflow:auto; font:inherit; margin:0; border:1px solid var(--mantine-color-default-border); border-radius:4px; }
+.update-dialog-actions { flex-shrink:0; border-top:1px solid var(--mantine-color-default-border); padding:16px 24px; background:var(--mantine-color-default); }
+@media (max-width:700px) { .update-check-row { grid-template-columns:minmax(0,1fr); } .update-check-row .row-control { justify-self:start; } }

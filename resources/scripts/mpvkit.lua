@@ -14,7 +14,7 @@ local config_file = mp.find_config_file('mpv.conf')
 if not config_file then return end
 local config_dir = utils.split_path(config_file)
 local root = config_dir:gsub('[/\\]+$', '')
-local helper = utils.join_path(root, '.mpvkit/launcher/mpvkit.exe')
+local helper = __MPVKIT_HELPER__
 local order = {'power-saving', 'balanced', 'high-quality'}
 local labels = {['power-saving']='省电', balanced='均衡', ['high-quality']='高画质'}
 local current = options.profile

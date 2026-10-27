@@ -6,6 +6,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { errorKey, resolveLocale, translator, type Key } from "./i18n";
 import { defaultAppSettings, defaultSettings, type AppSettings, type Asset, type ConfigurationPreview, type CorePreview, type DraftRequest, type Deployment, type Environment, type Preview, type Progress, type Report, type Settings } from "./types";
+import { useAppUpdates } from "./app-updates";
 import logo from "./assets/mpv.svg";
 import { enhancementAction } from "./component-actions";
 import { brandTheme } from "./brand";
@@ -60,6 +61,7 @@ export function App() {
   const compact = useMediaQuery("(max-width: 899px)");
   const theme = createTheme({ ...brandTheme, respectReducedMotion: true, components: { Accordion: Accordion.extend({defaultProps:{transitionDuration:180}}), Modal: Modal.extend({defaultProps:{transitionProps:{transition:"fade",duration:160,exitDuration:120}}}), Tooltip: Tooltip.extend({defaultProps:{transitionProps:{transition:"fade",duration:120,exitDuration:90}}}), Button: Button.extend({defaultProps:{fw:400,size:"sm"}}) }, defaultRadius: 4, fontFamily, headings:{fontFamily,sizes:{h1:{fontSize:"1.65rem"},h2:{fontSize:"1.15rem"},h3:{fontSize:"1rem"}}}});
   const blocked = !desktop || busy || booting;
+  const updates = useAppUpdates({desktop, ready:!booting, previews:appSettings.previewUpdates, saving:appSaving, blocked:busy||!!preview||closing, dirty:JSON.stringify(draft)!==savedDraft, version:info.version, t, save:enabled=>saveApp({...appSettings,previewUpdates:enabled}), install:(id,onProgress)=>run(async()=>{await invoke("install_app_update",{id,onProgress});})});
   const managementTab = useRef<HTMLButtonElement>(null);
   // Async preview preparation disables its trigger before Mantine can remember it.
   useEffect(() => {
@@ -195,8 +197,7 @@ export function App() {
       if (pending.kind === "download" || pending.kind === "configuration") {
         await download(); return;
       }
-      if (pending.kind === "logs") await invoke("clean_logs",{previewId:pending.data.id});
-      else if (pending.kind === "diagnostics") await invoke("export_diagnostics",{previewId:pending.data.id});
+      if (pending.kind === "diagnostics") await invoke("export_diagnostics",{previewId:pending.data.id});
       else await invoke("apply_deployment",{previewId:pending.data.id});
       await refresh();
       if (pending.kind === "install" && request.current) {
@@ -214,9 +215,11 @@ export function App() {
   }
   async function saveApp(next: AppSettings) {
     if (appSaving) return;
+    const previous = appSettings;
+    setAppSettings(next);
     setAppSaving(true); setError(null);
     try { const saved = await invoke<AppSettings>("save_app_settings",{settings:next}); setAppSettings(saved); await appearance(); }
-    catch(cause) { setError(cause); } finally { setAppSaving(false); }
+    catch(cause) { setAppSettings(previous); setError(cause); } finally { setAppSaving(false); }
   }
   const action = (label: Key, onClick: () => void, primary = false, disabled = blocked) =>
     <Button type="button" variant={primary ? "filled" : "default"} disabled={disabled} onClick={e=>{previewOrigin.current=e.currentTarget;onClick();}}>{t(label)}</Button>;
@@ -267,14 +270,15 @@ export function App() {
   }
   function appPreferences() {
     return <><Paper withBorder className="section">
-      {row(t("uiLanguage"),<NativeSelect aria-label={t("uiLanguage")} value={appSettings.language} data={[{value:"system",label:t("system")},{value:"zh-Hans",label:"简体中文"},{value:"en",label:"English"}]} disabled={!desktop||appSaving} onChange={e=>void saveApp({...appSettings,language:e.currentTarget.value})}/>)}
-      {row(t("theme"),<NativeSelect aria-label={t("theme")} value={appSettings.theme} data={[{value:"system",label:t("system")},{value:"light",label:t("light")},{value:"dark",label:t("dark")}]} disabled={!desktop||appSaving} onChange={e=>void saveApp({...appSettings,theme:e.currentTarget.value})}/>)}
+      {row(t("uiLanguage"),<NativeSelect aria-label={t("uiLanguage")} value={appSettings.language} data={[{value:"system",label:t("system")},{value:"zh-Hans",label:"简体中文"},{value:"en",label:"English"}]} disabled={blocked||appSaving} onChange={e=>void saveApp({...appSettings,language:e.currentTarget.value})}/>)}
+      {row(t("theme"),<NativeSelect aria-label={t("theme")} value={appSettings.theme} data={[{value:"system",label:t("system")},{value:"light",label:t("light")},{value:"dark",label:t("dark")}]} disabled={blocked||appSaving} onChange={e=>void saveApp({...appSettings,theme:e.currentTarget.value})}/>)}
       </Paper><Title order={2} className="section-title">{t("about")}</Title><Paper withBorder className="section">
       <div className="about-brand"><img src={logo} alt="" width={40} height={40}/><div><Text fw={500}>MpvKit</Text><Text size="sm" c="dimmed">{info.version || "—"} · {t("releaseStatus")}</Text></div></div>
+      {updates.about}
       {row(t("repository"),<a href="https://github.com/Leovikii/mpvkit" target="_blank" rel="noreferrer">github.com/Leovikii/mpvkit</a>)}
       {row(t("copyright"),<Group gap={8}><Text size="sm">{info.license}</Text>{action("copyright",()=>void run(async()=>setLicense(await invoke<string>("license_text",{kind:"project"}))))}{action("thirdParty",()=>void run(async()=>setLicense(await invoke<string>("license_text",{kind:"dependencies"}))))}</Group>)}
       {license&&<Fold title={t("details")}><pre className="license-text">{license}</pre></Fold>}</Paper>
-      <Paper withBorder><Fold title={t("advanced")}><div className="actions">{action("cleanLogs",()=>void run(async()=>setPreview({kind:"logs",data:await invoke("preview_log_cleanup")})))}</div><TextInput label={t("exportPath")} value={exportPath} disabled={blocked} onChange={e=>setExportPath(e.currentTarget.value)}/><div className="actions">{action("diagnostics",()=>void run(async()=>setPreview({kind:"diagnostics",data:await invoke("preview_diagnostics",{destination:exportPath})})),false,blocked||!exportPath)}</div></Fold></Paper>
+      <Paper withBorder><Fold title={t("advanced")}><TextInput label={t("exportPath")} value={exportPath} disabled={blocked} onChange={e=>setExportPath(e.currentTarget.value)}/><div className="actions">{action("diagnostics",()=>void run(async()=>setPreview({kind:"diagnostics",data:await invoke("preview_diagnostics",{destination:exportPath})})),false,blocked||!exportPath)}</div></Fold></Paper>
     </>;
   }
   function previewContent() {
@@ -291,7 +295,7 @@ export function App() {
   }
   const hasConflicts = preview && preview.kind!=="download" && "conflicts" in preview.data && Array.isArray(preview.data.conflicts) && (preview.data.conflicts.length>0);
   const extrasAction = enhancementAction(report, assets);
-  const previewAction: Key = !preview ? "preview" : preview.kind==="core" ? (preview.data.action==="uninstall"?"uninstallCore":preview.data.action==="install"?"installCore":"upgradeCore") : preview.kind==="configuration" ? (preview.readOnly?"previewConfig":saveLabel) : preview.kind==="download" ? "download" : preview.kind==="install" ? (extrasAction==="updateComponents"?"updateComponents":extrasAction==="repairOnly"?"repairPlayer":"install") : preview.kind==="playback" ? "saveConfig" : preview.kind==="diagnostics" ? "diagnostics" : preview.kind==="logs" ? "cleanup" : preview.kind==="maintenance" ? ({uninstall:"uninstall", "reset-config":"resetConfig",recover:"recover"} as Record<string,Key>)[maintenanceAction]??"applyChanges" : "applyChanges";
+  const previewAction: Key = !preview ? "preview" : preview.kind==="core" ? (preview.data.action==="uninstall"?"uninstallCore":preview.data.action==="install"?"installCore":"upgradeCore") : preview.kind==="configuration" ? (preview.readOnly?"previewConfig":saveLabel) : preview.kind==="download" ? "download" : preview.kind==="install" ? (extrasAction==="updateComponents"?"updateComponents":extrasAction==="repairOnly"?"repairPlayer":"install") : preview.kind==="playback" ? "saveConfig" : preview.kind==="diagnostics" ? "diagnostics" : preview.kind==="maintenance" ? ({uninstall:"uninstall", "reset-config":"resetConfig",recover:"recover"} as Record<string,Key>)[maintenanceAction]??"applyChanges" : "applyChanges";
   const navPaths = {management:"M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6",settings:"M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0"};
   const nav = (target: typeof page, glyph: string) => <Tooltip key={target} label={t(target)} disabled={!compact} position="right" events={{hover:true,focus:true,touch:false}}><NavLink component="button" type="button" ref={target==="management"?managementTab:undefined} aria-label={t(target)} aria-current={page===target?"page":undefined} active={page===target} label={compact?null:t(target)} leftSection={<span className="nav-icon" aria-hidden="true">{linux?<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={navPaths[target]}/></svg>:glyph}</span>} onClick={()=>go(target)}/></Tooltip>;
   return <MantineProvider theme={theme} forceColorScheme={dark?"dark":"light"}>
@@ -307,6 +311,7 @@ export function App() {
       </div>{page==="management"&&<footer className="save-bar"><Text size="sm" c="dimmed">{t(dirty||!report?.settingsReady?"unsaved":"saved")}</Text><Group gap={8}>{action("previewConfig",()=>void prepareSettings(true))}{action(saveLabel,()=>void prepareSettings(),true,blocked||!!report?.recoveryRequired||(!dirty&&!!report?.componentsReady&&!!report?.settingsReady&&!report.configurationModified))}</Group></footer>}
       </PageEntrance></main></AppShell.Main>
     </AppShell>
+    {updates.dialog}
     <Modal opened={closing} onClose={()=>setClosing(false)} title={t("discardDraft")}><div className="dialog-actions"><Button onClick={()=>void getCurrentWindow().destroy()}>{t("discardAndClose")}</Button><Button variant="default" data-autofocus onClick={()=>setClosing(false)}>{t("cancel")}</Button></div></Modal>
     <Modal opened={preview!==null} onClose={()=>{if(!busy)setPreview(null);}} title={t(previewAction)} size={720} closeButtonProps={{"aria-label":t("close"),disabled:busy}} closeOnClickOutside={!busy} closeOnEscape={!busy}>
       {previewContent()}

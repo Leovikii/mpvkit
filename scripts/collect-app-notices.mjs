@@ -77,7 +77,7 @@ const inventory = {
   releaseReady: false,
   target,
   scope: "Cargo已解析 " + target + " 依赖（含构建期）及前端生产依赖；不是二进制成分或许可兼容性证明。",
-  limitations: ["仅收集包内名称可识别的许可/NOTICE；源码内声明和附带原生库仍需审阅。", linux ? "未覆盖Rust工具链/标准库、系统GTK/WebKitGTK/Vulkan等原生库及组件uosc/thumbfast；系统MPV不随应用分发。" : "未覆盖Rust工具链/标准库、MSVC/Windows SDK、WebView2及组件MPV/uosc/thumbfast。", "缺失原文不得用其他包许可替代；SPDX多选表达式未代替维护者作选择。", "随受管理启动入口保留原文；无安装包，完整声明与适用源码材料仍需审阅。"],
+  limitations: ["仅收集包内名称可识别的许可/NOTICE；源码内声明和附带原生库仍需审阅。", linux ? "未覆盖Rust工具链/标准库、系统GTK/WebKitGTK/Vulkan等原生库及组件uosc/thumbfast；系统MPV不随应用分发。" : "未覆盖Rust工具链/标准库、MSVC/Windows SDK、WebView2及组件MPV/uosc/thumbfast。", "缺失原文不得用其他包许可替代；SPDX多选表达式未代替维护者作选择。", "随应用分发保留原文；完整声明与适用源码材料仍需审阅。"],
   inputs: Object.fromEntries(["src-tauri/Cargo.toml", "src-tauri/Cargo.lock", "package.json", "pnpm-lock.yaml", "resources/app-license-supplements.json"].map(file => [file, hash(fs.readFileSync(file))])),
   missingMaterials: packages.filter(item => !item.materials.length).map(item => item.id),
   packages,

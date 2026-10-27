@@ -1,0 +1,184 @@
+name: Release
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing trusted version tag (v0.2.0-alpha.1)
+        required: true
+      operation:
+        type: choice
+        options: [build-draft, promote]
+        default: build-draft
+      arch_package:
+        description: Select only after the recipe is available on AUR
+        type: choice
+        options: [none, mpvkit-bin, mpvkit-preview-bin]
+        default: none
+permissions:
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
+jobs:
+  build:
+    if: inputs.operation == 'build-draft'
+    environment: release-build
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-2022
+          - os: ubuntu-24.04
+            container: archlinux:base@sha256:52dfbd5afb23a220d5ee92dafcb4c788d96c026ed04179890c23adef4c897fa0
+    runs-on: ${{ matrix.os }}
+    container: ${{ matrix.container }}
+    steps:
+      - if: runner.os == 'Linux'
+        run: pacman -Syu --noconfirm --needed base-devel git rustup nodejs npm webkit2gtk-4.1 gtk3 xdg-utils zstd desktop-file-utils namcap
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.19.0
+      - run: npm install --global pnpm@11.25.0
+      - shell: bash
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          node scripts/release.mjs check "$RELEASE_TAG"
+          rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
+      - if: runner.os == 'Linux'
+        run: |
+          pacman -Q > arch-system.txt
+          echo "ARCH_ABI=$(sha256sum arch-system.txt | cut -d' ' -f1)" >> "$GITHUB_ENV"
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            src-tauri/target
+          key: release-${{ runner.os }}-1.98.1-${{ env.ARCH_ABI }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ inputs.tag }}
+          restore-keys: release-${{ runner.os }}-1.98.1-${{ env.ARCH_ABI }}-${{ hashFiles('src-tauri/Cargo.lock') }}-
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830
+        with:
+          path: |
+            ~/.local/share/pnpm/store
+            ~/AppData/Local/pnpm/store
+          key: pnpm-release-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
+      - run: pnpm install --frozen-lockfile
+      - shell: bash
+        run: |
+          pnpm test:frontend
+          node --test scripts/release.test.mjs
+          pnpm build
+          cargo fmt --manifest-path src-tauri/Cargo.toml --check
+          cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+          cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - name: Windows NSIS and updater signature
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          MPVKIT_UPDATER_PUBLIC_KEY: ${{ vars.MPVKIT_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          node scripts/build-windows.mjs
+          if ($LASTEXITCODE) { exit $LASTEXITCODE }
+          New-Item -ItemType Directory -Force .local/release | Out-Null
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $installer = "src-tauri/target/release/bundle/nsis/MpvKit_${version}_x64-setup.exe"
+          Copy-Item -LiteralPath $installer, "$installer.sig" -Destination .local/release/
+      - name: Arch native binary, archive and makepkg
+        if: runner.os == 'Linux'
+        run: |
+          pnpm tauri build --no-bundle --config '{"build":{"beforeBuildCommand":""}}'
+          useradd -m builder
+          mkdir -p .local/release
+          chown -R builder:builder .local
+          runuser -u builder -- node scripts/release.mjs arch .local/release
+          cp arch-system.txt .local/release/
+          desktop-file-validate packaging/io.github.mpvkit.desktop
+          readelf -d src-tauri/target/release/mpvkit > .local/release/elf-dependencies.txt
+          namcap .local/release/*.pkg.tar.zst > .local/release/namcap.txt
+          test "$(vercmp 0.2.0alpha1 0.2.0beta1)" = -1
+          test "$(vercmp 0.2.0rc1 0.2.0)" = -1
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: release-${{ runner.os }}
+          path: |
+            .local/release/*.*
+            .local/release/aur/PKGBUILD
+            .local/release/aur/.SRCINFO
+          include-hidden-files: true
+          if-no-files-found: error
+          retention-days: 14
+  draft:
+    needs: build
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.19.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          pattern: release-*
+          path: .local/release
+          merge-multiple: true
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+        run: |
+          tar -czf .local/release/aur-recipe.tar.gz -C .local/release/aur PKGBUILD .SRCINFO
+          node scripts/release.mjs manifest .local/release
+          version="${RELEASE_TAG#v}"
+          gh release create "$RELEASE_TAG" .local/release/*.* --draft --title "MpvKit $version" --notes-file "docs/v$version/notes.md"
+  promote:
+    if: inputs.operation == 'promote'
+    runs-on: ubuntu-24.04
+    environment: release-publish
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+        with:
+          ref: refs/tags/${{ inputs.tag }}
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020
+        with:
+          node-version: 24.19.0
+      - env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          ARCH_PACKAGE: ${{ inputs.arch_package }}
+          PUBLIC_KEY: ${{ vars.MPVKIT_UPDATER_PUBLIC_KEY }}
+        run: |
+          node scripts/release.mjs check "$RELEASE_TAG"
+          node scripts/verify-release.mjs gate
+          mkdir -p .local/release
+          gh release download "$RELEASE_TAG" --dir .local/release
+          cd .local/release
+          sha256sum --check SHA256SUMS
+          sudo apt-get update -qq && sudo apt-get install -y minisign
+          printf '%s' "$PUBLIC_KEY" | base64 --decode > updater.pub
+          for file in *-setup.exe; do
+            base64 --decode "$file.sig" > installer.minisig
+            minisign -Vm "$file" -x installer.minisig -p updater.pub
+          done
+          cd ../..
+          node scripts/verify-release.mjs .local/release
+          gh release download updates --pattern channels.json --dir .local
+          node scripts/release.mjs promote .local/channels.json "$ARCH_PACKAGE"
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$RELEASE_TAG" --draft=false --prerelease=false --latest
+          fi
+          gh release upload updates .local/channels.json --clobber

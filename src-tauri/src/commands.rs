@@ -1,69 +1,9 @@
 use crate::{
     error::{AppError, Result},
-    launch::{self, LaunchPlan, LaunchPreview, LaunchResult},
     platform,
 };
 use std::sync::Mutex;
 use tauri::State;
-
-#[derive(Default)]
-pub struct PendingLaunch(pub Mutex<Option<LaunchPlan>>);
-
-#[tauri::command]
-pub async fn preview_launch(
-    media: String,
-    state: State<'_, PendingLaunch>,
-) -> Result<LaunchPreview> {
-    let root = platform::app_root()?;
-    let plan = tauri::async_runtime::spawn_blocking(move || launch::prepare_managed(&root, &media))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "检查任务异常结束，请重试。", "inspect"))??;
-    let preview = plan.preview.clone();
-    *state.0.lock().map_err(|_| {
-        AppError::new(
-            "state_unavailable",
-            "会话状态不可用，请重启应用。",
-            "preview",
-        )
-    })? = Some(plan);
-    Ok(preview)
-}
-
-#[tauri::command]
-pub async fn launch_mpv(
-    preview_id: String,
-    state: State<'_, PendingLaunch>,
-) -> Result<LaunchResult> {
-    let plan = {
-        let mut pending = state.0.lock().map_err(|_| {
-            AppError::new(
-                "state_unavailable",
-                "会话状态不可用，请重启应用。",
-                "launch",
-            )
-        })?;
-        if pending
-            .as_ref()
-            .is_none_or(|plan| plan.preview.id != preview_id)
-        {
-            return Err(AppError::new(
-                "stale_preview",
-                "没有匹配的启动预览，请重新检查。",
-                "launch",
-            ));
-        }
-        pending.take().expect("checked pending plan")
-    };
-    tauri::async_runtime::spawn_blocking(move || launch::execute(plan))
-        .await
-        .map_err(|_| {
-            AppError::new(
-                "worker_failed",
-                "启动任务异常结束，请检查播放器窗口。",
-                "launch",
-            )
-        })?
-}
 
 enum PendingOperation {
     Deployment(Box<crate::setup::ChangePlan>),
@@ -332,44 +272,6 @@ pub fn open_default_apps() -> Result<()> {
 #[tauri::command]
 pub fn open_app_installer() -> Result<()> {
     platform::open_app_installer()
-}
-
-#[derive(Default)]
-pub struct PendingLogCleanup(Mutex<Option<crate::logs::Plan>>);
-#[tauri::command]
-pub async fn preview_log_cleanup(
-    state: State<'_, PendingLogCleanup>,
-) -> Result<crate::logs::Preview> {
-    let root = platform::app_root()?;
-    let plan = tauri::async_runtime::spawn_blocking(move || crate::logs::prepare(&root))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "日志预览异常结束。", "logs"))??;
-    let preview = plan.preview.clone();
-    *state
-        .0
-        .lock()
-        .map_err(|_| AppError::new("state_unavailable", "日志状态不可用。", "logs"))? = Some(plan);
-    Ok(preview)
-}
-#[tauri::command]
-pub async fn clean_logs(preview_id: String, state: State<'_, PendingLogCleanup>) -> Result<usize> {
-    let plan = {
-        let mut pending = state
-            .0
-            .lock()
-            .map_err(|_| AppError::new("state_unavailable", "日志状态不可用。", "logs"))?;
-        if pending.as_ref().is_none_or(|p| p.preview.id != preview_id) {
-            return Err(AppError::new(
-                "stale_preview",
-                "日志清理预览不匹配。",
-                "logs",
-            ));
-        }
-        pending.take().expect("matched logs")
-    };
-    tauri::async_runtime::spawn_blocking(move || crate::logs::execute(plan))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "日志清理异常结束。", "logs"))?
 }
 
 #[tauri::command]

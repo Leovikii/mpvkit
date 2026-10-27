@@ -63,24 +63,12 @@ pub fn validate_relative(value: &str) -> Result<()> {
 }
 
 fn managed_control_file(relative: &str) -> bool {
-    relative == ".mpvkit/settings.json" || relative.starts_with(".mpvkit/launcher/")
-}
-
-fn generated_log(relative: &str) -> bool {
-    relative
-        .strip_prefix(".mpvkit/cache/sessions/")
-        .is_some_and(|tail| {
-            let parts: Vec<_> = tail.split('/').collect();
-            parts.len() == 2
-                && !parts[0].is_empty()
-                && matches!(parts[1], "session.log" | "session.json")
-        })
+    relative == ".mpvkit/settings.json"
 }
 
 fn target(root: &Path, relative: &str) -> Result<PathBuf> {
     validate_relative(relative)?;
     if !managed_control_file(relative)
-        && !generated_log(relative)
         && relative
             .split('/')
             .next()
@@ -374,9 +362,6 @@ pub fn prepare_install(
     let mut seen = BTreeSet::new();
     let mut total = 0u64;
     for payload in payloads {
-        if generated_log(&payload.path) {
-            return Err(error("reserved_path", "组件不能写入日志记录。"));
-        }
         let path = target(root, &payload.path)?;
         let key = payload.path.to_ascii_lowercase();
         if !seen.insert(key.clone()) {
@@ -736,40 +721,6 @@ fn apply_change(root: &Path, journal: &Journal, index: usize) -> Result<()> {
 }
 
 impl DeploymentPlan {
-    pub(crate) fn remove_generated_logs(
-        &mut self,
-        files: Vec<(String, String, bool)>,
-    ) -> Result<()> {
-        if self.journal.changes.len() + files.len() > MAX_FILES {
-            return Err(error("file_limit", "待清理文件过多，请先清理日志。"));
-        }
-        for (path, hash, remove) in files {
-            if !generated_log(&path)
-                || file_hash(&target(&self.preview.root, &path)?)?.as_ref() != Some(&hash)
-            {
-                return Err(error("stale_preview", "日志在预览时改变，请重试。"));
-            }
-            if !remove {
-                self.guard(target(&self.preview.root, &path)?, Some(hash));
-                continue;
-            }
-            let change = Change {
-                path,
-                before: Some(hash),
-                after: None,
-                backup: Some(format!(
-                    "recovery/{}/{}",
-                    self.journal.id,
-                    self.journal.changes.len()
-                )),
-            };
-            self.preview.changes.push(change.clone());
-            self.journal.changes.push(change);
-            self.payloads.push(None);
-        }
-        Ok(())
-    }
-
     pub(crate) fn for_uninstall(mut self) -> Self {
         self.journal.new_manifest = None;
         self.preview.no_changes = self.journal.old_manifest.is_none();
