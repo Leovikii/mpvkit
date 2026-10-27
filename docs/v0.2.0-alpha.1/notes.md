@@ -1,8 +1,6 @@
-MpvKit 0.2.0-alpha.1
+# 0.2.0-alpha.1
 
-- 首个公开测试版，支持 Windows x64 与 Arch/CachyOS x86_64。
-- 精简管理目录，播放期保存直接调用已安装的管理器。
-- 每次启动检查一次应用更新；预览版更新默认关闭，可在“应用设置 → 关于”中开启。
-- 更新弹窗显示版本和更新日志；Windows 使用签名更新，Arch 通过 AUR/包管理器更新。
-- MPV 核心仍由 WinGet 或 pacman 独立管理。
-- Windows 安装器启动后直接显示进度，自动安装到默认用户目录，无需逐页确认或选择位置。
+- First preview for Windows and Arch Linux / CachyOS.
+- Manage MPV, playback presets, uosc and seek previews.
+- Add signed Windows updates and manual AUR update notices.
+- Simplify installation and protect user configuration.

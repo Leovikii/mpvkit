@@ -22,7 +22,7 @@ Node 24 Actions 最低要求 runner 2.327.1；本次日志中的托管 runner �
 
 ## PR 与 main 分支保护
 
-日常 Checks 只监听目标 main 的 `pull_request` 和合并队列 `merge_group/checks_requested`；不监听 push，因此分支推送/PR 更新只运行一套，合并 main 后也不重复构建。合并队列针对组合后的提交必须单独验证，不能用 PR 的旧结果替代。PR 更新自动取消前一轮，同一轮前端只构建一次，产物供 Windows/Arch Rust 任务并行复用。PR 不打安装包、不使用发布密钥；Release 仍须手动触发。
+日常 Checks 只监听目标 main 的 `pull_request` 和合并队列 `merge_group/checks_requested`；不监听 push，因此分支推送/PR 更新只运行一套 Checks。合并队列针对组合后的提交必须单独验证，不能用 PR 的旧结果替代。PR 更新自动取消前一轮，同一轮前端只构建一次，产物供 Windows/Arch Rust 任务并行复用。PR 不打安装包、不使用发布密钥；合并后的版本发布交由下述 Release 流程。
 
 工作流本身不做路径过滤。轻量 changes 任务用 Git 比较完整变更，只有 README、AGENTS、docs 下 Markdown 和 vendor 文档跳过重型任务；预览代码、打包许可、工作流及未知文件均正常检查。检测使用完整历史的树信息及 blob:none 过滤，避免取回历史大文件；禁止重命名检测，源文件移入文档不能漏检。
 
@@ -30,9 +30,21 @@ Node 24 Actions 最低要求 runner 2.327.1；本次日志中的托管 runner �
 
 GitHub Settings → Rules → Rulesets 中，针对 main 设置 Require a pull request before merging 与 Require status checks to pass，必需检查选择 `CI`、来源 GitHub Actions；是否要求分支最新或使用合并队列由维护者选择。工作流不能替代仓库规则本身。2026-10-27 只读 API `/rules/branches/main` 返回空列表，当前没有生效的 ruleset；本批不擅自修改远端合并政策。首次 PR 运行后可从检查列表选取 `CI`。
 
+## main 自动进入 CD
+
+`release.yml` 监听 `push` 到 main，覆盖普通合并、squash 和 rebase，也覆盖直接推送 main。每次使用事件中的精确提交 SHA 检出源码，核对 package.json、Tauri 与 Cargo 版本及本版日志 `docs/v<版本>/notes.md`。日志统一为极简英文 Markdown：一个版本标题、数条用户可见变更，不写开发交接或验收台账。
+
+1. 查询 `v<版本>` tag；存在则正常结束，不重建、不移动既有 tag。文档合并或未升版代码合并仍执行轻量版本检查。
+2. 不存在则用当前 main 事件 SHA 创建 tag，直接将输出传给本次工作流的 Windows / Arch 构建与草稿任务。只把真实 404 视为缺 tag；权限、网络或服务错误均失败，不伪装成缺失。并发同版本只有建 tag 成功的一次继续构建。
+3. 完成签名和双平台资产收集后创建 Release 草稿；alpha/beta/rc 标记 prerelease，草稿不更新 latest 或 channels.json。不同 main 提交互不取消，推广任务另行串行执行以保护更新索引。
+
+自动建 tag 使用最小任务权限的 `GITHUB_TOKEN`。GitHub 不会因这个 token 创建 tag 而再触发普通 tag push 工作流，所以流程直接用 `needs.prepare.outputs.tag` 继续执行，不依赖第二次事件，也不需要 PAT。
+
+已有 tag 的构建若失败，可在 Actions → Release → Run workflow，选择 main 工作流、原有 tag 和 `build-draft` 重试；也可重跑失败的构建任务。重新运行整个自动工作流会因 tag 已存在而跳过。不要删除或移动 tag 来重试。`promote` 仍只允许手动触发。
+
 ## 启用前提
 
-启用配置并不表示远端环境已配置。`release-build` 环境只供可信版本 tag，配置 MPVKIT_UPDATER_PUBLIC_KEY 变量、TAURI_SIGNING_PRIVATE_KEY 与可选密码 Secret；`release-publish` 独立保护并要求人工批准，不向不可信 PR 提供密钥。仓库不保存正式私钥；离线备份由维护者保管。
+启用配置并不表示远端环境已配置。2026-10-27 只读环境 API 返回空列表，当前尚未创建发布环境。维护者需创建并保护 `release-build`，允许 main 上的自动 / 手动流程使用可信版本 tag，配置 MPVKIT_UPDATER_PUBLIC_KEY 变量、TAURI_SIGNING_PRIVATE_KEY 与可选密码 Secret；`release-publish` 独立保护并要求人工批准，不向不可信 PR 提供密钥。部署分支规则按工作流事件的 main 设置，不能因实际检出 tag 而只允许 tag 事件。仓库不保存正式私钥；离线备份由维护者保管。
 
 构建只产生草稿。维护者验收双平台安装/升级与许可材料后，再运行 promote；不重复编译。`verify-release.mjs gate` 当前按真实 releaseReady=false 拒绝推广，完整审阅后再更新来源材料及生成规则。首次由维护者明确创建 `updates` 元数据 Release，channels.json 为 `{"schemaVersion":1,"stable":null,"preview":null}`；不在失败时自行重置索引。
 

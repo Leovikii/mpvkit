@@ -1,5 +1,7 @@
 name: Release
 on:
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       tag:
@@ -17,11 +19,34 @@ on:
 permissions:
   contents: read
 concurrency:
-  group: release
+  group: release-${{ github.event_name == 'push' && github.sha || inputs.tag }}
   cancel-in-progress: false
 jobs:
+  prepare:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: write
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
+      build: ${{ steps.version.outputs.build }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ inputs.tag || github.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 24.19.0
+      - id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_OPERATION: ${{ inputs.operation }}
+        run: node scripts/prepare-release.mjs
   build:
-    if: inputs.operation == 'build-draft'
+    needs: prepare
+    if: needs.prepare.outputs.build == 'true'
     environment: release-build
     strategy:
       fail-fast: false
@@ -37,7 +62,7 @@ jobs:
         run: pacman -Syu --noconfirm --needed base-devel git rustup nodejs npm webkit2gtk-4.1 gtk3 xdg-utils mpv zstd desktop-file-utils namcap
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -45,7 +70,7 @@ jobs:
       - run: npm install --global pnpm@11.25.0
       - shell: bash
         env:
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           node scripts/release.mjs check "$RELEASE_TAG"
           rustup toolchain install 1.98.1 --profile minimal --component rustfmt --component clippy
@@ -59,7 +84,7 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
             src-tauri/target
-          key: release-${{ runner.os }}-1.98.1-${{ env.ARCH_ABI }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ inputs.tag }}
+          key: release-${{ runner.os }}-1.98.1-${{ env.ARCH_ABI }}-${{ hashFiles('src-tauri/Cargo.lock') }}-${{ needs.prepare.outputs.tag }}
           restore-keys: release-${{ runner.os }}-1.98.1-${{ env.ARCH_ABI }}-${{ hashFiles('src-tauri/Cargo.lock') }}-
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
@@ -115,14 +140,14 @@ jobs:
           if-no-files-found: error
           retention-days: 14
   draft:
-    needs: build
+    needs: [prepare, build]
     runs-on: ubuntu-24.04
     permissions:
       contents: write
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          ref: refs/tags/${{ inputs.tag }}
+          ref: refs/tags/${{ needs.prepare.outputs.tag }}
           persist-credentials: false
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
@@ -134,16 +159,24 @@ jobs:
           merge-multiple: true
       - env:
           GH_TOKEN: ${{ github.token }}
-          RELEASE_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           tar -czf .local/release/aur-recipe.tar.gz -C .local/release/aur PKGBUILD .SRCINFO
           node scripts/release.mjs manifest .local/release
           version="${RELEASE_TAG#v}"
-          gh release create "$RELEASE_TAG" .local/release/*.* --draft --title "MpvKit $version" --notes-file "docs/v$version/notes.md"
+          if [[ "$RELEASE_TAG" == *-* ]]; then
+            gh release create "$RELEASE_TAG" .local/release/*.* --draft --prerelease --latest=false --title "MpvKit $version" --notes-file "docs/v$version/notes.md"
+          else
+            gh release create "$RELEASE_TAG" .local/release/*.* --draft --latest=false --title "MpvKit $version" --notes-file "docs/v$version/notes.md"
+          fi
   promote:
-    if: inputs.operation == 'promote'
+    needs: prepare
+    if: github.event_name == 'workflow_dispatch' && inputs.operation == 'promote'
     runs-on: ubuntu-24.04
     environment: release-publish
+    concurrency:
+      group: release-publish
+      cancel-in-progress: false
     permissions:
       contents: write
     steps:

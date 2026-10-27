@@ -58,7 +58,7 @@ Windows 使用锁定 tauri-plugin-updater 2.11.0 的 Rust API；安装再次核�
 
 前一轮自动审批依据旧 AGENTS 禁令拒绝过可执行 Actions 和 NSIS 重建，原始记录保留在 evidence。**用户本轮明确解除这两项禁令**，AGENTS/入口文档已先更新，已启用 .github/workflows/ci.yml 与 release.yml，并删除重复惰性模板。本地完整签名 NSIS 打包成功，正式安装器未执行。当前 [流程说明](../ci/README.md) 与实际验证分别更新；用户随后授权提交/推送本批，不自行公开发布，也不把静态检查写成远端通过。
 
-工作流包含日常检查和手动发布两条流程：日常前端只构建一次、Rust 两端并行，文档跳过重型任务；Node/pnpm/Rust 固定，Action 固定核验的 commit，Arch 固定容器摘要，Cargo 缓存含实际系统 ABI 摘要。发布两端只编译一次 release，Windows 按精确版本收集安装器与签名，避免缓存旧包混入；草稿收口、SHA256SUMS/签名核验后再推广 channels.json，不公开半套产物，不覆盖不可变版本资产，不自动发布 AUR。alpha 明确标为 prerelease、latest=false，只推广 preview。冷/热缓存耗时未测，不承诺运行分钟数。
+工作流包含日常检查和 Release 两条流程：日常前端只构建一次、Rust 两端并行，文档跳过重型任务；Node/pnpm/Rust 固定，Action 固定核验的 commit，Arch 固定容器摘要，Cargo 缓存含实际系统 ABI 摘要。main 推送（含 PR 合并）自动检查版本，无对应 tag 则创建并构建草稿；已有 tag 跳过，保留手动重试和推广。发布两端只编译一次 release，Windows 按精确版本收集安装器与签名，避免缓存旧包混入；草稿收口、SHA256SUMS/签名核验后再推广 channels.json，不公开半套产物，不覆盖不可变版本资产，不自动发布 AUR。alpha 明确标为 prerelease、latest=false，只推广 preview。冷/热缓存耗时未测，不承诺运行分钟数。
 
 发布推广必须通过现有许可 gate。新增 updater 依赖原文已补齐，两个 inventory 无 missingMaterials；**releaseReady=false 仍保留**，完整原生库与适用源码义务未完成审阅，不能靠改一个布尔值宣称可发布。
 
@@ -76,7 +76,7 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 
 本批收尾将日常 CI 改为仅 main PR/merge_group，取消 push 重复构建和整个工作流的路径过滤。固定 `CI` 汇总检查始终返回，文档变更只走轻量检测与汇总；前端一次构建、两端并行，失败/取消/意外跳过均阻止通过。ruleset 配置见[流程说明](../ci/README.md)；本机只读 main 规则 API 返回空列表，未改远端合并政策。
 
-下一任务：Linux 必要测试与 dev 推送已完成；用户在首次 CI 失败后补充授权修复、推送 dev 并更新指向 main 的 PR 重新触发检查，当前沿用 [PR #1](https://github.com/Leovikii/mpvkit/pull/1)。维护者将 `CI` 设为 main ruleset 必需检查，配置发布受保护环境和正式签名，并记录远端冷/热缓存耗时；真实下一 alpha 升级、polkit 授权与设备专项、公开分发许可门槛仍独立跟踪。公开发布未获授权。
+下一任务：[PR #1](https://github.com/Leovikii/mpvkit/pull/1) 已合并，修复后的双平台 [CI](https://github.com/Leovikii/mpvkit/actions/runs/40497998384) 全部通过。用户追加 main 自动版本检测 / 建 tag / CD 与用户 README 分离要求，实施见下节。维护者需配置发布受保护环境和正式签名、设置 main 必需检查 `CI`，再验收首次自动草稿；真实下一 alpha 升级、polkit 授权与设备专项、公开分发许可门槛仍独立跟踪。公开发布未获授权。
 
 ## Linux 必要测试精简与验收（2026-10-27，已完成）
 
@@ -98,6 +98,14 @@ Windows 完整原生 9/9（另含 52 项选轨）、Rust 43 项（4 ignored）�
 - CI 和 Release 同时补齐系统 MPV 测试依赖，保留全部默认安全测试；分发包仍将 MPV 作为可选依赖。5 个 Actions 升到官方核验的最新 Node 24 版本并固定完整 SHA，具体版本及兼容性见[工作流说明](../ci/README.md#工作流依赖与版本)。Arch 镜像仍是官方当前摘要，应用工具链未变。
 - 在同一个只读 Bubblewrap 环境隐藏 `/usr/bin/mpv`，精确复现同样 **8 个失败**；恢复系统 MPV 后 **47 passed / 0 failed / 4 ignored**。实际 `cargo test --offline --locked` 同样通过；actionlint 1.7.12、CI 分类与分发契约 **3/3** 通过。仅改工作流依赖与文档，无需重复图形、安装包或 Windows 本地完整套件。
 - 本地证据见[当前记录](evidence.md#首次-ci-失败定位与-workflow-组件更新2026-10-27)，远端结果以 [PR 检查](https://github.com/Leovikii/mpvkit/pull/1/checks) 当前提交为准；手动 Release 流程和公开发布不属于本次触发范围。
+
+## main 自动 CD 与用户文档（2026-10-27）
+
+- Release 增加 main push 触发，每次核对源码版本与本版日志，查询 `v<版本>`；仅真实 404 才创建 tag，绑定本次事件的精确 SHA，并在同一工作流继续双端构建、签名与草稿收集。已有 tag 正常跳过；网络 / 权限失败停止，并发建同一版本只允许成功创建者进入构建。不同 main 提交互不取消，公开推广任务仍串行。
+- `build-draft` 手动入口保留，用于已有 tag 的失败重试；`promote` 仍需显式手动触发及原有许可 / 签名校验。预览草稿明确 prerelease、latest=false。没有依赖 GITHUB_TOKEN 建 tag 再触发工作流，也没有引入 PAT。
+- 当前 notes 改为版本标题与四条英文变更，仍由同一文件供 Release 和 updater.json 使用；后续版本沿用此格式。README 精简为用户功能、两端安装和许可证，另增[预设配置设计](../presets.md)，agent 与开发入口留在 AGENTS / docs 索引。
+- 针对性 Node 测试 **10/10**（含 CI 分类、分发及 API 反例子用例）；actionlint 1.7.12、JS 语法、英文日志 / 本地链接 / diff 检查通过。未改 Rust 或前端行为，不重复设备、图形和安装包套件。证据见[本轮记录](evidence.md#main-自动-cd-与用户文档2026-10-27)。
+- 只读远端环境查询仍为空；需由维护者设置受保护 `release-build` / `release-publish` 和正式签名材料。自动流程在合并后生效，本地测试不创建真实远端 tag 或 Release，不能写成自动 CD 已实际打包通过。
 
 ## 核验来源
 
