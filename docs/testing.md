@@ -1,6 +1,6 @@
 # 本地开发与测试入口
 
-当前 v0.2.0-alpha.1，更新：2026-10-27。先读 [AGENTS](../AGENTS.md)、[当前交接](v0.2.0-alpha.1/plan.md) 与 [目录边界](current.md#当前目录)。本页不授权真实用户配置/默认应用/包管理器写入；用户已允许本版 CI/CD、NSIS 和 Arch 包构建；分发配置与隔离验证边界见交接。无历史版兼容/迁移，不执行历史 NSIS 测试。
+当前 v0.2.0-alpha.2，更新：2026-10-27。先读 [AGENTS](../AGENTS.md)、[当前交接](v0.2.0-alpha.2/plan.md) 与 [目录边界](current.md#当前目录)。本页不授权真实用户配置/默认应用/包管理器写入；用户已允许本版 CI/CD、NSIS 和 Arch 包构建；分发配置与隔离验证边界见交接。无历史版兼容/迁移，不执行历史 NSIS 测试。
 
 ## 工具与最小检查
 
@@ -23,6 +23,17 @@ pnpm tauri build --debug --no-bundle --config '{"build":{"beforeBuildCommand":""
 产物：src-tauri/target/debug/mpvkit.exe（Windows）或 mpvkit（Linux），bundle.active=false。默认 Rust 测试在临时根运行，部分测试需回环端口；隔离策略阻止绑定时，应明确说明并申请运行所需权限，不改成成功占位。纯文档修改只检查链接/格式/Git diff；逻辑、构建配置或共享样式变更按影响面验证，不无故重跑所有设备测试。
 
 Windows 的 `updates::download_tests` 使用官方 Tauri mock runtime 和仅回环 HTTP，实际调用 updater 的 check/download：验证有效签名、损坏内容、非法签名、两类 HTTP 500 与截断下载；不调用 install。夹具仅含公开公钥、文本与签名。运行 `cargo test --manifest-path src-tauri/Cargo.toml --locked plugin_download_verifies` 可单独复验；生产端点仍强制 HTTPS。
+
+## 单实例与 Linux 入口
+
+仅启动/桌面入口/单实例变更时运行：
+
+```sh
+python3 scripts/test-single-instance.py
+desktop-file-validate packaging/io.github.mpvkit.desktop
+```
+
+脚本自行创建私有 D-Bus 会话与全新临时根：两轮各并发启动六次，确认只有原始 GUI、重复启动退出 0、退出后能重新启动、播放期 helper 不被拦截、无会话总线时 GUI 失败而 helper 仍能处理。日志与 result.json 留在打印的 /tmp 根，不改真实配置。窗口激活仍受 Wayland 合成器策略约束，Windows 实际激活需 Windows 原生验证。
 
 ## Linux 原生隔离回归
 
@@ -62,10 +73,6 @@ arch_wayland_extended_window_and_render_matrix -- --ignored --nocapture
 
 Linux GUI 短验收使用当前 debug 程序、新隔离数据根和固定更新 JSON：两页基本操作、语言/深浅色、启动仅检查一次、预览默认关闭与切换后重查、错误重试、纯文本长日志、稍后/重开、AUR 已发布/未发布提示；确认无安装更新按钮或 helper 调用。Windows 原生 Node 套件使用 WebView2 和 WinGet 夹具，不在 Linux 强行移植整套。实际本轮命令、短验收脚本与结果位置见[当前证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)。
 
-旧启动预览的 Rust 真实进程测试已删除；直接系统 MPV 启动由当前原生套件验证，不运行历史 launch/real_tests.rs。
-
-已知时序边界：uosc 暂停按钮即时断言曾失败一次，新根复验通过；IPC 可早于 time-pos 就绪，目前续播测试已等待属性生成。遇失败保留日志与根，不放宽断言、不把失败写成通过。
-
 Linux 图标历史取证见 [v0.1.8 证据](v0.1.8/manager-icon-evidence.json)，不证明 v0.2.0 的包入口已通过。当前不再由管理器生成用户 applications 或刷新旧入口；常规验证不得修改真实桌面/默认应用，Arch 包入口需在隔离系统安装后另验。
 
 ## Windows 原生回归
@@ -74,9 +81,7 @@ Linux 图标历史取证见 [v0.1.8 证据](v0.1.8/manager-icon-evidence.json)�
 
 完整套件须显式提供 MPVKIT_TEST_ASSETS、MPVKIT_CORE_SOURCE（已经核验并提取的 WinGet MPV 包目录）与 MPVKIT_FFMPEG（固定摘要的研究用生成器）；可用 MPVKIT_TEST_EXECUTABLE 选择当前 EXE。脚本创建私有临时根，以本地 Rust fixture 模拟 WinGet，绝不执行真实安装器。缺少这些资源应记录未测，不能替换为任意系统工具绕过校验。来源、包版本/实际提交差异及边界见 [WinGet 证据](v0.1.8/evidence.md#winget-核心与控制台2026-10-26当前批)。
 
-v0.1.8 的 2026-10-27 本机回归已完成，见 [历史 Windows 证据](v0.1.8/evidence.md#windows-当前批实机回归2026-10-27)。本机 Cargo 需将 `$env:USERPROFILE + '\.cargo\bin'` 加入 PATH；普通沙箱阻止回环连接/文件替换时，应在获准进程复验，不能把批量 replace_failed 判作产品故障或改写替换保护。列表回绕后的下一步 seek 需同时等 playlist-pos 和 time-pos 就绪；固定品牌色与偏好字段断言已纳入侧栏专项。
-
-本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。当前完整原生结果以 [本版交接](v0.2.0-alpha.1/plan.md)为准。
+本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。历史完整原生结果见 [alpha.1 交接](v0.2.0-alpha.1/plan.md)，本版结果见 [alpha.2 交接](v0.2.0-alpha.2/plan.md)。
 
 当前 Windows NSIS 已采用可见一键安装，默认位置固定、无向导；构建命令和来源见[安装器说明](../packaging/windows/README.md)。本地脱离系统写入的页面探针不是正式安装验收，不得直接在开发者真实环境执行正式安装器来代替隔离 VM/用户验证。
 
@@ -103,9 +108,9 @@ node docs/v0.1.6/preview/check.mjs
 - scripts/verify-uosc-sources.py：固定本地源码归档；verify-uosc-icons.mjs：固定字体映射；verify-scroll-bar-license.py、collect-go-notices.py：对应来源/许可。先读参数及原证据，不把这些脚本删成“无人调用”。
 - scripts/rebuild-uosc-helper.py、inspect-uosc-buildinfo.mjs、compare-uosc-links.go：固定 helper 的构建/核验链；用途和未完成发布审阅在 [验收台账](v0.1.0/acceptance.md)。
 
-最新一次通过范围统一记在 [当前交接](v0.2.0-alpha.1/plan.md)，原始命令/日志路径/产物摘要记在 [当前证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
+最新一次通过范围统一记在 [当前交接](v0.2.0-alpha.2/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
 
-## v0.2.0-alpha.1 更新与分发检查
+## 更新与分发专项
 
 Windows 当前原生套件新增应用更新测试：默认不收预览版、启动一次、无稳定版、失败重试、预览偏好、渠道竞态、日志纯文本、稍后/重开、草稿保护及禁止测试安装器。元数据放新隔离根 test-tools/updates/channels.json 与 v<version>.json；不会接触公共频道。真实安装必须另有隔离 Windows 用户/VM，普通开发测试不写当前用户注册表。
 

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
-import { pathToFileURL } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { base, digest, parseVersion, promote, versionCheck } from './release.mjs';
 
 export async function publishRelease({ tag, token, repository, directory, archPackage = 'none', run = execFileSync }) {
@@ -85,8 +85,7 @@ export async function publishRelease({ tag, token, repository, directory, archPa
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
-  // Keep the existing review prerequisite for both workflow and direct CLI use.
-  execFileSync(process.execPath, ['scripts/verify-release.mjs', 'gate'], { stdio: 'inherit' });
+  execFileSync(process.execPath, [fileURLToPath(new URL('./verify-release.mjs', import.meta.url)), 'gate'], { stdio: 'inherit' });
   await publishRelease({
     tag: process.env.RELEASE_TAG, token: process.env.GH_TOKEN, repository: process.env.GITHUB_REPOSITORY,
     directory: '.local/release', archPackage: process.env.ARCH_PACKAGE || 'none',

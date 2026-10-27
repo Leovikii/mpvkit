@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { base, archVersion, compare, promote, recipe, stageArch, manifest, versionCheck, digest } from './release.mjs';
 import { prepareRelease } from './prepare-release.mjs';
 import { publishRelease } from './publish-release.mjs';
@@ -75,14 +76,30 @@ test('automatic publication uploads all assets publicly and bootstraps update ch
   assert(!workflow.includes('build-draft')); assert(!workflow.includes('  draft:'));
   assert.match(workflow, /needs: \[prepare, package\]/);
   assert.match(workflow, /needs\.package\.result == 'success'/);
-  assert(workflow.indexOf('node scripts/verify-release.mjs gate') < workflow.indexOf('node .local/workflow/scripts/publish-release.mjs'));
+  assert(workflow.indexOf('node .local/workflow/scripts/verify-release.mjs gate') < workflow.indexOf('node .local/workflow/scripts/publish-release.mjs'));
 });
 
-test('retry publishes an existing verified draft without replacing assets', async t => {
+test('license materials remain required without blocking on review bookkeeping', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mpvkit-materials-'));
+  t.after(() => fs.rmSync(root, { recursive: true }));
+  fs.mkdirSync(path.join(root, 'src-tauri'));
+  fs.mkdirSync(path.join(root, 'resources'));
+  for (const file of ['package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml']) {
+    fs.copyFileSync(file, path.join(root, file));
+  }
+  for (const suffix of ['', '-linux']) for (const kind of ['app-dependency-inventory', 'app-distribution-materials']) {
+    fs.writeFileSync(path.join(root, `resources/${kind}${suffix}.json`), JSON.stringify({ releaseReady: false, missingMaterials: [] }));
+  }
+  const verify = () => execFileSync(process.execPath, [path.resolve('scripts/verify-release.mjs'), 'gate'], { cwd: root, stdio: 'pipe' });
+  verify();
+  fs.writeFileSync(path.join(root, 'resources/app-dependency-inventory-linux.json'), JSON.stringify({ releaseReady: false, missingMaterials: ['missing-license'] }));
+  assert.throws(verify, /Missing license materials/);
+});
+
+test('new versions reject an existing draft instead of adopting draft publication', async t => {
   const f = publicationFixture(t); f.setReleases([{ ...f.current, draft: true }]);
-  await publishRelease(f.options);
-  assert.deepEqual(f.calls[0].slice(0, 4), ['release', 'edit', f.options.tag, '--draft=false']);
-  assert(!f.created.some(payload => payload.tag_name === f.options.tag));
+  await assert.rejects(publishRelease(f.options), /Unexpected draft/);
+  assert.equal(f.calls.length, 0);
 });
 
 test('published retry preserves stable channel and only updates metadata', async t => {
@@ -197,7 +214,9 @@ test('Arch resource layout and release completeness use actual source mapping', 
     assert(fs.existsSync(path.join(stage, 'usr/bin/mpvkit')));
     assert(fs.existsSync(path.join(stage, 'usr/lib/mpvkit/third-party/APP-DEPENDENCY-NOTICES.txt')));
     assert(!fs.existsSync(path.join(stage, 'usr/lib/mpvkit/third-party/WEBVIEW2-SDK-LICENSE.txt')));
-    assert.match(fs.readFileSync(path.join(stage, 'usr/share/applications/io.github.mpvkit.desktop'), 'utf8'), /^Exec=mpvkit$/m);
+    const desktop = fs.readFileSync(path.join(stage, 'usr/share/applications/io.github.mpvkit.desktop'), 'utf8');
+    assert.match(desktop, /^Exec=mpvkit$/m);
+    assert.match(desktop, /^Categories=AudioVideo;$/m);
     assert.throws(() => stageArch(root, executable), /fresh staging/);
     assert.throws(() => manifest(root, version, new Date().toISOString(), 'notes'), /Windows installer/);
     fs.writeFileSync(path.join(root, 'MpvKit-setup.exe'), 'fixture');

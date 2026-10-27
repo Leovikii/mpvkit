@@ -12,9 +12,18 @@ pub struct Environment {
     pub high_contrast: bool,
     pub material_allowed: bool,
 }
-pub fn initialize_identity() {
+pub fn initialize_identity() -> Result<()> {
     // GTK's Wayland fallback uses the program name; set it before GTK initializes.
     gtk::glib::set_prgname(Some("io.github.mpvkit"));
+    // The single-instance plugin cannot enforce exclusivity without the session bus.
+    gio::bus_get_sync(gio::BusType::Session, gio::Cancellable::NONE).map_err(|_| {
+        AppError::new(
+            "session_bus_unavailable",
+            "无法连接桌面会话总线。",
+            "startup",
+        )
+    })?;
+    Ok(())
 }
 fn locale_languages<'a>(preferences: impl IntoIterator<Item = &'a str>) -> Vec<String> {
     for value in preferences {

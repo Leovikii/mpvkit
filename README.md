@@ -2,7 +2,7 @@
 
 A simple interface for installing, configuring and updating MPV on **Windows x64** and **Arch Linux / CachyOS x86_64 (KDE Wayland)**.
 
-Current version: **0.2.0-alpha.1**, an early preview.
+Current version: **0.2.0-alpha.2**, an early preview.
 
 ## Features
 
@@ -22,7 +22,7 @@ Download packages from [Releases](https://github.com/Leovikii/mpvkit/releases). 
 **Arch Linux / CachyOS:** Download `mpvkit-bin-<version>-<release>-x86_64.pkg.tar.zst` from Releases and install it with Pacman. For the current preview:
 
 ```sh
-sudo pacman -U ./mpvkit-bin-0.2.0alpha1-1-x86_64.pkg.tar.zst
+sudo pacman -U ./mpvkit-bin-0.2.0alpha2-1-x86_64.pkg.tar.zst
 ```
 
 Launch MpvKit from the application menu. Install the MPV core through the app if needed; package operations require polkit authorization. To update MpvKit, download the new package and run `pacman -U` again. Regular `pacman -Syu` does not update this locally installed package. AUR publication is pending.
