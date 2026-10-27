@@ -30,9 +30,16 @@ fn main() {
     }
     #[cfg(target_os = "linux")]
     {
-        platform::desktop::initialize_identity();
+        platform::desktop::initialize_identity().expect("MpvKit 无法连接桌面会话总线");
     }
-    let builder = tauri::Builder::default();
+    let builder =
+        tauri::Builder::default().plugin(tauri_plugin_single_instance::init(|app, _, _| {
+            if let Some(window) = app.get_webview_window("main") {
+                let _ = window.unminimize();
+                let _ = window.show();
+                let _ = window.set_focus();
+            }
+        }));
     #[cfg(target_os = "windows")]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     let builder = builder.manage(commands::PendingCore::default());

@@ -10,9 +10,9 @@
     "随应用分发保留原文；完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "7cde52daf33c612a44f6adb54df668950302bcf18635c04eeac81e3ace08d029",
-    "src-tauri/Cargo.lock": "41ea576278083d20d482a4093eecac57075791c8eadc97be5cbc76a316febcff",
-    "package.json": "b3d24cdc028f1de29e6e2c44e3e6ebc27dc73e7f502a0607ad77c58e14de26a9",
+    "src-tauri/Cargo.toml": "6f3c5a0318d06e7a2596525c8422e5a5e76c2b128ace0036136cfef525419d1a",
+    "src-tauri/Cargo.lock": "1155fafeea804a7fc2f344fbb461697ccd8e56791bf68d12b33a096475ff7975",
+    "package.json": "048b0f3d1076bbf7410ac0d27205eb73c56cc6e0159622ff8395c47f1dd52d0b",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
     "resources/app-license-supplements.json": "b94978d00b5b303a1da551dac94d38609248b11a8033a9272e3197ee573d6364"
   },
@@ -3833,6 +3833,29 @@
       ]
     },
     {
+      "id": "cargo:tauri-plugin-single-instance@2.5.4",
+      "declaredLicense": "Apache-2.0 OR MIT",
+      "repository": "https://github.com/tauri-apps/plugins-workspace",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE.spdx",
+          "size": 888,
+          "sha256": "eb8a6c84630461b352badcab1dbe5d0168c56d377358b2b8c86b51003272d5ef"
+        },
+        {
+          "file": "LICENSE_APACHE-2.0",
+          "size": 10173,
+          "sha256": "0cec06e0e55fbc3dc5cee4fca9b607f66cb8f4e4dbcf3b3c013594dd156732e9"
+        },
+        {
+          "file": "LICENSE_MIT",
+          "size": 1112,
+          "sha256": "b7f455413bfe5f9d7da501a4468d4c5f866a432c325947e98cc9535e8b26cd6d"
+        }
+      ]
+    },
+    {
       "id": "cargo:tauri-plugin-updater@2.11.0",
       "declaredLicense": "Apache-2.0 OR MIT",
       "repository": "https://github.com/tauri-apps/plugins-workspace",
@@ -4291,6 +4314,19 @@
           "file": "LICENSE",
           "size": 1062,
           "sha256": "4249c8e6c5ebb85f97c77e6457c6fafc1066406eb8f1ef61e796fbdc5ff18482"
+        }
+      ]
+    },
+    {
+      "id": "cargo:tracing-attributes@0.1.31",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/tokio-rs/tracing",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE",
+          "size": 1062,
+          "sha256": "898b1ae9821e98daf8964c8d6c7f61641f5f5aa78ad500020771c0939ee0dea1"
         }
       ]
     },

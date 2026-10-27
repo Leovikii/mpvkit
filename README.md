@@ -2,7 +2,7 @@
 
 A simple interface for installing, configuring and updating MPV on **Windows x64** and **Arch Linux / CachyOS x86_64 (KDE Wayland)**.
 
-Current version: **0.2.0-alpha.1**, an early preview.
+Current version: **0.2.0-alpha.2**, an early preview.
 
 ## Features
 
@@ -15,19 +15,17 @@ See [Preset Design](docs/presets.md) for defaults and configuration choices.
 
 ## Installation
 
-Public packages are not available yet; the steps below apply once the first preview is published. Preview builds are marked **Pre-release**.
+Download packages from [Releases](https://github.com/Leovikii/mpvkit/releases). Preview builds are marked **Pre-release**.
 
 **Windows:** Download `MpvKit_<version>_x64-setup.exe` from [Releases](https://github.com/Leovikii/mpvkit/releases) and run it to install for the current user. Open MpvKit, install the MPV core and enhancements as needed, then preview and save your settings. Core management uses WinGet and requires Windows App Installer.
 
-**Arch Linux / CachyOS (recommended):** Install the AUR package with your preferred helper:
+**Arch Linux / CachyOS:** Download `mpvkit-bin-<version>-<release>-x86_64.pkg.tar.zst` from Releases and install it with Pacman. For the current preview:
 
 ```sh
-yay -S mpvkit-bin
+sudo pacman -U ./mpvkit-bin-0.2.0alpha2-1-x86_64.pkg.tar.zst
 ```
 
-Or use `paru -S mpvkit-bin`. The package is not on AUR yet; these commands become available after it is published.
-
-Launch MpvKit from the application menu. Install the MPV core through the app if needed; package operations require polkit authorization. Use your AUR helper for future updates; the app will notify you when an update is available.
+Launch MpvKit from the application menu. Install the MPV core through the app if needed; package operations require polkit authorization. To update MpvKit, download the new package and run `pacman -U` again. Regular `pacman -Syu` does not update this locally installed package. AUR publication is pending.
 
 After saving your settings, open media with system MPV as usual. MpvKit does not change your default player.
 

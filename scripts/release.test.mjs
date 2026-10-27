@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { base, archVersion, compare, promote, recipe, stageArch, manifest, versionCheck, digest } from './release.mjs';
 import { prepareRelease } from './prepare-release.mjs';
 import { publishRelease } from './publish-release.mjs';
@@ -17,24 +18,37 @@ function publicationFixture(t) {
   const version = versionCheck(), tag = `v${version}`;
   const assets = files.map(name => ({ name, digest: `sha256:${digest(fs.readFileSync(path.join(directory, name)))}` }));
   const current = { tag_name: tag, draft: false, prerelease: true, assets };
-  const calls = [];
+  const calls = [], created = [], reads = [];
   let releases = [], channels = null;
   let indexStatus = 200, apiStatus = 200;
   const options = { tag, token: 'test-token', repository: 'Leovikii/mpvkit', directory, run(program, args) {
     assert.equal(program, 'gh'); calls.push(args);
-    if (args[1] === 'create' && args[2] === tag) releases.push(current);
+    if (args[0] === 'api') {
+      const payload = JSON.parse(fs.readFileSync(args[args.indexOf('--input') + 1], 'utf8'));
+      created.push(payload);
+      if (payload.tag_name === tag) releases.push(current);
+    }
     if (args[1] === 'edit') releases.find(r => r.tag_name === tag).draft = false;
+    if (args[1] === 'upload' && args[2] === tag) {
+      const release = releases.find(r => r.tag_name === tag);
+      for (const file of args.slice(3)) {
+        const asset = assets.find(a => a.name === path.basename(file));
+        if (!release.assets.some(a => a.name === asset.name)) release.assets.push(asset);
+      }
+    }
     if (args[2] === 'updates') channels = JSON.parse(fs.readFileSync(path.join(root, 'channels.json'), 'utf8'));
   } };
   t.mock.method(globalThis, 'fetch', async url => {
+    reads.push(url);
     if (url.startsWith('https://api.github.com/')) {
       if (apiStatus !== 200) return new Response(null, { status: apiStatus });
+      if (url.includes('/git/ref/tags/')) return Response.json({ ref: `refs/tags/${tag}` });
       return Response.json(url.includes('releases?') ? releases : releases.find(r => r.tag_name === tag));
     }
     assert.equal(url, `${base}updates/channels.json`);
     return Response.json(channels, { status: indexStatus });
   });
-  return { options, files, calls, current,
+  return { options, files, calls, current, created, reads,
     setReleases: value => { releases = value; },
     setChannels: value => { channels = value; },
     setIndexStatus: value => { indexStatus = value; },
@@ -45,12 +59,16 @@ function publicationFixture(t) {
 test('automatic publication uploads all assets publicly and bootstraps update channels', async t => {
   const f = publicationFixture(t);
   await publishRelease(f.options);
-  const [release, channels] = f.calls;
-  assert.deepEqual(release.slice(0, 3), ['release', 'create', f.options.tag]);
-  for (const file of f.files) assert(release.includes(path.join(f.options.directory, file)), `Missing upload: ${file}`);
-  assert(!release.includes('--draft')); assert(release.includes('--verify-tag'));
-  assert(release.includes('--prerelease')); assert(release.includes('--latest=false'));
-  assert.deepEqual(channels.slice(0, 3), ['release', 'create', 'updates']);
+  assert.equal(f.created.length, 2);
+  assert(f.created.every(payload => payload.draft === false));
+  assert.equal(f.created[0].tag_name, f.options.tag);
+  assert.equal(f.created[0].prerelease, true); assert.equal(f.created[0].make_latest, 'false');
+  assert.equal(f.created[1].tag_name, 'updates');
+  assert(f.reads.some(url => url.endsWith(`/git/ref/tags/${f.options.tag}`)));
+  assert(!f.calls.some(args => args[0] === 'release' && args[1] === 'create'));
+  const upload = f.calls.find(args => args[1] === 'upload' && args[2] === f.options.tag);
+  for (const file of f.files) assert(upload.includes(path.join(f.options.directory, file)), `Missing upload: ${file}`);
+  const channels = f.calls.find(args => args[1] === 'upload' && args[2] === 'updates');
   const value = JSON.parse(fs.readFileSync(channels[3], 'utf8'));
   assert.equal(value.stable, null); assert.equal(value.preview.version, versionCheck());
   assert.equal(value.preview.archPackage, null);
@@ -58,14 +76,30 @@ test('automatic publication uploads all assets publicly and bootstraps update ch
   assert(!workflow.includes('build-draft')); assert(!workflow.includes('  draft:'));
   assert.match(workflow, /needs: \[prepare, package\]/);
   assert.match(workflow, /needs\.package\.result == 'success'/);
-  assert(workflow.indexOf('node scripts/verify-release.mjs gate') < workflow.indexOf('node .local/workflow/scripts/publish-release.mjs'));
+  assert(workflow.indexOf('node .local/workflow/scripts/verify-release.mjs gate') < workflow.indexOf('node .local/workflow/scripts/publish-release.mjs'));
 });
 
-test('retry publishes an existing verified draft without replacing assets', async t => {
+test('license materials remain required without blocking on review bookkeeping', t => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mpvkit-materials-'));
+  t.after(() => fs.rmSync(root, { recursive: true }));
+  fs.mkdirSync(path.join(root, 'src-tauri'));
+  fs.mkdirSync(path.join(root, 'resources'));
+  for (const file of ['package.json', 'src-tauri/tauri.conf.json', 'src-tauri/Cargo.toml']) {
+    fs.copyFileSync(file, path.join(root, file));
+  }
+  for (const suffix of ['', '-linux']) for (const kind of ['app-dependency-inventory', 'app-distribution-materials']) {
+    fs.writeFileSync(path.join(root, `resources/${kind}${suffix}.json`), JSON.stringify({ releaseReady: false, missingMaterials: [] }));
+  }
+  const verify = () => execFileSync(process.execPath, [path.resolve('scripts/verify-release.mjs'), 'gate'], { cwd: root, stdio: 'pipe' });
+  verify();
+  fs.writeFileSync(path.join(root, 'resources/app-dependency-inventory-linux.json'), JSON.stringify({ releaseReady: false, missingMaterials: ['missing-license'] }));
+  assert.throws(verify, /Missing license materials/);
+});
+
+test('new versions reject an existing draft instead of adopting draft publication', async t => {
   const f = publicationFixture(t); f.setReleases([{ ...f.current, draft: true }]);
-  await publishRelease(f.options);
-  assert.deepEqual(f.calls[0].slice(0, 4), ['release', 'edit', f.options.tag, '--draft=false']);
-  assert(!f.calls.some(args => args[1] === 'create' && args[2] === f.options.tag));
+  await assert.rejects(publishRelease(f.options), /Unexpected draft/);
+  assert.equal(f.calls.length, 0);
 });
 
 test('published retry preserves stable channel and only updates metadata', async t => {
@@ -76,6 +110,14 @@ test('published retry preserves stable channel and only updates metadata', async
   await publishRelease(f.options);
   assert.equal(f.calls.length, 1); assert.deepEqual(f.calls[0].slice(0, 3), ['release', 'upload', 'updates']);
   const value = JSON.parse(fs.readFileSync(f.calls[0][3], 'utf8')); assert.deepEqual(value.stable, stable);
+});
+
+test('public upload retry adds only missing assets without replacing existing bytes', async t => {
+  const f = publicationFixture(t);
+  f.setReleases([{ ...f.current, assets: f.current.assets.slice(1) }]);
+  await publishRelease(f.options);
+  assert.deepEqual(f.calls[0], ['release', 'upload', f.options.tag, path.join(f.options.directory, 'SHA256SUMS')]);
+  assert(!f.created.some(payload => payload.tag_name === f.options.tag));
 });
 
 test('publication rejects changed immutable assets and broken channels before mutation', async t => {
@@ -172,7 +214,9 @@ test('Arch resource layout and release completeness use actual source mapping', 
     assert(fs.existsSync(path.join(stage, 'usr/bin/mpvkit')));
     assert(fs.existsSync(path.join(stage, 'usr/lib/mpvkit/third-party/APP-DEPENDENCY-NOTICES.txt')));
     assert(!fs.existsSync(path.join(stage, 'usr/lib/mpvkit/third-party/WEBVIEW2-SDK-LICENSE.txt')));
-    assert.match(fs.readFileSync(path.join(stage, 'usr/share/applications/io.github.mpvkit.desktop'), 'utf8'), /^Exec=mpvkit$/m);
+    const desktop = fs.readFileSync(path.join(stage, 'usr/share/applications/io.github.mpvkit.desktop'), 'utf8');
+    assert.match(desktop, /^Exec=mpvkit$/m);
+    assert.match(desktop, /^Categories=AudioVideo;$/m);
     assert.throws(() => stageArch(root, executable), /fresh staging/);
     assert.throws(() => manifest(root, version, new Date().toISOString(), 'notes'), /Windows installer/);
     fs.writeFileSync(path.join(root, 'MpvKit-setup.exe'), 'fixture');

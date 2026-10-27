@@ -1,6 +1,6 @@
 [package]
 name = "mpvkit"
-version = "0.2.0-alpha.1"
+version = "0.2.0-alpha.2"
 edition = "2024"
 rust-version = "1.98.1"
 publish = false
@@ -17,6 +17,7 @@ zip = { version = "=8.6.0", default-features = false, features = ["deflate-flate
 serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 tauri = { version = "=2.12.4", features = [] }
+tauri-plugin-single-instance = "=2.5.4"
 [target.'cfg(target_os = "linux")'.dependencies]
 libc = "=0.2.191" # Bounded reads from child pipes on Unix.
 gtk = "=0.18.2" # Native desktop preferences and portal settings.

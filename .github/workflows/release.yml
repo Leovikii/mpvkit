@@ -199,12 +199,12 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 24.19.0
-      - name: Check source version and license review
+      - name: Check source version and license materials
         env:
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: |
           node scripts/release.mjs check "$RELEASE_TAG"
-          node scripts/verify-release.mjs gate
+          node .local/workflow/scripts/verify-release.mjs gate
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         if: needs.package.result == 'success'
         with:

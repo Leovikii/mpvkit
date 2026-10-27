@@ -252,4 +252,12 @@ PR #2 合并后 main 提交 2f3be38 触发 [Release #40502127238](https://github
 
 正常 Node 进程中执行 `node --test scripts/release.test.mjs scripts/ci-changes.test.mjs`，**20 passed / 0 failed**，覆盖公开上传含无扩展名校验单、首发初始化、既有草稿公开、幂等元数据重试、保留另一渠道、资产篡改、索引缺失/HTTP 404/错误 schema/倒退、API 403、tag 并发与 main 已有 tag 跳过。全部网络及 gh 发布命令在测试中 mock，没有真实发布。actionlint 1.7.12（无 shellcheck）、JS 语法与 Git diff 检查通过。
 
-现有 9 项 `SHA256SUMS`、updater 元数据和 Minisign 的签名 / 版本注释重新验证通过。随后 PATCH 草稿为公开预发布的操作被自动审批拒绝：可信项目指令要求许可审阅及验收先于公开，而当前许可 gate 的未完成记录未关闭；公开指令未明确豁免该前提。没有换工具、改工作流或翻转布尔值绕过这次拒绝。公开操作尚未执行，当前改动仅在本地。
+现有 9 项 `SHA256SUMS`、updater 元数据和 Minisign 的签名 / 版本注释重新验证通过。随后 PATCH 草稿为公开预发布的操作被自动审批拒绝：可信项目指令要求许可审阅及验收先于公开，而当前许可 gate 的未完成记录未关闭；公开指令未明确豁免该前提。没有换工具、改工作流或翻转布尔值绕过这次拒绝。公开操作尚未执行。后续修正提交为 `701b535 Fix publishing`，[PR #4](https://github.com/Leovikii/mpvkit/pull/4) 的前端、Windows（6 分 8 秒）、Linux（4 分 28 秒）及 CI 汇总全通过，合并提交 `34d2e4f Merge dev`。dev 已快进同步 main；[main Release 运行](https://github.com/Leovikii/mpvkit/actions/runs/40515916111) success，prepare 成功，其余三任务因已有 tag 正常 skipped，没有创建新草稿或公开现有草稿。
+
+## 新版本从创建时直接公开（2026-10-27）
+
+用户明确要求更新文档、公开现有 alpha.1 并推送同步 dev/main，进一步强调“不是不停在草稿，而是一开始就不得使用草稿来发布”。版本保留 `0.2.0-alpha.1` 与预览标记。AGENTS 合并当前授权，去掉错误归纳和过期的未授权表述，README 英文安装说明改为当前实际采用的下载原生 Arch 包 / pacman -U。许可记录和未验收事实保留，未改为已完成。
+
+核对本机 GitHub CLI 2.103.2，以及官方 [create.go](https://github.com/cli/cli/blob/v2.103.2/pkg/cmd/release/create/create.go) 的资产上传实现：带资产的 `gh release create` 即使未传 `--draft` 也会设置 draftWhileUploading 并先创建草稿。发布脚本改为 `gh api POST .../releases --input <JSON>`，版本和 metadata 的 JSON 均显式 `draft:false`，再单独 upload；读回全部资产摘要后才更新公开索引。失败重试仅补传缺失文件，不覆盖已有版本资产；当前历史 alpha.1 草稿仅一次转公开，其他版本出现草稿拒绝继续。
+
+本地正常 Node 进程的分发 / CI 分类回归 **21 passed / 0 failed**，验证两个创建 JSON 均 draft=false、首次索引、历史草稿公开、公开状态下补传缺失校验单、既有资产篡改、索引异常和 main/tag 行为。actionlint 1.7.12（无 shellcheck）、JS 语法和 diff 检查通过；不重新编译或执行安装器。公开结果及远端 CI 待完成后记录。
