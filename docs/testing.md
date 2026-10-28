@@ -1,8 +1,6 @@
 # 本地开发与测试入口
 
-当前 v0.2.0-alpha.4，更新：2026-10-28。先读 [AGENTS](../AGENTS.md)、[当前交接](v0.2.0-alpha.4/plan.md) 与 [目录边界](current.md#当前目录)。本页不授权真实用户配置/默认应用/包管理器写入；用户已允许本版 CI/CD、NSIS 和 Arch 包构建；分发配置与隔离验证边界见交接。无历史版兼容/迁移，不执行历史 NSIS 测试。
-
-alpha.4 已获实施与推送/合并授权；[设计与测试矩阵](v0.2.0-alpha.4/plan.md#测试与验收)及[本机问题与本版证据](v0.2.0-alpha.4/evidence.md)记录混合分隔符、一次确认、同窗进度/错误、焦点及标准按钮回归。历史通过结果不代表本版通过。
+当前源码 v0.2.0-alpha.5，2026-10-28。先读 [AGENTS](../AGENTS.md)、[alpha.5 交接](v0.2.0-alpha.5/plan.md) 与 [目录边界](current.md#当前目录)。用户已确认界面验证通过，并授权本版提交/推送/PR 合并、分支同步和发布。当前环境为 CachyOS KDE Wayland，Windows 原生结果不能用历史测试代替。
 
 ## 工具与最小检查
 
@@ -73,9 +71,11 @@ arch_wayland_extended_window_and_render_matrix -- --ignored --nocapture
 
 扩展覆盖五档宽度、1080p/4K/竖屏/超宽、自定义 autofit、音频切视频、最大化/全屏启动及完整九组合。两个图形入口分别运行，不用 `--ignored` 一次启用所有在线/设备验收。失败保留根和日志，修复后只重跑受影响入口。
 
-Linux GUI 短验收使用当前 debug 程序、新隔离数据根和固定更新 JSON：两页基本操作、语言/深浅色、启动仅检查一次、预览默认关闭与切换后重查、错误重试、纯文本长日志、下载/包事务预览/授权取消及完成待重开；不再验收已删除的 AUR 提示。IPC mock 不执行真实 Pacman。Windows 原生 Node 套件使用 WebView2 和 WinGet 夹具，不在 Linux 强行移植整套。alpha.1 历史短验收见[原始证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)，alpha.3 的历史环境及未测范围见[交接](v0.2.0-alpha.3/plan.md)。alpha.4 当前结果及限制见本版交接。
+Linux GUI 短验收使用当前 debug 程序、新隔离数据根和固定更新 JSON：三页基本操作、语言/深浅色、启动仅检查一次、预览默认关闭与切换后重查、错误重试、纯文本长日志、下载/包事务预览/授权取消及完成待重开；不再验收已删除的 AUR 提示。IPC mock 不执行真实 Pacman。Windows 原生 Node 套件使用 WebView2 和 WinGet 夹具，不在 Linux 强行移植整套。alpha.1 历史短验收见[原始证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)，alpha.3 的历史环境及未测范围见[交接](v0.2.0-alpha.3/plan.md)。alpha.5 当前结果及限制见本版交接。
 
 Linux 图标历史取证见 [v0.1.8 证据](v0.1.8/manager-icon-evidence.json)，不证明 v0.2.0 的包入口已通过。当前不再由管理器生成用户 applications 或刷新旧入口；常规验证不得修改真实桌面/默认应用，Arch 包入口需在隔离系统安装后另验。
+
+原生 GTK/WebKit UI：先构建上述独立 debug ELF，再运行 `node scripts/test-linux-ui.mjs`；固定资产默认取本机 `.local/linux-v018/assets`，可由 MPVKIT_TEST_ASSETS 指定，MPVKIT_TEST_EXECUTABLE 可指定最终测试 ELF。测试创建私有根，覆盖独立组件/取消/一键补齐/解锁/配置安装、深浅主题、原生窗口截图及标题栏/外壳颜色和 alpha 一致。需要 Node、Python Pillow、Spectacle、qdbus6 和当前 KDE 会话；测试用按 PID 限定的临时 KWin 脚本激活自己的窗口，随即卸载，不修改合成器设置。请串行运行图形测试，保留测试窗口前台；焦点丢失应判测试失败，不能使用其他窗口的截图。`GTK_THEME=HighContrast node scripts/test-linux-ui.mjs` 复验无模糊实色路径。截图不能证明多屏 DPI 或物理拖动已通过。
 
 ## Windows 原生回归
 
@@ -83,7 +83,7 @@ Linux 图标历史取证见 [v0.1.8 证据](v0.1.8/manager-icon-evidence.json)�
 
 完整套件须显式提供 MPVKIT_TEST_ASSETS、MPVKIT_CORE_SOURCE（已经核验并提取的 WinGet MPV 包目录）与 MPVKIT_FFMPEG（固定摘要的研究用生成器）；可用 MPVKIT_TEST_EXECUTABLE 选择当前 EXE。脚本创建私有临时根，以本地 Rust fixture 模拟 WinGet，绝不执行真实安装器。缺少这些资源应记录未测，不能替换为任意系统工具绕过校验。来源、包版本/实际提交差异及边界见 [WinGet 证据](v0.1.8/evidence.md#winget-核心与控制台2026-10-26当前批)。
 
-本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。历史完整原生结果见 [alpha.1 交接](v0.2.0-alpha.1/plan.md)，本版结果见 [alpha.4 交接](v0.2.0-alpha.4/plan.md)。
+本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。历史完整原生结果见 [alpha.1 交接](v0.2.0-alpha.1/plan.md)，本版未完成的 Windows 原生项目见 [alpha.5 交接](v0.2.0-alpha.5/plan.md)。
 
 当前 Windows NSIS 已采用可见一键安装，默认位置固定、无向导；构建命令和来源见[安装器说明](../packaging/windows/README.md)。本地脱离系统写入的页面探针不是正式安装验收，不得直接在开发者真实环境执行正式安装器来代替隔离 VM/用户验证。
 
@@ -91,7 +91,7 @@ scripts/test-process.ps1、test-media-preferences.mjs、make-media-fixtures.mjs 
 
 ## 当前离线 UI 预览
 
-源码位于 docs/v0.1.6/preview，持续同步当前两页/品牌/组件动作；旧三页样机已删除。它只模拟状态，不调用 Tauri 或包管理器，不代替原生测试。
+源码位于 docs/v0.1.6/preview，渲染当前实际三页 App 并模拟状态；旧样机已删除。它不调用真实包管理器，不代替原生测试。
 
 ```sh
 node docs/v0.1.6/preview/build.mjs
@@ -110,7 +110,7 @@ node docs/v0.1.6/preview/check.mjs
 - scripts/verify-uosc-sources.py：固定本地源码归档；verify-uosc-icons.mjs：固定字体映射；verify-scroll-bar-license.py、collect-go-notices.py：对应来源/许可。先读参数及原证据，不把这些脚本删成“无人调用”。
 - scripts/rebuild-uosc-helper.py、inspect-uosc-buildinfo.mjs、compare-uosc-links.go：固定 helper 的构建/核验链；用途和未完成发布审阅在 [验收台账](v0.1.0/acceptance.md)。
 
-最新一次通过范围统一记在 [当前交接](v0.2.0-alpha.4/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
+最新一次通过范围统一记在 [当前交接](v0.2.0-alpha.5/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
 
 ## 更新与分发专项
 
@@ -124,4 +124,4 @@ Arch 包验收独立于默认单测：已有 dist 时，用 `pnpm tauri build --
 
 真正的 pacman 安装、同版重装、卸载及包入口验证在全新隔离系统根进行；先只装运行依赖，确认缺 MPV 仍可启动，再加入 MPV 与所需 Vulkan 驱动核验实际播放期保存。重装/卸载保留配置、未知文件和系统 MPV，不改变主机默认应用。隔离根引导所需的系统依赖缓存须验证来源与签名；初始化钩子/显示会话受容器限制的情况单独记录。无真实后继版时，同版重装不算跨版本升级；升级到下一 alpha 时再验。真实 polkit 授权和设备矩阵不以契约测试冒充通过。
 
-alpha.3：PR 的 Arch 容器运行 packaged_metadata_matches_pacman 显式测试，以及 scripts/test-arch-package.sh 的新隔离根载荷验收；后者 -dd/--noscriptlet 不验证依赖拉取、桌面会话或授权代理。当前 Windows 主机没有 Linux 发行版/桌面会话，Linux 构建和包检查以 CI 日志为准，实际桌面授权/跨版本重启仍待隔离 VM。
+alpha.3：PR 的 Arch 容器运行 packaged_metadata_matches_pacman 显式测试，以及 scripts/test-arch-package.sh 的新隔离根载荷验收；后者 -dd/--noscriptlet 不验证依赖拉取、桌面会话或授权代理。该段为 alpha.3 当时环境；本机 alpha.5 已具备 KDE Wayland，当前包与原生测试结果见 alpha.5 交接，实际系统授权/跨版本重启仍待隔离 VM。

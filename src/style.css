@@ -5,6 +5,10 @@ body { margin: 0; overflow: hidden; }
 .app-header,.sidebar { background: #f3f3f3; }
 .mantine-AppShell-root { background: #f3f3f3; min-height: 100dvh; }
 .sidebar .mantine-NavLink-root { position: relative; height: 40px; border-radius: 4px; margin-bottom: 4px; color: inherit; }
+.sidebar .mantine-NavLink-root:disabled { opacity:0.45; }
+.navigation-hint { padding:4px 12px; }
+.visually-hidden { position:absolute; width:1px; height:1px; padding:0; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
+.section > [data-component] { border-top:1px solid var(--mantine-color-default-border); }
 .sidebar .mantine-NavLink-root[data-active] { background: #00000008; }
 .sidebar .mantine-NavLink-root[data-active]::before { content: ''; position: absolute; width: 3px; height: 16px; left: 0; top: 12px; border-radius: 2px; background: var(--mantine-primary-color-filled); }
 .nav-icon { font-family: 'Segoe Fluent Icons', 'Segoe MDL2 Assets', sans-serif; font-size: 18px; width: 22px; text-align: center; }

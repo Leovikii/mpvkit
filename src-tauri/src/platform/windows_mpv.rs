@@ -369,6 +369,10 @@ fn check_exit(code: u32) -> Result<()> {
 }
 pub fn execute(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
     let _lock = crate::deploy::acquire(&super::default_root()?)?;
+    execute_locked(plan)
+}
+
+pub(crate) fn execute_locked(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
     let root = super::app_root()?;
     let player = player_path(&root)?;
     let stamp = if player.exists() {

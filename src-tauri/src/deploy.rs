@@ -337,6 +337,26 @@ pub fn prepare_install(
     replace_existing: bool,
     components: BTreeMap<String, String>,
 ) -> Result<DeploymentPlan> {
+    prepare_files(root, payloads, replace_existing, components, false)
+}
+
+// A component update keeps omitted files and their original ownership hashes, even when damaged.
+pub fn prepare_update(
+    root: &Path,
+    payloads: Vec<Payload>,
+    replace_existing: bool,
+    components: BTreeMap<String, String>,
+) -> Result<DeploymentPlan> {
+    prepare_files(root, payloads, replace_existing, components, true)
+}
+
+fn prepare_files(
+    root: &Path,
+    payloads: Vec<Payload>,
+    replace_existing: bool,
+    mut components: BTreeMap<String, String>,
+    preserve_omitted: bool,
+) -> Result<DeploymentPlan> {
     let old_text = manifest_text(root)?;
     if status(root)?.recovery_required {
         return Err(error("recovery_required", "有未完成操作，请先预览恢复。"));
@@ -361,6 +381,7 @@ pub fn prepare_install(
     let mut conflicts = Vec::new();
     let mut seen = BTreeSet::new();
     let mut total = 0u64;
+    let mut guards = Vec::new();
     for payload in payloads {
         let path = target(root, &payload.path)?;
         let key = payload.path.to_ascii_lowercase();
@@ -407,6 +428,11 @@ pub fn prepare_install(
         .filter(|f| !seen.contains(&f.path.to_ascii_lowercase()))
     {
         let before = file_hash(&target(root, &previous.path)?)?;
+        if preserve_omitted {
+            files.push((*previous).clone());
+            guards.push((root.join(&previous.path), before));
+            continue;
+        }
         if before.is_none() || before.as_deref() != Some(&previous.sha256) {
             continue;
         }
@@ -419,6 +445,11 @@ pub fn prepare_install(
         data.push(None);
     }
     files.sort_by(|a, b| a.path.cmp(&b.path));
+    if preserve_omitted && let Some(old) = &old {
+        let mut retained = old.components.clone();
+        retained.append(&mut components);
+        components = retained;
+    }
     let manifest = InstallManifest {
         schema_version: 1,
         owner: OWNER.into(),
@@ -434,7 +465,7 @@ pub fn prepare_install(
             .is_some_and(|m| m.files == manifest.files && m.components == manifest.components);
     let new_text = serde_json::to_string_pretty(&manifest)
         .map_err(|_| error("state_write", "无法生成安装记录。"))?;
-    make_plan(
+    let mut plan = make_plan(
         root,
         Journal {
             schema_version: 1,
@@ -448,7 +479,9 @@ pub fn prepare_install(
         conflicts,
         data,
         no_changes,
-    )
+    )?;
+    plan.guards.extend(guards);
+    Ok(plan)
 }
 
 pub(crate) fn read_bytes(path: &Path) -> Result<Vec<u8>> {
@@ -721,6 +754,9 @@ fn apply_change(root: &Path, journal: &Journal, index: usize) -> Result<()> {
 }
 
 impl DeploymentPlan {
+    pub(crate) fn validate(&self) -> Result<()> {
+        validate_plan(self)
+    }
     pub(crate) fn for_uninstall(mut self) -> Self {
         self.journal.new_manifest = None;
         self.preview.no_changes = self.journal.old_manifest.is_none();

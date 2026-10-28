@@ -718,3 +718,76 @@ fn failed_first_install_prunes_only_empty_generated_ancestors() {
     assert!(!root.join("scripts").exists());
     assert_clean(&root);
 }
+
+#[test]
+fn component_update_preserves_omitted_files_versions_and_original_ownership() {
+    let sandbox = Sandbox::new();
+    let root = sandbox.root();
+    let config = crate::config::relative!("mpv.conf");
+    let uosc = crate::config::relative!("scripts/uosc/main.lua");
+    let thumbfast = crate::config::relative!("scripts/thumbfast.lua");
+    execute(
+        prepare_install(
+            &root,
+            vec![
+                payload(config, "user settings"),
+                payload(uosc, "original uosc"),
+            ],
+            false,
+            BTreeMap::from([("uosc".into(), "old".into())]),
+        )
+        .unwrap(),
+    )
+    .unwrap();
+    let recorded = status(&root).unwrap().manifest.unwrap().files;
+    fs::write(root.join(uosc), "manual edit").unwrap();
+    let update = prepare_update(
+        &root,
+        vec![payload(thumbfast, "new thumbfast")],
+        false,
+        BTreeMap::from([("thumbfast".into(), "new".into())]),
+    )
+    .unwrap();
+    assert_eq!(update.preview.changes.len(), 1);
+    execute(update).unwrap();
+    let manifest = status(&root).unwrap().manifest.unwrap();
+    assert_eq!(manifest.components.get("uosc").unwrap(), "old");
+    assert_eq!(manifest.components.get("thumbfast").unwrap(), "new");
+    for file in recorded {
+        assert!(manifest.files.contains(&file));
+    }
+    assert_eq!(read(&root, config), "user settings");
+    assert_eq!(read(&root, uosc), "manual edit");
+    execute(prepare_uninstall(&root).unwrap()).unwrap();
+    assert_eq!(read(&root, uosc), "manual edit");
+    assert!(!root.join(thumbfast).exists());
+}
+
+#[test]
+fn component_update_rejects_changes_to_omitted_or_selected_files_after_preview() {
+    let sandbox = Sandbox::new();
+    let root = sandbox.root();
+    install(&root, "original");
+    let update = prepare_update(
+        &root,
+        vec![payload("new.conf", "new")],
+        false,
+        BTreeMap::new(),
+    )
+    .unwrap();
+    fs::write(
+        root.join(crate::config::relative!("mpv.conf")),
+        "changed after preview",
+    )
+    .unwrap();
+    assert_eq!(execute(update).unwrap_err().code, "stale_preview");
+    assert!(!root.join("new.conf").exists());
+    let selected = prepare_update(
+        &root,
+        vec![payload(crate::config::relative!("mpv.conf"), "replacement")],
+        false,
+        BTreeMap::new(),
+    )
+    .unwrap();
+    assert_eq!(execute(selected).unwrap_err().code, "file_conflict");
+}

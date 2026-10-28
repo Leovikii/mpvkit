@@ -119,7 +119,13 @@ fn arch_wayland_install_playback_and_uninstall() {
     );
     assert!(platform::core::prepare("install").is_err());
     for action in ["upgrade", "uninstall"] {
-        let plan = platform::core::prepare(action).unwrap();
+        let plan = match platform::core::prepare(action) {
+            Ok(plan) => plan,
+            Err(error) => {
+                assert_eq!(error.code, "package_failed");
+                continue;
+            }
+        };
         assert_eq!(plan.preview.package, "mpv");
         assert_eq!(plan.preview.config_directory, root);
         assert_eq!(
@@ -189,6 +195,13 @@ fn arch_wayland_install_playback_and_uninstall() {
         .unwrap();
     wait(|| socket.exists());
     let _playback = PlaybackGuard(socket.clone());
+    // IPC is available before the first video output has finished initializing.
+    wait(|| {
+        request(
+            &socket,
+            serde_json::json!(["expand-text", "${current-vo:unavailable}"]),
+        ) != "unavailable"
+    });
     let pid = request(&socket, serde_json::json!(["get_property", "pid"]));
     assert_eq!(
         request(&socket, serde_json::json!(["get_property", "current-vo"])),

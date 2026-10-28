@@ -117,7 +117,9 @@ pub fn environment() -> Environment {
     Environment {
         languages: system_languages(),
         dark: system_dark(),
-        high_contrast: theme.to_lowercase().contains("highcontrast"),
+        high_contrast: theme.to_lowercase().contains("highcontrast")
+            || std::env::var("GTK_THEME")
+                .is_ok_and(|name| name.to_lowercase().contains("highcontrast")),
         material_allowed: false,
     }
 }

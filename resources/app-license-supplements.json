@@ -108,6 +108,15 @@
       "size": 10174,
       "sha256": "0d542e0c8804e39aa7f37eb00da5a762149dc682d7829451287e11b938e94594",
       "evidence": "发布包 .cargo_vcs_info.json 固定提交的工作区根许可证原文。"
+    },
+    {
+      "id": "cargo:wayland-protocols@0.32.13",
+      "file": "ext-background-effect-MIT.txt",
+      "url": "https://github.com/Smithay/wayland-rs/blob/661cf141f5de4ec83559125b3d8bb1c79f25116b/wayland-protocols/protocols/staging/ext-background-effect/ext-background-effect-v1.xml",
+      "commit": "661cf141f5de4ec83559125b3d8bb1c79f25116b",
+      "size": 1269,
+      "sha256": "412133b707f315f3a94b5fac292e8c673ac1a57f52cf6133de8ebf7d1f2a5729",
+      "evidence": "锁定 crate 内 ext_background_effect_v1 XML 的 copyright 原文，保留生成协议绑定的版权与许可。"
     }
   ]
 }

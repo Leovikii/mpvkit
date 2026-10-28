@@ -408,6 +408,29 @@ pub fn prepare_install(
     cancel: &AtomicBool,
     progress: &mut impl FnMut(Progress),
 ) -> Result<deploy::DeploymentPlan> {
+    let ids = ASSETS
+        .iter()
+        .map(|asset| asset.id.to_string())
+        .collect::<Vec<_>>();
+    prepare_selected(root, &ids, replace_existing, cancel, progress)
+}
+
+pub fn prepare_selected(
+    root: &std::path::Path,
+    ids: &[String],
+    replace_existing: bool,
+    cancel: &AtomicBool,
+    progress: &mut impl FnMut(Progress),
+) -> Result<deploy::DeploymentPlan> {
+    if ids.is_empty()
+        || ids.len() > ASSETS.len()
+        || ids.iter().collect::<BTreeSet<_>>().len() != ids.len()
+        || ids
+            .iter()
+            .any(|id| !ASSETS.iter().any(|asset| asset.id == id))
+    {
+        return Err(error("component_unknown", "请选择有效的组件。"));
+    }
     // Inspect ownership and interrupted operations before fetching anything.
     if crate::deploy::status(root)?.recovery_required {
         return Err(AppError::new(
@@ -420,18 +443,10 @@ pub fn prepare_install(
     let mut versions = std::collections::BTreeMap::new();
     let player = crate::config::player_path(root)?;
     let player_hash = deploy::file_hash(&player)?;
+    for asset in ASSETS
+        .iter()
+        .filter(|asset| ids.iter().any(|id| id == asset.id))
     {
-        let player = crate::config::player_path(root)?;
-        let info = crate::mpv::inspect(&player).map_err(|_| {
-            error(
-                "system_mpv_required",
-                "请先使用系统包管理器安装或修复 mpv，再安装播放增强。",
-            )
-        })?;
-        crate::mpv::ensure_managed_options(&player)?;
-        versions.insert("mpv".into(), info.version);
-    }
-    for asset in crate::components::ASSETS {
         let bytes = acquire(asset, cancel, progress)?;
         progress(Progress {
             component: asset.id.into(),
@@ -443,30 +458,6 @@ pub fn prepare_install(
         versions.insert(asset.id.into(), asset.version.into());
     }
     payloads.extend(license_materials());
-    payloads.extend(crate::config::runtime_files()?);
-    let state_path = root.join(".mpvkit/settings.json");
-    let state_hash = deploy::file_hash(&state_path)?;
-    let mut state = crate::config::portable::read_state(root)?;
-    state.manual_config |= crate::config::modified(root)?;
-    payloads.push(Payload {
-        path: ".mpvkit/settings.json".into(),
-        bytes: serde_json::to_vec_pretty(&state)
-            .map_err(|_| error("settings_encode", "无法生成设置。"))?,
-    });
-    if let Some(m) = deploy::status(root)?.manifest {
-        for f in &m.files {
-            if crate::config::editable(&f.path) {
-                // Do not recreate missing user configuration during component updates.
-                payloads.retain(|p| p.path != f.path);
-                if deploy::file_hash(&root.join(&f.path))?.is_some() {
-                    payloads.push(Payload {
-                        path: f.path.clone(),
-                        bytes: deploy::read_bytes(&root.join(&f.path))?,
-                    });
-                }
-            }
-        }
-    }
     if cancel.load(std::sync::atomic::Ordering::Relaxed) {
         return Err(AppError::new(
             "cancelled",
@@ -474,9 +465,10 @@ pub fn prepare_install(
             "components",
         ));
     }
-    let mut plan = crate::deploy::prepare_install(root, payloads, replace_existing, versions)?;
-    plan.guard(state_path, state_hash);
-    plan.guard(player, player_hash);
+    let mut plan = deploy::prepare_update(root, payloads, replace_existing, versions)?;
+    if player_hash.is_some() {
+        plan.guard(player, player_hash);
+    }
     Ok(plan)
 }
 
