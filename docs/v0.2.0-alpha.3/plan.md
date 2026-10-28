@@ -178,6 +178,6 @@ alpha.3 不为旧 alpha 留兼容桥。旧 alpha.1、alpha.2、updates 的 Relea
 
 最终 Windows EXE 原生回归 4/4 通过（115570ms）：更新、WinGet、设置页、预编辑/保存/过期保护；远端 CI 结果继续补充。截图在 .local/e2e-artifacts/ 与 .local/ui-v016/，已目视检查进度、固定操作区和完成状态。测试全用隔离配置根，未调用真实系统安装器/包管理器。
 
-当前主机没有 Linux 发行版/图形会话，Linux Rust、makepkg、Pacman 事务和隔离根载荷检查由 PR/Release 的 Arch 容器执行。隔离包测试 --nodeps/--noscriptlet 只验证文件及包数据库，不代表首次依赖拉取、Polkit/KDE Wayland 或跨版本重启；Windows 真实 NSIS 跨版本安装也未在隔离用户/VM 实测。不重跑与本版无关的完整播放/HDR 矩阵。
+当前主机没有 Linux 发行版/图形会话，Linux Rust、makepkg、Pacman 事务和隔离根载荷检查由 PR/Release 的 Arch 容器执行。隔离包测试 -dd/--noscriptlet 只验证文件及包数据库，不代表首次依赖拉取、Polkit/KDE Wayland 或跨版本重启；Windows 真实 NSIS 跨版本安装也未在隔离用户/VM 实测。不重跑与本版无关的完整播放/HDR 矩阵。
 
 远端状态：旧 Release/tag 均为空已复核；初次实现已提交 f8a0bd7 并推送 dev，[PR #8](https://github.com/Leovikii/mpvkit/pull/8) 检查中。用户随后要求仅保留按钮进度、精简按钮及修正图标错位，已同步产品/预览。最终 Windows 原生更新专项通过（17073ms），检查加载图标与文字中心差小于 1px、42% 时无残留 Loader/独立进度条；最终截图已目视复核。最终 CI、公开 alpha.3 及 dev/main 同步结果待补充。

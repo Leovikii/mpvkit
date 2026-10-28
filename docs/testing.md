@@ -122,4 +122,4 @@ Arch 包验收独立于默认单测：已有 dist 时，用 `pnpm tauri build --
 
 真正的 pacman 安装、同版重装、卸载及包入口验证在全新隔离系统根进行；先只装运行依赖，确认缺 MPV 仍可启动，再加入 MPV 与所需 Vulkan 驱动核验实际播放期保存。重装/卸载保留配置、未知文件和系统 MPV，不改变主机默认应用。隔离根引导所需的系统依赖缓存须验证来源与签名；初始化钩子/显示会话受容器限制的情况单独记录。无真实后继版时，同版重装不算跨版本升级；升级到下一 alpha 时再验。真实 polkit 授权和设备矩阵不以契约测试冒充通过。
 
-alpha.3：PR 的 Arch 容器运行 packaged_metadata_matches_pacman 显式测试，以及 scripts/test-arch-package.sh 的新隔离根载荷验收；后者 --nodeps/--noscriptlet 不验证依赖拉取、桌面会话或授权代理。当前 Windows 主机没有 Linux 发行版/桌面会话，Linux 构建和包检查以 CI 日志为准，实际桌面授权/跨版本重启仍待隔离 VM。
+alpha.3：PR 的 Arch 容器运行 packaged_metadata_matches_pacman 显式测试，以及 scripts/test-arch-package.sh 的新隔离根载荷验收；后者 -dd/--noscriptlet 不验证依赖拉取、桌面会话或授权代理。当前 Windows 主机没有 Linux 发行版/桌面会话，Linux 构建和包检查以 CI 日志为准，实际桌面授权/跨版本重启仍待隔离 VM。
