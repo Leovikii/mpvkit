@@ -189,3 +189,5 @@ Arch 正式构建也通过相同包检查，以及 desktop-file-validate、reade
 发布：[Release workflow 全部通过](https://github.com/Leovikii/mpvkit/actions/runs/40626291588)，[v0.2.0-alpha.3](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-alpha.3) 从创建起 draft=false / prerelease=true，tag 固定 f8fd53e。六项资产均已匿名下载、核对 GitHub digest/SHA256SUMS 与 manifest 契约；发布日志确认两个正式 Minisign 签名均通过。Windows 包 SHA-256 为 54c297af397f2053bb9932c06db3ba07352c9f16d3fc0aac9ae01e107a3f67be，Arch 包为 477f0322ab17726e583a2099189c00f212ec03486b88d58e86887e6c3864d54e。当前仅保留 alpha.3 的 Release/tag；历史证据未删除。
 
 本批代码与发布已完成，收尾只合并这份验证记录并同步 dev/main。下一任务是隔离 Windows 用户/VM 的真实 NSIS 跨版本安装，以及 Arch/CachyOS KDE Wayland 的 Polkit 授权、首次依赖获取和跨版本重启；不把本轮包载荷/回环/IPC mock 验证当成这些实测。
+
+2026-10-28 后续接续：上述记录已进入 dev（本轮调查基线 `0499a4a`）。用户已要求设计 [alpha.4](../v0.2.0-alpha.4/plan.md)，优先处理本机 `mpv_ambiguous` 误判及更新确认/进度；[只读调查](../v0.2.0-alpha.4/evidence.md)已复现同一 MPV 路径因分隔符不同而误报。alpha.4 已获本轮单独实施及推送/合并授权，采用同窗独立进度和标准按钮替代本版按钮背景进度；新结果只记入 alpha.4 交接。alpha.3 的已发布事实和上述真实安装未测范围继续保留，授权不延伸到 alpha.4。

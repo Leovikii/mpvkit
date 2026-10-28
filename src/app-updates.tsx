@@ -1,7 +1,8 @@
-import { Alert, Button, Group, Loader, Modal, Switch, Text } from "@mantine/core";
+import { Alert, Button, Group, Modal, Switch, Text } from "@mantine/core";
 import { Channel, invoke } from "@tauri-apps/api/core";
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState } from "react";
 import { errorKey, translator } from "./i18n";
+import { TaskProgress } from "./task-progress";
 
 type Available = { id: string; version: string; notes: string; date: string | null; method: "installer" | "pacman" };
 type Check = { status: "noRelease" | "current" | "available"; update: Available | null };
@@ -17,15 +18,17 @@ export function useAppUpdates(props: {
   const [result, setResult] = useState<Check | null>(null), [progress, setProgress] = useState<Progress | null>(null);
   const [prepared, setPrepared] = useState<Prepared | null>(null), [problem, setProblem] = useState<unknown>(null);
   const [completed, setCompleted] = useState(false);
+  const active = useRef(false);
   const generation = useRef(0), started = useRef(false), current = useRef(props); current.current = props;
-  async function check() {
+  async function check(keepShown = false) {
     started.current = true; const token = ++generation.current;
-    setChecking(true); setFailed(false); setResult(null); setShown(false); setPrepared(null); setProblem(null);
+    setChecking(true); setFailed(false); setPrepared(null); setProblem(null);
+    if (!keepShown) { setResult(null); setShown(false); }
     try {
       const response = await invoke<Check>("check_app_update", { preview: current.current.previews });
       if (token !== generation.current) return;
       setResult(response); setShown(!!response.update);
-    } catch { if (token === generation.current) setFailed(true); }
+    } catch { if (token === generation.current) { setFailed(true); if (keepShown) setProblem({code:"update_network"}); } }
     finally { if (token === generation.current) setChecking(false); }
   }
   useEffect(() => {
@@ -39,26 +42,35 @@ export function useAppUpdates(props: {
     await props.save(enabled);
   }
   const update = result?.update, running = progress !== null;
-  const dismiss = () => { if (!running) setShown(false); };
+  const dismiss = () => {
+    if (active.current) return;
+    setShown(false);
+    if (prepared || problem) {
+      setPrepared(null); setResult(null);
+      void invoke("discard_app_update").catch(() => {});
+    }
+  };
   async function install() {
-    if (!update || props.blocked || props.dirty || running || completed) return;
+    if (!update || props.blocked || props.dirty || active.current || completed) return;
+    active.current = true;
     setProblem(null);
-    const preparing = update.method === "pacman" && !prepared;
-    setProgress({ phase: preparing || update.method === "installer" ? "download" : "install", percent: null });
-    const channel = new Channel<Progress>(); channel.onmessage = setProgress;
+    const preparing = !prepared;
+    setProgress({ phase: preparing ? "download" : "install", percent: null });
+    let receiving = true;
+    const channel = new Channel<Progress>(); channel.onmessage = value => { if (receiving) setProgress(value); };
     try {
       await props.operation(async () => {
         if (preparing) setPrepared(await invoke<Prepared>("prepare_app_update", { id: update.id, onProgress: channel }));
         else {
           await invoke("install_app_update", { id: update.id, onProgress: channel });
-          if (update.method === "pacman") { setCompleted(true); setPrepared(null); }
+          setCompleted(true); setPrepared(null);
         }
       });
     } catch (cause) { setProblem(cause); setPrepared(null); }
-    finally { setProgress(null); }
+    finally { receiving = false; active.current = false; setProgress(null); }
   }
   const status = completed ? t("updateComplete") : failed ? t("updateCheckFailed") : result?.status === "noRelease" ? t("noStableRelease") : result?.status === "current" ? t("upToDate") : update ? t("newAppVersion", { version: update.version }) : "";
-  const phaseText = progress?.phase === "verify" ? t("verifyingUpdate") : progress?.phase === "prepare" ? t("preparingUpdate") : progress?.phase === "install" ? t(update?.method === "pacman" ? "authorizingUpdate" : "installingUpdate") : progress?.percent != null ? t("downloadingPercent", { percent: progress.percent }) : t("downloadingUpdate");
+  const phaseText = progress?.phase === "verify" ? t("verifyingUpdate") : progress?.phase === "prepare" ? t("preparingUpdate") : progress?.phase === "install" ? t(update?.method === "pacman" ? "authorizingUpdate" : "installingUpdate") : t("downloadingUpdate");
   const date = update?.date ? new Date(update.date) : null;
   const about = <>
     <div className="setting-row update-setting update-check-row">
@@ -73,7 +85,7 @@ export function useAppUpdates(props: {
       <div className="row-control"><Switch id="preview-update-switch" aria-labelledby="preview-update-label" checked={props.previews} disabled={!props.desktop || props.saving || running || completed || props.blocked} onChange={event => void previews(event.currentTarget.checked)} /></div>
     </div>
   </>;
-  const dialog = <Modal opened={shown && (!props.blocked || running)} onClose={dismiss} title={t("appUpdate")} size={560} centered radius={8} padding={0} closeButtonProps={{ "aria-label": t("close") }} closeOnEscape={!running} closeOnClickOutside={!running} withCloseButton={!running} classNames={{ content: "update-dialog-content", header: "update-dialog-header", title: "update-dialog-title", body: "update-dialog-body" }}>
+  const dialog = <Modal opened={shown && (!props.blocked || running)} onClose={dismiss} title={t("appUpdate")} size={560} centered radius={8} padding={0} closeButtonProps={{ "aria-label": t("close") }} closeOnEscape={!running} closeOnClickOutside={!running} withCloseButton={!running&&!completed&&problem==null} classNames={{ content: "update-dialog-content", header: "update-dialog-header", title: "update-dialog-title", body: "update-dialog-body" }}>
     {update && <>
       <div className="update-dialog-scroll">
         <Text fw={500}>{props.version} → {update.version}</Text>
@@ -86,10 +98,13 @@ export function useAppUpdates(props: {
         {problem != null && <Alert color={errorKey(problem) === "updateCancelled" ? "gray" : "red"} mt="md" role={errorKey(problem) === "updateCancelled" ? "status" : "alert"}>{t(errorKey(problem))}</Alert>}
         {completed && <Alert color="green" mt="md" role="status">{t("updateComplete")}</Alert>}
       </div>
+      <div className="task-footer">
+      {checking ? <TaskProgress label={t("checkingUpdate")} percent={null} /> : progress && <TaskProgress label={phaseText} percent={progress.percent} />}
       <Group className="update-dialog-actions" justify="flex-end" gap={8}>
-        {!completed && (problem != null ? <Button type="button" onClick={() => void check()}>{t("checkUpdates")}</Button> : running ? <Button component="div" role="progressbar" tabIndex={0} aria-label={phaseText} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent ?? undefined} aria-valuetext={phaseText} aria-live={progress.percent === null ? "polite" : "off"} data-disabled className="update-progress-button" classNames={{label:"update-action-label"}} style={{ "--update-percent": `${progress.percent ?? 0}%` } as CSSProperties} leftSection={progress.percent === null ? <Loader size={14} color="currentColor" aria-hidden /> : undefined}>{phaseText}</Button> : <Button type="button" classNames={{label:"update-action-label"}} disabled={props.dirty || props.blocked || running || props.saving} onClick={() => void install()}>{t(prepared ? "installUpdate" : "downloadUpdate")}</Button>)}
+        {!completed && (problem != null ? <Button type="button" disabled={checking} onClick={() => void check(true)}>{t("checkUpdates")}</Button> : <Button type="button" disabled={checking || props.dirty || props.blocked || running || props.saving} onClick={() => void install()}>{t(prepared ? "installUpdate" : "downloadUpdate")}</Button>)}
         <Button type="button" variant="default" data-autofocus disabled={running} onClick={dismiss}>{t(completed ? "close" : "later")}</Button>
       </Group>
+      </div>
     </>}
   </Modal>;
   return { about, dialog };

@@ -1,6 +1,8 @@
 # 本地开发与测试入口
 
-当前 v0.2.0-alpha.3，更新：2026-10-28。先读 [AGENTS](../AGENTS.md)、[当前交接](v0.2.0-alpha.3/plan.md) 与 [目录边界](current.md#当前目录)。本页不授权真实用户配置/默认应用/包管理器写入；用户已允许本版 CI/CD、NSIS 和 Arch 包构建；分发配置与隔离验证边界见交接。无历史版兼容/迁移，不执行历史 NSIS 测试。
+当前 v0.2.0-alpha.4，更新：2026-10-28。先读 [AGENTS](../AGENTS.md)、[当前交接](v0.2.0-alpha.4/plan.md) 与 [目录边界](current.md#当前目录)。本页不授权真实用户配置/默认应用/包管理器写入；用户已允许本版 CI/CD、NSIS 和 Arch 包构建；分发配置与隔离验证边界见交接。无历史版兼容/迁移，不执行历史 NSIS 测试。
+
+alpha.4 已获实施与推送/合并授权；[设计与测试矩阵](v0.2.0-alpha.4/plan.md#测试与验收)及[本机问题与本版证据](v0.2.0-alpha.4/evidence.md)记录混合分隔符、一次确认、同窗进度/错误、焦点及标准按钮回归。历史通过结果不代表本版通过。
 
 ## 工具与最小检查
 
@@ -71,7 +73,7 @@ arch_wayland_extended_window_and_render_matrix -- --ignored --nocapture
 
 扩展覆盖五档宽度、1080p/4K/竖屏/超宽、自定义 autofit、音频切视频、最大化/全屏启动及完整九组合。两个图形入口分别运行，不用 `--ignored` 一次启用所有在线/设备验收。失败保留根和日志，修复后只重跑受影响入口。
 
-Linux GUI 短验收使用当前 debug 程序、新隔离数据根和固定更新 JSON：两页基本操作、语言/深浅色、启动仅检查一次、预览默认关闭与切换后重查、错误重试、纯文本长日志、稍后/重开、AUR 已发布/未发布提示；确认无安装更新按钮或 helper 调用。Windows 原生 Node 套件使用 WebView2 和 WinGet 夹具，不在 Linux 强行移植整套。实际本轮命令、短验收脚本与结果位置见[当前证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)。
+Linux GUI 短验收使用当前 debug 程序、新隔离数据根和固定更新 JSON：两页基本操作、语言/深浅色、启动仅检查一次、预览默认关闭与切换后重查、错误重试、纯文本长日志、下载/包事务预览/授权取消及完成待重开；不再验收已删除的 AUR 提示。IPC mock 不执行真实 Pacman。Windows 原生 Node 套件使用 WebView2 和 WinGet 夹具，不在 Linux 强行移植整套。alpha.1 历史短验收见[原始证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)，alpha.3 的历史环境及未测范围见[交接](v0.2.0-alpha.3/plan.md)。alpha.4 当前结果及限制见本版交接。
 
 Linux 图标历史取证见 [v0.1.8 证据](v0.1.8/manager-icon-evidence.json)，不证明 v0.2.0 的包入口已通过。当前不再由管理器生成用户 applications 或刷新旧入口；常规验证不得修改真实桌面/默认应用，Arch 包入口需在隔离系统安装后另验。
 
@@ -81,7 +83,7 @@ Linux 图标历史取证见 [v0.1.8 证据](v0.1.8/manager-icon-evidence.json)�
 
 完整套件须显式提供 MPVKIT_TEST_ASSETS、MPVKIT_CORE_SOURCE（已经核验并提取的 WinGet MPV 包目录）与 MPVKIT_FFMPEG（固定摘要的研究用生成器）；可用 MPVKIT_TEST_EXECUTABLE 选择当前 EXE。脚本创建私有临时根，以本地 Rust fixture 模拟 WinGet，绝不执行真实安装器。缺少这些资源应记录未测，不能替换为任意系统工具绕过校验。来源、包版本/实际提交差异及边界见 [WinGet 证据](v0.1.8/evidence.md#winget-核心与控制台2026-10-26当前批)。
 
-本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。历史完整原生结果见 [alpha.1 交接](v0.2.0-alpha.1/plan.md)，本版结果见 [alpha.2 交接](v0.2.0-alpha.3/plan.md)。
+本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。历史完整原生结果见 [alpha.1 交接](v0.2.0-alpha.1/plan.md)，本版结果见 [alpha.4 交接](v0.2.0-alpha.4/plan.md)。
 
 当前 Windows NSIS 已采用可见一键安装，默认位置固定、无向导；构建命令和来源见[安装器说明](../packaging/windows/README.md)。本地脱离系统写入的页面探针不是正式安装验收，不得直接在开发者真实环境执行正式安装器来代替隔离 VM/用户验证。
 
@@ -108,7 +110,7 @@ node docs/v0.1.6/preview/check.mjs
 - scripts/verify-uosc-sources.py：固定本地源码归档；verify-uosc-icons.mjs：固定字体映射；verify-scroll-bar-license.py、collect-go-notices.py：对应来源/许可。先读参数及原证据，不把这些脚本删成“无人调用”。
 - scripts/rebuild-uosc-helper.py、inspect-uosc-buildinfo.mjs、compare-uosc-links.go：固定 helper 的构建/核验链；用途和未完成发布审阅在 [验收台账](v0.1.0/acceptance.md)。
 
-最新一次通过范围统一记在 [当前交接](v0.2.0-alpha.3/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
+最新一次通过范围统一记在 [当前交接](v0.2.0-alpha.4/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
 
 ## 更新与分发专项
 
@@ -116,7 +118,7 @@ Windows 原生套件覆盖启动一次、预览偏好、无稳定版、失败重
 
 布局专项覆盖 WinUI 3 对齐、640/1040 宽、200% 字号、深浅色、长日志滚动/固定操作区与焦点锁，截图只留 .local。独立预览同步当前界面，不能代替系统包或实际更新安装验收。
 
-分发脚本命令与工作流见 [CI/CD 审阅说明](ci/README.md)。前轮 Windows 环境只运行 release.test.mjs 的资源/配方契约与 Rust 包参数测试，不能作为 Arch 实测。本轮在 CachyOS/KDE Wayland 完成的编译、makepkg、原生 GUI/播放和隔离 pacman 验收见[当前证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)。
+分发脚本命令与工作流见 [CI/CD 审阅说明](ci/README.md)。前轮 Windows 环境只运行 release.test.mjs 的资源/配方契约与 Rust 包参数测试，不能作为 Arch 实测。历史 alpha.1 在 CachyOS/KDE Wayland 完成的编译、makepkg、原生 GUI/播放和隔离 pacman 验收见[当前证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)。
 
 Arch 包验收独立于默认单测：已有 dist 时，用 `pnpm tauri build --no-bundle --config '{"build":{"beforeBuildCommand":""}}'` 构建一次 release，再以非 root 用户运行 `node scripts/release.mjs arch <新输出目录>`。makepkg 仅封装，不二次编译 Rust。核验 vercmp、desktop-file-validate、readelf、namcap 与许可/资源清单；namcap 警告逐项说明，不只看退出码。debug 隔离测试和 release 包验收各自有用途，不用测试覆写替代 release 的原生用户目录行为。
 

@@ -11,3 +11,5 @@
 2026-10-22：补充 [Transition](core-transition.md) 与 [useReducedMotion](hooks-use-reduced-motion.md)。核对 9.7.3 的 fade-up、duration/exitDuration、respectReducedMotion 及 Collapse/Transition 实现；官方 Transition 主要用于固定/绝对定位的呈现，不把它当通用布局动画引擎。
 
 2026-10-28：补充 Loader 正文，核对固定 9.7.3 的 size/color 及 Button leftSection，用标准布局显示行内加载指示。
+
+2026-10-28：补充 [Progress 正文](core-progress.md)，核对固定 9.7.3 的 value、aria-valuenow/label 及尺寸 API。确定进度使用独立 Progress，未知阶段继续使用 Loader；原始字节与摘要见 snapshot.json。

@@ -2,7 +2,7 @@
 
 A simple interface for installing, configuring and updating MPV on **Windows x64** and **Arch Linux / CachyOS x86_64 (KDE Wayland)**.
 
-Current version: **0.2.0-alpha.3**, an early preview.
+Current version: **0.2.0-alpha.4**, an early preview.
 
 ## Features
 
@@ -22,14 +22,14 @@ Download packages from [Releases](https://github.com/Leovikii/mpvkit/releases). 
 **Arch Linux / CachyOS:** Download `mpvkit-bin-<version>-<release>-x86_64.pkg.tar.zst` from Releases and install it with Pacman. For the current preview:
 
 ```sh
-sudo pacman -U ./mpvkit-bin-0.2.0alpha3-1-x86_64.pkg.tar.zst
+sudo pacman -U ./mpvkit-bin-0.2.0alpha4-1-x86_64.pkg.tar.zst
 ```
 
 Launch MpvKit from the application menu. Install the MPV core through the app if needed; package operations require polkit authorization. For future updates, open **App settings → About → Check for updates**. MpvKit downloads and verifies the package, shows the installation preview, then requests system authorization for Pacman. Regular `pacman -Syu` does not update this locally installed package.
 
-Both platforms show download progress in the app. Preview updates require **Include preview releases**. Linux updates require a system installation managed by Pacman; close and reopen MpvKit after installation.
+Both platforms keep download progress, installation and results in one dialog, with one confirmation before installation. Preview updates require **Include preview releases**. Linux updates require a system installation managed by Pacman; close and reopen MpvKit after installation.
 
-For a single download, checksum and installation command, see the [release notes](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-alpha.3). Packages use Tauri update signatures; these are not Pacman OpenPGP signatures. Custom systems requiring signed local packages need a trusted OpenPGP signature; MpvKit does not change that policy.
+For a single download, checksum and installation command, see the [release notes](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-alpha.4). Packages use Tauri update signatures; these are not Pacman OpenPGP signatures. Custom systems requiring signed local packages need a trusted OpenPGP signature; MpvKit does not change that policy.
 
 After saving your settings, open media with system MPV as usual. MpvKit does not change your default player.
 

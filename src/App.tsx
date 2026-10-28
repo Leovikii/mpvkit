@@ -6,6 +6,7 @@ import { listen } from "@tauri-apps/api/event";
 import { Channel, invoke, isTauri } from "@tauri-apps/api/core";
 import { errorKey, resolveLocale, translator, type Key } from "./i18n";
 import { defaultAppSettings, defaultSettings, type AppSettings, type Asset, type ConfigurationPreview, type CorePreview, type DraftRequest, type Deployment, type Environment, type Preview, type Progress, type Report, type Settings } from "./types";
+import { TaskProgress } from "./task-progress";
 import { useAppUpdates } from "./app-updates";
 import logo from "./assets/mpv.svg";
 import { enhancementAction } from "./component-actions";
@@ -39,6 +40,10 @@ export function App() {
   const [notice, setNotice] = useState<Key | null>(null);
   const [maintenanceAction, setMaintenanceAction] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
+  const [taskDone, setTaskDone] = useState(false);
+  const [taskTitle, setTaskTitle] = useState<Key>("preview");
+  const [executing, setExecuting] = useState(false);
+  const retryPreview = useRef<(() => Promise<void>) | null>(null);
   const previewOrigin = useRef<HTMLElement | null>(null);
   const previewWasOpen = useRef(false);
   const [closing,setClosing] = useState(false);
@@ -142,80 +147,73 @@ export function App() {
     });
     return () => { void listening.then(unlisten=>unlisten()); };
   },[]);
-  const saveLabel: Key = report?.componentsReady ? "saveConfig" : report?.generation ? "repairAndSave" : "installAndSave";
+  const saveLabel: Key = "saveConfig";
   const time = (value: number | null) => value === null ? t("unreadableTime") : new Intl.DateTimeFormat(locale,{dateStyle:"medium",timeStyle:"medium"}).format(new Date(value));
   async function prepareSettings(readOnly = false) {
+    retryPreview.current = () => prepareSettings(readOnly);
+    setTaskDone(false); setExecuting(false); setTaskTitle(readOnly ? "previewConfig" : "saveConfig");
     await run(async () => {
+      setPreview({kind:"download",data:null});
       const data = await invoke<ConfigurationPreview>("preview_configuration",{settings:draft,replaceManual:true});
       setConfiguration(data); setSelectedFile(data.files[0].path);
       request.current = {settings:draft,replaceManual:true,expectedFingerprint:data.fingerprint};
-      if (!readOnly && report?.componentsReady) {
+      if (!readOnly) {
         setPreview({kind:"playback",data:await invoke<Deployment>("preview_settings",request.current)});
       } else setPreview({kind:"configuration",data,readOnly});
     });
   }
-  async function core(action: string) { await run(async()=>setPreview({kind:"core",data:await invoke<CorePreview>("preview_core",{action}),continueInstall:false})); }
+  async function core(action: string) {
+    retryPreview.current = () => core(action); setTaskDone(false); setExecuting(false);
+    setTaskTitle(action === "install" ? "installCore" : action === "upgrade" ? "upgradeCore" : "uninstallCore");
+    await run(async()=> { setPreview({kind:"download",data:null}); setPreview({kind:"core",data:await invoke<CorePreview>("preview_core",{action})}); });
+  }
   async function checkCoreUpdate() {
     await run(async () => {
       await refresh();
       setCoreUpdate(await invoke<boolean>("check_core_update"));
     });
   }
-  function installOnly() { request.current = null; setConfiguration(null); setPreview({kind:"download",data:null}); }
-  async function download() {
-    if (!report?.playerInstalled) {
-      setPreview({kind:"core",data:await invoke<CorePreview>("preview_core",{action:"install"}),continueInstall:true});
-      return;
-    }
-    await downloadEnhancements();
-  }
-  async function downloadEnhancements(current = report) {
-    if (current && !enhancementAction(current, assets)) {
-      if (request.current) setPreview({kind:"playback",data:await invoke<Deployment>("preview_settings",request.current)});
-      else { setPreview(null); setNotice("done"); }
-      return;
-    }
-    setPreview(null); setProgress({component:"uosc",phase:"download",received:0,total:0});
-    const channel = new Channel<Progress>();
-    channel.onmessage = p => setProgress(p);
-    try {
-      // Component-only installation never applies the draft.
-      setPreview({kind:"install",data:await invoke<Deployment>("preview_install",{replaceExisting:true,onProgress:channel})});
-    } finally { setProgress(null); }
+  async function installOnly() {
+    request.current = null; setConfiguration(null); retryPreview.current = installOnly;
+    setTaskDone(false); setExecuting(false); setTaskTitle(enhancementAction(report,assets) ?? "installOnly");
+    await run(async () => {
+      setPreview({kind:"download",data:null});
+      setProgress({component:"",phase:"prepare",received:0,total:0});
+      let receiving = true;
+      const channel = new Channel<Progress>(); channel.onmessage = p => { if (receiving) setProgress(p); };
+      try { setPreview({kind:"install",data:await invoke<Deployment>("preview_install",{replaceExisting:true,onProgress:channel})}); }
+      finally { receiving = false; setProgress(null); }
+    });
   }
   async function maintenance(action: string) {
+    retryPreview.current = () => maintenance(action); setTaskDone(false); setExecuting(false);
+    setTaskTitle(({uninstall:"uninstall", "reset-config":"resetConfig",recover:"recover"} as Record<string,Key>)[action]);
     setMaintenanceAction(action);
-    await run(async () => setPreview({kind:"maintenance",data:await invoke<Deployment>("preview_maintenance",{action})}));
+    await run(async () => { setPreview({kind:"download",data:null}); setPreview({kind:"maintenance",data:await invoke<Deployment>("preview_maintenance",{action})}); });
   }
+  async function diagnostics() {
+    retryPreview.current = diagnostics; setTaskDone(false); setExecuting(false); setTaskTitle("diagnostics");
+    await run(async () => { setPreview({kind:"download",data:null}); setPreview({kind:"diagnostics",data:await invoke("preview_diagnostics",{destination:exportPath})}); });
+  }
+  function dismissTask() { if (!busyRef.current) { setPreview(null); setTaskDone(false); setError(null); } }
   async function confirmPreview() {
     const pending = preview; if (!pending) return;
     await run(async () => {
+      setExecuting(true);
       if (pending.kind === "core") {
         await invoke("apply_core",{previewId:pending.data.id});
-        const current = await refresh();
-        setPreview(null);
-        if (pending.continueInstall && current?.components.some(c=>c.id==="mpv"&&c.ready)) {
-          await downloadEnhancements(current);
-        } else setNotice("done");
-        return;
+        await refresh(); setTaskDone(true); return;
       }
-      if (pending.kind === "download" || pending.kind === "configuration") {
-        await download(); return;
-      }
+      if (pending.kind === "download" || pending.kind === "configuration") return;
       if (pending.kind === "diagnostics") await invoke("export_diagnostics",{previewId:pending.data.id});
       else await invoke("apply_deployment",{previewId:pending.data.id});
       await refresh();
-      if (pending.kind === "install" && request.current) {
-        // Rebuild after installation; the backend rejects changed input files.
-        setPreview({kind:"playback",data:await invoke<Deployment>("preview_settings",request.current)});
-        return;
-      }
       if (pending.kind === "playback") { await loadDraft(); request.current = null; }
       if (pending.kind === "maintenance" && ["reset-config","uninstall"].includes(maintenanceAction)) {
         await loadDraft();
         request.current = null; setConfiguration(null);
       }
-      setPreview(null); setNotice("done");
+      setTaskDone(true);
     });
   }
   async function saveApp(next: AppSettings) {
@@ -242,12 +240,12 @@ export function App() {
       {report?.recoveryRequired && <Alert color="orange" mb="md">{t("recovery")}<div className="actions">{action("recover",()=>void maintenance("recover"))}</div></Alert>}
       <Paper withBorder className="section">
         {row("MPV",<Group gap={8}><Text size="sm">{t(!report?.playerInstalled?"notInstalled":!report.playerReady?"missing":coreUpdate===true?"updateAvailable":coreUpdate===false?"upToDate":"systemInstalled")}</Text>{report && (!report.playerInstalled? action("installCore",()=>void core("install")):coreUpdate? action("upgradeCore",()=>void core("upgrade")):action("checkUpdates",()=>void checkCoreUpdate()))}{action("defaultApps",()=>void run(async()=>{await invoke("open_default_apps");}),false,blocked||!report?.playerInstalled)}{report?.playerInstalled&&action("uninstallCore",()=>void core("uninstall"))}</Group>,report?.components.find(c=>c.id==="mpv")?.version?.split(" Copyright")[0]??t(linux?"systemMpvHint":"wingetHint"))}
-        {row(t("components"),<Group gap={8}><Text size="sm">{t(extrasReady?"ready":extrasAction==="updateComponents"?"updateAvailable":extrasAction==="repairOnly"?"missing":"notInstalled")}</Text>{extrasAction&&action(extrasAction,installOnly,false,blocked||!!report?.recoveryRequired)}{report?.generation&&action("uninstall",()=>void maintenance("uninstall"),false,blocked||!!report?.recoveryRequired)}</Group>)}
+        {row(t("components"),<Group gap={8}><Text size="sm">{t(extrasReady?"ready":extrasAction==="updateComponents"?"updateAvailable":extrasAction==="repairOnly"?"missing":"notInstalled")}</Text>{extrasAction&&action(extrasAction,()=>void installOnly(),false,blocked||!report?.playerReady||!!report?.recoveryRequired)}{report?.generation&&action("uninstall",()=>void maintenance("uninstall"),false,blocked||!!report?.recoveryRequired)}</Group>)}
         <Fold title={t("componentDetails")} opened={extrasOpen} onChange={setExtrasOpen}>{componentRow("uosc")}{componentRow("thumbfast")}{componentRow("subtitle-font")}</Fold>
         {row("mpv.conf",<Group gap={8}><Text size="sm">{t(!report?.configurationInstalled?"notInstalled":!report.settingsReady?"missing":report.configurationModified?"manuallyEdited":"saved")}</Text>{report?.configurationInstalled&&action("resetConfig",()=>void maintenance("reset-config"))}</Group>,report?.configurationInstalled?t("modifiedAt")+" · "+time(report.configModifiedAt):undefined)}
         {linux&&row(t("detectedConfigDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists),[report?.configDirectory,report?.configDirectorySource,t("linuxPlaybackHint")].filter(Boolean).join(" · "))}
       </Paper>
-      {progress&&<div role="status" aria-live="polite" className="download-progress"><Text>{t("downloadBusy")} · {progress.component}</Text><progress max={Math.max(progress.total,1)} value={progress.received} aria-label={t("downloadBusy")}/>{action("cancel",()=>void invoke("cancel_component_download").catch(setError),false,false)}</div>}
+
       {!!report?.issues.length&&<Alert color="orange" mb="md" title={t("missing")}><Fold title={t("details")}><ul>{report.issues.map(p=><li key={p}><code>{p}</code></li>)}</ul></Fold></Alert>}
     </>;
   }
@@ -283,14 +281,14 @@ export function App() {
       {row(t("repository"),<a href="https://github.com/Leovikii/mpvkit" target="_blank" rel="noreferrer">github.com/Leovikii/mpvkit</a>)}
       {row(t("copyright"),<Group gap={8}><Text size="sm">{info.license}</Text>{action("copyright",()=>void run(async()=>setLicense(await invoke<string>("license_text",{kind:"project"}))))}{action("thirdParty",()=>void run(async()=>setLicense(await invoke<string>("license_text",{kind:"dependencies"}))))}</Group>)}
       {license&&<Fold title={t("details")}><pre className="license-text">{license}</pre></Fold>}</Paper>
-      <Paper withBorder><Fold title={t("advanced")}><TextInput label={t("exportPath")} value={exportPath} disabled={blocked} onChange={e=>setExportPath(e.currentTarget.value)}/><div className="actions">{action("diagnostics",()=>void run(async()=>setPreview({kind:"diagnostics",data:await invoke("preview_diagnostics",{destination:exportPath})})),false,blocked||!exportPath)}</div></Fold></Paper>
+      <Paper withBorder><Fold title={t("advanced")}><TextInput label={t("exportPath")} value={exportPath} disabled={blocked} onChange={e=>setExportPath(e.currentTarget.value)}/><div className="actions">{action("diagnostics",()=>void diagnostics(),false,blocked||!exportPath)}</div></Fold></Paper>
     </>;
   }
   function previewContent() {
     if (!preview) return null;
     if(preview.kind==="core")return <><Text size="sm">{t(preview.data.action==="uninstall"?"uninstallCoreHint":linux?"linuxCoreHint":"coreHint")}</Text><p>{preview.data.package} · {preview.data.source}</p><p className="path">{preview.data.executable}</p><p className="path">{preview.data.configDirectory}</p><Fold title={t("details")}><pre>{preview.data.details}</pre></Fold></>;
-    if(preview.kind==="configuration")return !preview.readOnly && !report?.componentsReady ? <><Text size="sm">{t("downloadHint")}</Text><ul>{assets.map(a=><li key={a.id}>{a.id} · {a.version}</li>)}</ul></> : null;
-    if(preview.kind==="download")return <><Text size="sm">{t("downloadHint")}</Text><p className="path">{report?.root}</p><ul>{assets.map(a=><li key={a.id}>{a.id} · {a.version} · {new Intl.NumberFormat(locale,{maximumFractionDigits:1}).format(a.size/1048576)} MiB</li>)}</ul></>;
+    if(preview.kind==="configuration")return null;
+    if(preview.kind==="download")return null;
     if(preview.kind==="install"||preview.kind==="playback"||preview.kind==="maintenance")return <>
       <Text size="sm">{t(preview.kind==="maintenance"&&maintenanceAction==="uninstall"?"uninstallHint":preview.kind==="maintenance"&&maintenanceAction==="reset-config"?"resetConfigHint":"writeHint")}</Text><p className="path">{preview.data.root}</p>
       {preview.data.retained.length>0&&<Fold title={t("retainedFiles")}><ul>{preview.data.retained.map(p=><li key={p}><code>{p}</code></li>)}</ul></Fold>}
@@ -300,35 +298,43 @@ export function App() {
   }
   const hasConflicts = preview && preview.kind!=="download" && "conflicts" in preview.data && Array.isArray(preview.data.conflicts) && (preview.data.conflicts.length>0);
   const extrasAction = enhancementAction(report, assets);
-  const previewAction: Key = !preview ? "preview" : preview.kind==="core" ? (preview.data.action==="uninstall"?"uninstallCore":preview.data.action==="install"?"installCore":"upgradeCore") : preview.kind==="configuration" ? (preview.readOnly?"previewConfig":saveLabel) : preview.kind==="download" ? "download" : preview.kind==="install" ? (extrasAction==="updateComponents"?"updateComponents":extrasAction==="repairOnly"?"repairPlayer":"install") : preview.kind==="playback" ? "saveConfig" : preview.kind==="diagnostics" ? "diagnostics" : preview.kind==="maintenance" ? ({uninstall:"uninstall", "reset-config":"resetConfig",recover:"recover"} as Record<string,Key>)[maintenanceAction]??"applyChanges" : "applyChanges";
+  const previewAction: Key = !preview ? "preview" : preview.kind==="core" ? (preview.data.action==="uninstall"?"uninstallCore":preview.data.action==="install"?"installCore":"upgradeCore") : preview.kind==="configuration" ? (preview.readOnly?"previewConfig":saveLabel) : preview.kind==="download" ? taskTitle : preview.kind==="install" ? (extrasAction==="updateComponents"?"updateComponents":extrasAction==="repairOnly"?"repairPlayer":"install") : preview.kind==="playback" ? "saveConfig" : preview.kind==="diagnostics" ? "diagnostics" : preview.kind==="maintenance" ? ({uninstall:"uninstall", "reset-config":"resetConfig",recover:"recover"} as Record<string,Key>)[maintenanceAction]??"applyChanges" : "applyChanges";
   const navPaths = {management:"M4 6h16 M4 12h16 M4 18h16 M8 3v6 M16 9v6 M10 15v6",settings:"M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0"};
   const nav = (target: typeof page, glyph: string) => <Tooltip key={target} label={t(target)} disabled={!compact} position="right" events={{hover:true,focus:true,touch:false}}><NavLink component="button" type="button" ref={target==="management"?managementTab:undefined} aria-label={t(target)} aria-current={page===target?"page":undefined} active={page===target} label={compact?null:t(target)} leftSection={<span className="nav-icon" aria-hidden="true">{linux?<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={navPaths[target]}/></svg>:glyph}</span>} onClick={()=>go(target)}/></Tooltip>;
   return <MantineProvider theme={theme} forceColorScheme={dark?"dark":"light"}>
     <AppShell header={{height:52}} navbar={{width:compact?64:216,breakpoint:0}} padding={0} className="app-shell" data-material={material} data-high-contrast={environment.highContrast}>
-      <AppShell.Header className="app-header" withBorder={false}><img src={logo} width={26} height={26} alt=""/><Text fw={500}>MpvKit</Text>{progress&&page!=="management"&&<Text size="xs" role="status">{t("downloadBusy")} · {progress.component}</Text>}</AppShell.Header>
+      <AppShell.Header className="app-header" withBorder={false}><img src={logo} width={26} height={26} alt=""/><Text fw={500}>MpvKit</Text></AppShell.Header>
       <AppShell.Navbar className="sidebar" p={8} withBorder={false} aria-label={t("environment")}><AppShell.Section grow>{nav("management","")}</AppShell.Section><AppShell.Section>{nav("settings","")}</AppShell.Section></AppShell.Navbar>
       <AppShell.Main component="div"><main id="main-content" className="page-surface" aria-busy={busy||booting}><PageEntrance key={page}><div className="page-scroll">
         <Group justify="space-between" className="page-heading"><Title order={1}>{t(page)}</Title>{desktop&&action("checkAgain",()=>void run(async()=>{if(!report)await boot();else await refresh();}))}</Group>
-        {!desktop&&<Alert mb="md">{t("webOnly")}</Alert>}{busy&&!progress&&<Text role="status" mb="md">{t("working")}</Text>}
+        {!desktop&&<Alert mb="md">{t("webOnly")}</Alert>}{busy&&!preview&&!progress&&<Text role="status" mb="md">{t("working")}</Text>}
         {booting?<Text role="status">{t("loading")}</Text>:page==="management"?<>{components()}{playback()}</>:appPreferences()}
-        {error!=null&&<Alert color="red" mt="md" role="alert">{t(errorKey(error))}<Fold title={t("details")}><pre>{JSON.stringify(error,null,2)}</pre></Fold>{!linux&&(error as {code?:string})?.code==="winget_missing"&&action("getWinget",()=>void run(async()=>{await invoke("open_app_installer");}))}</Alert>}
+        {error!=null&&!preview&&<Alert color="red" mt="md" role="alert">{t(errorKey(error))}<Fold title={t("details")}><pre>{JSON.stringify(error,null,2)}</pre></Fold>{!linux&&(error as {code?:string})?.code==="winget_missing"&&action("getWinget",()=>void run(async()=>{await invoke("open_app_installer");}))}</Alert>}
         {notice&&<Text mt="md" role="status" aria-live="polite">{t(notice)}</Text>}
-      </div>{page==="management"&&<footer className="save-bar"><Text size="sm" c="dimmed">{t(dirty||!report?.settingsReady?"unsaved":"saved")}</Text><Group gap={8}>{action("previewConfig",()=>void prepareSettings(true))}{action(saveLabel,()=>void prepareSettings(),true,blocked||!!report?.recoveryRequired||(!dirty&&!!report?.componentsReady&&!!report?.settingsReady&&!report.configurationModified))}</Group></footer>}
+      </div>{page==="management"&&<footer className="save-bar"><Text size="sm" c="dimmed">{t(!report?.componentsReady?"needPlayer":dirty||!report?.settingsReady?"unsaved":"saved")}</Text><Group gap={8}>{action("previewConfig",()=>void prepareSettings(true))}{action(saveLabel,()=>void prepareSettings(),true,blocked||!report?.componentsReady||!!report?.recoveryRequired||(!dirty&&!!report?.componentsReady&&!!report?.settingsReady&&!report.configurationModified))}</Group></footer>}
       </PageEntrance></main></AppShell.Main>
     </AppShell>
     {updates.dialog}
-    <Modal opened={closing} onClose={()=>setClosing(false)} title={t("discardDraft")}><div className="dialog-actions"><Button onClick={()=>void getCurrentWindow().destroy()}>{t("discardAndClose")}</Button><Button variant="default" data-autofocus onClick={()=>setClosing(false)}>{t("cancel")}</Button></div></Modal>
-    <Modal opened={preview!==null} onClose={()=>{if(!busy)setPreview(null);}} title={t(previewAction)} size={720} closeButtonProps={{"aria-label":t("close"),disabled:busy}} closeOnClickOutside={!busy} closeOnEscape={!busy}>
-      {previewContent()}
-      {preview?.kind==="playback"&&report?.configurationModified&&<Alert color="yellow" mt="md">{t("overwriteHint")}</Alert>}
-      {configuration&&(preview?.kind==="configuration"||preview?.kind==="playback")&&<>
+    <Modal opened={closing} onClose={()=>setClosing(false)} title={t("exitApp")} centered closeButtonProps={{"aria-label":t("close")}}><Text>{t("discardDraft")}</Text><div className="dialog-actions"><Button onClick={()=>void getCurrentWindow().destroy()}>{t("discardAndClose")}</Button><Button variant="default" data-autofocus onClick={()=>setClosing(false)}>{t("cancel")}</Button></div></Modal>
+    <Modal opened={preview!==null} onClose={dismissTask} title={t(taskTitle)} size={720} centered classNames={{content:"task-dialog-content",body:"task-dialog-body"}} withCloseButton={!taskDone&&error==null} closeButtonProps={{"aria-label":t("close"),disabled:busy}} closeOnClickOutside={!busy} closeOnEscape={!busy}>
+      <div className="task-dialog-scroll" tabIndex={-1} data-autofocus={busy||undefined}>
+      {taskDone ? <Text role="status">{t("done")}</Text> : previewContent()}
+      {!taskDone&&preview?.kind==="playback"&&report?.configurationModified&&<Alert color="yellow" mt="md">{t("overwriteHint")}</Alert>}
+      {!taskDone&&configuration&&(preview?.kind==="configuration"||preview?.kind==="playback")&&<>
         <NativeSelect label={t("configFile")} value={selectedFile} data={configuration.files.map(f=>({value:f.path,label:f.path}))} onChange={e=>setSelectedFile(e.currentTarget.value)}/>
         {configuration.files.filter(f=>f.path===selectedFile).map(f=><div key={f.path}><Text size="xs" c="dimmed" mt="sm">{t("modifiedAt")} · {!f.exists?t("notInstalled"):time(f.modifiedAt)}{f.retained?" · "+t("retainedFile"):""}</Text><pre className="configuration-text">{f.after}</pre>{f.before&&f.before!==f.after&&<Fold title={t("beforeConfig")}><pre>{f.before}</pre></Fold>}</div>)}
       </>}
-      {preview?.kind==="maintenance"&&preview.data.configurationDiffs.map(diff=><Fold key={diff.path} title={diff.path}><Text>{t("beforeConfig")}</Text><pre>{diff.before}</pre><Text>{t("afterConfig")}</Text><pre>{diff.after}</pre></Fold>)}
+      {!taskDone&&preview?.kind==="maintenance"&&preview.data.configurationDiffs.map(diff=><Fold key={diff.path} title={diff.path}><Text>{t("beforeConfig")}</Text><pre>{diff.before}</pre><Text>{t("afterConfig")}</Text><pre>{diff.after}</pre></Fold>)}
 
       {error!=null&&<Alert color="red" mt="md">{t(errorKey(error))}<Fold title={t("details")}><pre>{JSON.stringify(error,null,2)}</pre></Fold>{!linux&&(error as {code?:string})?.code==="winget_missing"&&action("getWinget",()=>void run(async()=>{await invoke("open_app_installer");}))}</Alert>}
-      <div className="dialog-actions">{!(preview?.kind==="configuration"&&preview.readOnly)&&<Button disabled={busy||!!hasConflicts} onClick={()=>void confirmPreview()}>{t(previewAction)}</Button>}<Button variant="default" data-autofocus disabled={busy} onClick={()=>setPreview(null)}>{t("cancel")}</Button></div>
+      </div>
+      <div className="task-footer">
+        {busy&&<TaskProgress label={progress ? t(progress.phase === "download" ? "downloadingUpdate" : progress.phase === "verify-extract" ? "verifyingUpdate" : "preparingUpdate")+(progress.component ? " · "+progress.component : "") : t(executing ? "executingTask" : "preparingUpdate")} percent={progress?.phase === "download" && progress.total > 0 ? Math.min(100,Math.floor(progress.received*100/progress.total)) : null} />}
+        <Group justify="flex-end" gap={8}>
+          {error!=null && retryPreview.current ? <Button disabled={busy} onClick={()=>void retryPreview.current?.()}>{t("retry")}</Button> : !taskDone && preview?.kind!=="download" && !(preview?.kind==="configuration"&&preview.readOnly) && <Button disabled={busy||!!hasConflicts} onClick={()=>void confirmPreview()}>{t(previewAction)}</Button>}
+          {busy&&progress?.phase==="download" ? <Button variant="default" onClick={()=>void invoke("cancel_component_download").catch(setError)}>{t("cancel")}</Button> : <Button variant="default" data-autofocus disabled={busy} onClick={dismissTask}>{t(taskDone||error!=null?"close":"cancel")}</Button>}
+        </Group>
+      </div>
     </Modal>
   </MantineProvider>;
 }

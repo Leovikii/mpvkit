@@ -108,7 +108,17 @@ pub fn execute(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
     }
     let mut command = super::command(std::path::Path::new("/usr/bin/pkexec"));
     command.args(package_args(&plan.preview.action));
-    let (status, _) = mpv::capture_status(command, Duration::from_secs(900))?;
+    // Pacman owns the transaction; do not kill it on probe timeouts or output limits.
+    let log = tempfile::tempfile().map_err(|_| error("无法创建包管理器输出文件。"))?;
+    let status = command
+        .stdin(std::process::Stdio::null())
+        .stdout(
+            log.try_clone()
+                .map_err(|_| error("无法读取包管理器输出文件。"))?,
+        )
+        .stderr(log)
+        .status()
+        .map_err(|_| error("无法启动系统授权或 Pacman。"))?;
     if !status.success() {
         return Err(error(
             "包管理器操作未完成；可能取消授权或存在依赖/网络冲突，请检查系统状态。",

@@ -15,6 +15,7 @@ try {
   const scenario=value=>page.getByLabel('预览场景 / Scenario').selectOption(value);
   const quality=()=>page.getByLabel('画质',{exact:true});
   const dialog=page.getByRole('dialog');
+  const finish=async message=>{await dialog.getByText(message,{exact:true}).waitFor();await dialog.locator('.task-footer').getByRole('button',{name:'关闭',exact:true}).click();await dialog.waitFor({state:'hidden'});};
   const screenshot=name=>page.screenshot({path:path.join(output,name+'.png'),animations:'disabled'});
   await quality().waitFor();assert(await quality().isEnabled());
   const end=page.getByLabel('全部播放结束后',{exact:true});assert(await end.isVisible());await end.selectOption('keep');
@@ -32,7 +33,7 @@ try {
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
   await page.waitForFunction(()=>document.activeElement?.textContent==='预览配置');
   await button('仅安装组件').click();await dialog.getByRole('button',{name:'安装组件',exact:true}).click();
-  await page.getByText('组件已安装，草稿尚未保存。',{exact:true}).waitFor();
+  await finish('组件已安装，草稿尚未保存。');
   assert.equal(await quality().inputValue(),'high-quality');assert.equal(await page.locator('.draft-status').innerText(),'未保存');
   await button('应用设置').click();await button('播放器设置').click();await quality().waitFor();
   assert.equal(await quality().inputValue(),'high-quality');
@@ -40,7 +41,7 @@ try {
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
   assert.equal(await page.locator('.draft-status').innerText(),'未保存');
   await button('保存配置').click();await dialog.getByRole('button',{name:'保存配置',exact:true}).click();
-  await page.getByText('配置已保存。',{exact:true}).waitFor();assert(await button('保存配置').isDisabled());
+  await finish('配置已保存。');assert(await button('保存配置').isDisabled());
   const previousTime=await page.locator('.status-card time').getAttribute('datetime');
   await quality().selectOption('balanced');await page.getByLabel('HDR 输出',{exact:true}).selectOption('off');
   assert.equal(await page.locator('.status-card time').getAttribute('datetime'),previousTime);
@@ -50,7 +51,7 @@ try {
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
   assert.equal(await page.locator('.status-card time').getAttribute('datetime'),previousTime);
   await button('保存配置').click();await dialog.getByRole('button',{name:'保存配置',exact:true}).click();
-  await page.getByText('配置已保存。',{exact:true}).waitFor();
+  await finish('配置已保存。');
   const newTime=await page.locator('.status-card time').getAttribute('datetime');assert.notEqual(newTime,previousTime);
   await button('预览配置').click();assert.equal(await dialog.locator('time').getAttribute('datetime'),newTime);
   await page.getByLabel('配置文件',{exact:true}).selectOption('input.conf');assert.equal(await dialog.locator('time').getAttribute('datetime'),previousTime);
@@ -58,20 +59,26 @@ try {
   await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
   await screenshot('ready');
   await scenario('fresh');await quality().selectOption('power-saving');
-  await button('安装并保存配置').click();await dialog.getByRole('button',{name:'安装并保存配置',exact:true}).click();
-  await page.getByText('正在安装组件…',{exact:true}).waitFor();assert(await quality().isDisabled());
-  await page.getByText('正在保存配置…',{exact:true}).waitFor();
-  await page.getByText('配置已保存。',{exact:true}).waitFor();assert.equal(await quality().inputValue(),'power-saving');
+  assert(await button('保存配置').isDisabled());
+  await button('仅安装组件').click();await dialog.getByRole('progressbar',{name:'下载中…',exact:true}).waitFor();
+  assert.equal(await dialog.getByRole('progressbar').getAttribute('aria-valuenow'),'42');
+  await dialog.getByRole('button',{name:'安装组件',exact:true}).click();
+  await dialog.locator('.task-progress').getByText('正在安装组件…',{exact:true}).waitFor();assert(await quality().isDisabled());
+  await finish('组件已安装，草稿尚未保存。');
+  await button('保存配置').click();await dialog.getByRole('button',{name:'保存配置',exact:true}).click();
+  await dialog.locator('.task-progress').getByText('正在保存配置…',{exact:true}).waitFor();
+  await finish('配置已保存。');assert.equal(await quality().inputValue(),'power-saving');
   for(const value of ['download-error','config-error']) {
     await scenario(value);await quality().selectOption('high-quality');
     const priorTimes=await page.locator('.status-card time').evaluateAll(nodes=>nodes.map(e=>e.dateTime));
-    const name=value==='download-error'?'安装并保存配置':'保存配置';
-    await button(name).click();await dialog.getByRole('button',{name,exact:true}).click();
-    await page.getByRole('alert').waitFor();assert.equal(await page.locator('.draft-status').innerText(),'未保存');
+    const name=value==='download-error'?'仅安装组件':'保存配置',confirm=value==='download-error'?'安装组件':'保存配置';
+    await button(name).click();await dialog.getByRole('button',{name:confirm,exact:true}).click();
+    await dialog.locator('.mantine-Alert-root').waitFor();assert.equal(await page.locator('.draft-status').innerText(),'未保存');
     assert.deepEqual(await page.locator('.status-card time').evaluateAll(nodes=>nodes.map(e=>e.dateTime)),priorTimes);
     assert.equal(await quality().inputValue(),'high-quality');await screenshot(value);
-    await button(name).click();await dialog.getByRole('button',{name,exact:true}).click();
-    await page.getByText('配置已保存。',{exact:true}).waitFor();
+    await dialog.locator('.task-footer').getByRole('button',{name:confirm,exact:true}).click();
+    await finish(value==='download-error'?'组件已安装，草稿尚未保存。':'配置已保存。');
+    if(value==='download-error'){await button('保存配置').click();await dialog.getByRole('button',{name:'保存配置',exact:true}).click();await finish('配置已保存。');}
   }
   await scenario('conflict');await button('保存配置').click();
   assert(await dialog.getByRole('button',{name:'保存配置',exact:true}).isEnabled());
@@ -83,11 +90,11 @@ try {
   assert.equal(await button('安装').count(),0);assert.equal(await button('更新').count(),0);assert.equal(await button('仅安装组件').count(),0);assert.equal(await button('更新组件').count(),0);
   await button('检查更新').click();await page.getByText('暂无更新。',{exact:true}).waitFor();assert.equal(await button('更新').count(),0);
   await scenario('update');await button('更新').click();assert(await dialog.getByRole('button',{name:'更新',exact:true}).isVisible());assert.equal(await dialog.getByRole('button',{name:'安装',exact:true}).count(),0);await page.keyboard.press('Escape');
-  await button('更新组件').click();await dialog.getByRole('button',{name:'更新组件',exact:true}).click();await page.getByText('组件已安装，草稿尚未保存。',{exact:true}).waitFor();assert.equal(await button('更新组件').count(),0);
-  await scenario('no-core');await button('安装').click();assert.equal(await dialog.getByRole('button',{name:'更新',exact:true}).count(),0);await dialog.getByRole('button',{name:'安装',exact:true}).click();assert.equal(await button('安装').count(),0);
+  await button('更新组件').click();await dialog.getByRole('button',{name:'更新组件',exact:true}).click();await finish('组件已安装，草稿尚未保存。');assert.equal(await button('更新组件').count(),0);
+  await scenario('no-core');await button('安装').click();assert.equal(await dialog.getByRole('button',{name:'更新',exact:true}).count(),0);await dialog.getByRole('button',{name:'安装',exact:true}).click();await finish('已完成。');assert.equal(await button('安装').count(),0);
   await scenario('broken');assert(await button('仅修复组件').isVisible());assert.equal(await button('仅安装组件').count(),0);
   await scenario('ready');
-  await button('卸载 MPV 核心').click(); await dialog.getByRole('button',{name:'卸载 MPV 核心',exact:true}).click(); assert.equal(await button('卸载 MPV 核心').count(),0);
+  await button('卸载 MPV 核心').click(); await dialog.getByRole('button',{name:'卸载 MPV 核心',exact:true}).click();await finish('已完成。'); assert.equal(await button('卸载 MPV 核心').count(),0);
   await scenario('core');await button('English').click();
   for(const size of [{width:1200,height:800},{width:900,height:700},{width:640,height:600}]) {
     await page.setViewportSize(size);
@@ -103,6 +110,11 @@ try {
   assert(await page.locator('.page-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1));
   assert(await page.locator('.save-bar').evaluate(e=>e.scrollWidth<=e.clientWidth+1&&e.getBoundingClientRect().bottom<=innerHeight));
   await screenshot('text-200');await page.evaluate(()=>document.documentElement.style.fontSize='');
+  await page.emulateMedia({forcedColors:'active'});await button('Preview configuration').click();await dialog.waitFor();
+  assert(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth+1));
+  assert(await dialog.locator('.task-footer').evaluate(e=>getComputedStyle(e).borderTopStyle==='solid'));
+  await screenshot('forced-colors');await page.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
+  await page.emulateMedia({forcedColors:'none'});
   await page.emulateMedia({reducedMotion:'no-preference'});await button('App settings').click();
   await page.waitForFunction(()=>document.querySelector('.page-content')?.style.transitionDuration==='200ms');
   await page.waitForFunction(()=>getComputedStyle(document.querySelector('.page-content')).opacity==='1');
@@ -116,14 +128,14 @@ try {
   await page.getByRole('switch',{name:'接收预览版更新',exact:true}).focus();await page.keyboard.press('Space');
   await button('检查更新').click();await dialog.waitFor();
   await dialog.getByRole('button',{name:'下载更新',exact:true}).click();
-  await dialog.getByRole('progressbar',{name:'下载中…',exact:true}).waitFor();
-  assert.equal(await dialog.getByRole('progressbar').getAttribute('aria-valuenow'),null);
+  await dialog.locator('.task-progress').getByRole('status').getByText('下载中…',{exact:true}).waitFor();
+  assert.equal(await dialog.getByRole('progressbar').count(),0);
   assert.equal(await dialog.locator('progress').count(),0);
-  await dialog.getByRole('progressbar',{name:'42%',exact:true}).waitFor();
+  await page.waitForFunction(()=>document.querySelector('[role=progressbar]')?.getAttribute('aria-valuenow')==='42');
   await screenshot('linux-update-progress');
   await dialog.getByText('安装预览',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'安装',exact:true}).click();
-  await dialog.getByRole('progressbar',{name:'安装中…',exact:true}).waitFor();
+  await dialog.locator('.task-progress').getByText('等待系统授权或安装…',{exact:true}).waitFor();
   assert(await dialog.getByRole('button',{name:'稍后',exact:true}).isDisabled());
   await dialog.getByText('已更新，请重新打开应用。',{exact:true}).waitFor();
   assert.equal(await dialog.getByRole('link').count(),0);
@@ -139,5 +151,5 @@ try {
     assert(await dialog.getByRole('button',{name:'检查更新',exact:true}).isEnabled());
   }
   assert.deepEqual(errors,[]);assert.deepEqual(requests,[]);
-  console.log('PASS: editable drafts, both install paths, configuration previews, failures/retry, draft retention, conflict blocking, focus/Esc, two-page layouts, fixed footer, 200% text, themes/languages and motion; no runtime errors or network requests.');
+  console.log('PASS: editable drafts, separate install and save, configuration previews, failures/retry, draft retention, conflict blocking, focus/Esc, two-page layouts, fixed footer, 200% text, themes/languages and motion; no runtime errors or network requests.');
 } finally {await browser.close();}

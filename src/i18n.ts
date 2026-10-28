@@ -1,4 +1,7 @@
 export const messages = {
+  exitApp: ["退出 MpvKit？", "Exit MpvKit?"],
+  executingTask: ["正在执行，请稍候…", "Working, please wait…"],
+  mpvAmbiguous: ["发现多个 MPV 安装位置，请核对安装位置后重试。", "Multiple MPV installations found. Check the installation paths and retry."],
   appUpdate: ["应用更新", "Application updates"],
   releaseNotes: ["更新日志", "Release notes"],
   previewUpdates: ["接收预览版更新", "Include preview releases"],
@@ -9,17 +12,16 @@ export const messages = {
   newAppVersion: ["发现新版本 {version}", "Version {version} available"],
   noReleaseNotes: ["此版本未提供更新日志。", "No release notes provided."],
   updateDraft: ["请先保存或重置草稿。", "Save or reset your draft first."],
-  updateExit: ["安装后将重启应用。", "The app will restart after installation."],
+  updateExit: ["安装时将关闭 MpvKit。", "MpvKit will close for installation."],
   later: ["稍后", "Later"],
   downloadUpdate: ["下载更新", "Download"],
   installationPreview: ["安装预览", "Installation preview"],
   installUpdate: ["安装", "Install"],
   downloadingUpdate: ["下载中…", "Downloading…"],
-  downloadingPercent: ["{percent}%", "{percent}%"],
   verifyingUpdate: ["校验中…", "Verifying…"],
   preparingUpdate: ["准备中…", "Preparing…"],
   installingUpdate: ["安装中…", "Installing…"],
-  authorizingUpdate: ["安装中…", "Installing…"],
+  authorizingUpdate: ["等待系统授权或安装…", "Waiting for authorization or installation…"],
   updateComplete: ["已更新，请重新打开应用。", "Updated. Close and reopen the app."],
   updateCancelled: ["授权已取消，未安装。", "Authorization cancelled. Nothing installed."],
   updatePackageFailure: ["安装失败，请检查系统授权及包管理器。", "Installation failed. Check authorization and the package manager."],
@@ -29,19 +31,17 @@ export const messages = {
   upgradeCore: ["更新", "Update"],
   upToDate: ["暂无更新", "No updates available"],
   updateAvailable: ["有更新", "Update available"],
-  linuxCoreHint: ["通过系统授权运行 pacman，保留依赖检查。使用当前同步数据库；如数据库过期，请先在系统中完成常规更新。", "Authorize pacman through the system. Dependency checks remain enabled. Uses the current sync database; update your system first if it is outdated."],
+  linuxCoreHint: ["通过 Pacman 管理 MPV，需系统授权。", "Manage MPV through Pacman. System authorization required."],
   overwriteHint: ["请核对下方差异。保存将替换管理区域内的手改内容，不保留历史备份；区域外内容和已保留文件不变。", "Review the differences below. Saving replaces manual edits in the managed section without historical backups. Content outside that section and retained files are preserved."],
   wingetHint: ["使用 WinGet 安装和管理 MPV。", "Install and manage MPV with WinGet."],
-  coreHint: ["使用 WinGet 源中的 shinchiro.mpv，接受该包及源的协议。安装可能请求管理员授权并添加 MPV 的系统打开方式；不会设为默认播放器。核心安装和增强配置分开执行，失败时请检查系统安装状态后重试。", "Use shinchiro.mpv from the winget source and accept its package and source agreements. Installation may request administrator approval and add MPV to Open with; it does not set your default player. Core installation and enhancement configuration run separately. On failure, check system installation status before retrying."],
+  coreHint: ["通过 WinGet 管理 MPV，可能请求系统授权并添加打开方式。", "Manage MPV through WinGet. May request authorization and add Open with entries."],
   wingetMissing: ["未找到 WinGet，请安装或更新 Microsoft 应用安装程序后重试。", "WinGet is unavailable. Install or update Microsoft App Installer, then retry."],
   wingetFailure: ["WinGet 操作未完成，请检查系统授权、源、网络和安装状态后重试。", "WinGet did not complete. Check administrator approval, sources, network and installation status, then retry."],
-  discardDraft: ["放弃未保存的配置？", "Discard unsaved configuration?"],
+  discardDraft: ["未保存的配置将丢失。", "Unsaved configuration will be lost."],
   discardAndClose: ["放弃并退出", "Discard and exit"],
   components: ["播放器组件", "Player components"],
   installOnly: ["仅安装组件", "Install components only"],
   repairOnly: ["仅修复组件", "Repair components only"],
-  installAndSave: ["安装并保存配置", "Install and save"],
-  repairAndSave: ["修复并保存配置", "Repair and save"],
   saveConfig: ["保存配置", "Save configuration"],
   previewConfig: ["预览配置", "Preview configuration"],
   configFile: ["配置文件", "Configuration file"],
@@ -120,7 +120,6 @@ export const messages = {
   waiting: ["待安装", "Not installed"],
   download: ["下载组件", "Download components"],
   install: ["安装", "Install"],
-  downloadHint: ["下载并校验组件，随后确认安装。","Download and verify components, then review the installation."],
   details: ["查看详情", "View details"],
   cancel: ["取消", "Cancel"],
   close: ["关闭", "Close"],
@@ -191,6 +190,7 @@ export function translator(locale: Locale) {
 }
 export function errorKey(error: unknown): Key {
   const code = (error as {code?: string})?.code ?? "";
+  if (code === "mpv_ambiguous") return "mpvAmbiguous";
   if (code === "winget_missing") return "wingetMissing";
   if (code === "update_authorization_cancelled") return "updateCancelled";
   if (code === "update_package_unmanaged") return "updatePackageUnmanaged";
