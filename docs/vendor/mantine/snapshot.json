@@ -169,6 +169,13 @@
       "retrievedOn": "2026-10-28",
       "size": 5156,
       "sha256": "6103a2bce259f52517e92ae94c598d8a0fbe9cd38731572fa12f204dd9d030bf"
+    },
+    {
+      "file": "core-progress.md",
+      "url": "https://mantine.dev/llms/core-progress.md",
+      "retrievedOn": "2026-10-28",
+      "size": 6695,
+      "sha256": "5f1c63587bf0df7946894e925dcd31126fbcf189c8270da1a90ba88bc51ec09d"
     }
   ]
 }

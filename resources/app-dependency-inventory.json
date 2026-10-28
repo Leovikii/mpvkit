@@ -10,9 +10,9 @@
     "随应用分发保留原文；完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "4e749048b599da6943156b6c1b0d1368403ab32aeb5f84dd950f945acce6c5a1",
-    "src-tauri/Cargo.lock": "9deec3a0b8a6a2e40cc6bb0b001a62c63982f12ff3593ed9bfb6c69134f840e9",
-    "package.json": "15d082537de00fac7d9b759ba6a6b8f96ee35f46a4ef54433958b523efb95d55",
+    "src-tauri/Cargo.toml": "327a19f6bde46e004d4fbfc388ca423cd23c705df28e6ac7802d3a8f6566eb4b",
+    "src-tauri/Cargo.lock": "2904609e294357800739f1968ae9ec44bd982e120fbf5af91c835e42e856b1a4",
+    "package.json": "c44add23258de6a8fb113d2edbd4cd1eb43013024ddcc4f3bee4ad163797997a",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
     "resources/app-license-supplements.json": "b94978d00b5b303a1da551dac94d38609248b11a8033a9272e3197ee573d6364"
   },

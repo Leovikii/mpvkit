@@ -79,6 +79,7 @@ fn main() {
             updates::check_app_update,
             updates::install_app_update,
             updates::prepare_app_update,
+            updates::discard_app_update,
             commands::open_default_apps,
             #[cfg(target_os = "windows")]
             commands::open_app_installer,

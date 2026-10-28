@@ -1,10 +1,10 @@
 # MpvKit：AI agent 开发规范
 
-## 当前任务（2026-10-28，alpha.3 交接）
+## 当前任务（2026-10-28，alpha.4 实施与验证）
 
-当前源码 **0.2.0-alpha.3**。[alpha.3 实施与交接](docs/v0.2.0-alpha.3/plan.md)记录本批代码、Windows 与可行 Linux 验证、Actions 和发布结果。用户已授权本批推送 dev、PR 合并 main，再同步 dev。提交和 PR 文案用极简英文。继续核对工作区已有改动，未验证结果不能写成通过；本批授权不自动扩展到下一版本。
+当前源码为 **0.2.0-alpha.4**，公开结果以[本版交接](docs/v0.2.0-alpha.4/plan.md)为准。用户已批准方案，并授权修复类似设计问题、完成 Windows 与当前可行的 Linux 测试、推送 dev、PR 合并 main 后同步 dev；main 合并沿用自动公开预发布流程。提交和 PR 文案用极简英文。保留已有改动，未验证结果不能写成通过。
 
-alpha.3 采用 GitHub Releases 发现版本和 Tauri 标准 manifest，删除自建渠道索引与 AUR 分支，无旧 alpha 兼容负担；Windows 保留官方 updater，Arch 下载验签后用 pkexec/Pacman 原生安装。前端依照 WinUI 3 / Fluent 指导，以 Mantine 实现；两端更新只保留按钮背景进度与短阶段文案，不重复展示横条、状态段落或明显操作指南。下列 alpha.2 发布和行为记录只作历史依据，本版结果写入 alpha.3 交接。
+alpha.3 采用 GitHub Releases 发现版本和 Tauri 标准 manifest，删除自建渠道索引与 AUR 分支，无旧 alpha 兼容负担；Windows 保留官方 updater，Arch 下载验签后用 pkexec/Pacman 原生安装。[alpha.3 交接](docs/v0.2.0-alpha.3/plan.md)保留已完成的验证和公开发布结果。用户本轮明确要求 alpha.4 取消按钮背景进度，改为同一个 Mantine 弹窗内的标准进度条/短阶段与正常尺寸按钮，遵循 WinUI 3 / Fluent；此决定已实施，覆盖旧进度样式要求。下列 alpha.2 记录仅作历史依据。
 
 ## 已完成批次（2026-10-27）
 
@@ -20,7 +20,7 @@ alpha.3 采用 GitHub Releases 发现版本和 Tauri 标准 manifest，删除自
 
 ## 接手顺序
 
-1. 阅读 [README.md](README.md)、[文档入口](docs/README.md)和[当前开发基线](docs/current.md)。当前任务与本版验证见 [v0.2.0-alpha.3 实施与交接](docs/v0.2.0-alpha.3/plan.md)，当前源码为 v0.2.0-alpha.3；v0.1.9 为历史行为与证据。
+1. 阅读 [README.md](README.md)、[文档入口](docs/README.md)和[当前开发基线](docs/current.md)。当前任务见 [alpha.4 实施与交接](docs/v0.2.0-alpha.4/plan.md)，历史发布结果见 [alpha.3 交接](docs/v0.2.0-alpha.3/plan.md)；v0.1.9 为历史行为与证据。
 2. 检查 `git status`，阅读当前任务涉及的代码及更深层的 `AGENTS.md`，保留用户未提交的改动。
 3. 按任务读取当前目录/前端规范/来源政策和必要证据；历史版本仅用于追溯，不再要求逐版通读，不继承已废弃的旧路径、迁移或安装器任务。
 4. 方案待审时只完善文档；得到本版实施授权后选择最小任务并验证，更新交接。
@@ -77,7 +77,7 @@ alpha.3 采用 GitHub Releases 发现版本和 Tauri 标准 manifest，删除自
 
 ## 每次交接
 
-在当前任务 [v0.2.0-alpha.3 方案与交接](docs/v0.2.0-alpha.3/plan.md) 更新完成状态、验证证据、已知限制和下一任务；待审状态不能写成已实现。v0.1.9 及以前实际行为与证据保留在对应版本；v0.1.0 独立验收补充仍记入其 [原计划](docs/v0.1.0/plan.md)。不要保留已经失真的“尚无代码”状态。
+在当前任务 [v0.2.0-alpha.4 方案与交接](docs/v0.2.0-alpha.4/plan.md) 更新完成状态、验证证据、已知限制和下一任务；本版授权与验证分别记录，不把历史测试写成本版通过。历史版本的实际行为与证据保留在对应版本；v0.1.0 独立验收补充仍记入其 [原计划](docs/v0.1.0/plan.md)。不要保留已经失真的“尚无代码”状态。
 
 交付说明包含：改了什么、为什么、怎样验证、未验证部分。代码任务完成后执行该变更需要的格式、静态检查和测试；纯文档任务只需检查链接、格式、范围一致性和 Git diff；删构建/测试入口或搬移共享样式时验证实际调用方。
 

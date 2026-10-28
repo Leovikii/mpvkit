@@ -84,6 +84,8 @@ struct Candidate {
     created: Instant,
     #[cfg(target_os = "linux")]
     package: Option<platform::app_update::Plan>,
+    #[cfg(target_os = "windows")]
+    installer: Option<(tauri_plugin_updater::Update, Vec<u8>)>,
 }
 #[derive(Default)]
 pub struct Pending {
@@ -352,6 +354,8 @@ fn inspect(preview: bool) -> Result<(Check, Option<Candidate>)> {
             created: Instant::now(),
             #[cfg(target_os = "linux")]
             package: None,
+            #[cfg(target_os = "windows")]
+            installer: None,
         }),
     ))
 }
@@ -427,7 +431,7 @@ async fn download(
         phase: "download",
         percent: None,
     });
-    let update = app
+    let mut update = app
         .updater_builder()
         .endpoints(vec![
             candidate
@@ -443,6 +447,8 @@ async fn download(
         .await
         .map_err(|_| error("update_network"))?
         .ok_or_else(|| error("stale_preview"))?;
+    // The plugin's check timeout is not propagated to its download request.
+    update.timeout = Some(Duration::from_secs(180));
     if update.version != candidate.public.version
         || update.download_url.as_str() != candidate.asset
         || update.signature != candidate.signature
@@ -482,16 +488,16 @@ pub async fn prepare_app_update(
     state: State<'_, Pending>,
     on_progress: tauri::ipc::Channel<Progress>,
 ) -> Result<Prepared> {
-    let candidate = take(&state, &id)?;
+    let mut candidate = take(&state, &id)?;
+    let generation = state.generation.load(Ordering::SeqCst);
+    let (update, bytes) = download(&candidate, &app, on_progress.clone()).await?;
+    let _ = on_progress.send(Progress {
+        phase: "prepare",
+        percent: None,
+    });
     #[cfg(target_os = "linux")]
-    {
-        let mut candidate = candidate;
-        let generation = state.generation.load(Ordering::SeqCst);
-        let (_, bytes) = download(&candidate, &app, on_progress.clone()).await?;
-        let _ = on_progress.send(Progress {
-            phase: "prepare",
-            percent: None,
-        });
+    let changes = {
+        let _ = update;
         let version = candidate.public.version.clone();
         let digest = candidate.digest.clone();
         let plan = tauri::async_runtime::spawn_blocking(move || {
@@ -499,39 +505,42 @@ pub async fn prepare_app_update(
         })
         .await
         .map_err(|_| error("worker_failed"))??;
-        let prepared = Prepared {
-            id,
-            changes: plan.changes.clone(),
-        };
+        let changes = plan.changes.clone();
         candidate.package = Some(plan);
-        let mut pending = state
-            .candidate
-            .lock()
-            .map_err(|_| error("state_unavailable"))?;
-        if state.generation.load(Ordering::SeqCst) != generation {
-            return Err(error("stale_preview"));
-        }
-        *pending = Some(candidate);
-        Ok(prepared)
-    }
+        changes
+    };
     #[cfg(target_os = "windows")]
-    {
-        let _ = (candidate, app, on_progress);
-        Err(error("update_metadata"))
+    let changes = {
+        let changes = vec![format!("MpvKit {} (x64)", candidate.public.version)];
+        candidate.installer = Some((update, bytes));
+        changes
+    };
+    let mut pending = state
+        .candidate
+        .lock()
+        .map_err(|_| error("state_unavailable"))?;
+    if state.generation.load(Ordering::SeqCst) != generation {
+        return Err(error("stale_preview"));
     }
+    *pending = Some(candidate);
+    Ok(Prepared { id, changes })
+}
+#[tauri::command]
+pub fn discard_app_update(state: State<'_, Pending>) -> Result<()> {
+    state.generation.fetch_add(1, Ordering::SeqCst);
+    *state
+        .candidate
+        .lock()
+        .map_err(|_| error("state_unavailable"))? = None;
+    Ok(())
 }
 #[tauri::command]
 pub async fn install_app_update(
     id: String,
-    app: tauri::AppHandle,
     state: State<'_, Pending>,
     on_progress: tauri::ipc::Channel<Progress>,
 ) -> Result<()> {
     let candidate = take(&state, &id)?;
-    #[cfg(target_os = "windows")]
-    let (update, bytes) = download(&candidate, &app, on_progress.clone()).await?;
-    #[cfg(target_os = "linux")]
-    let _ = app;
     let data = platform::default_root()?;
     let config = platform::app_root()?;
     let _data_lock = deploy::acquire(&data)?;
@@ -549,6 +558,10 @@ pub async fn install_app_update(
     });
     #[cfg(target_os = "windows")]
     {
+        let (update, bytes) = candidate.installer.ok_or_else(|| error("stale_preview"))?;
+        if hash(&bytes) != candidate.digest {
+            return Err(error("stale_preview"));
+        }
         update.install(bytes).map_err(|_| error("update_install"))
     }
     #[cfg(target_os = "linux")]

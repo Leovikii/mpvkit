@@ -9,7 +9,6 @@ use std::{
     path::{Path, PathBuf},
     time::{Duration, Instant},
 };
-#[cfg(not(test))]
 use windows_sys::Win32::System::Registry::*;
 use windows_sys::Win32::UI::Shell::FOLDERID_LocalAppData;
 
@@ -19,7 +18,6 @@ fn error(code: &'static str, message: &'static str) -> AppError {
 }
 
 // Only the selected package's exact uninstall identity is read; never scan drives.
-#[cfg(not(test))]
 fn registered_locations() -> Result<Vec<PathBuf>> {
     let key: Vec<u16> =
         r"Software\Microsoft\Windows\CurrentVersion\Uninstall\MPV_Player_Automated_is1"
@@ -65,17 +63,29 @@ fn select_player(paths: Vec<PathBuf>, fallback: PathBuf) -> Result<PathBuf> {
     for path in paths {
         validate_local_path(&path)?;
         if path.is_file()
-            && !found
-                .iter()
-                .any(|p| p.as_os_str().eq_ignore_ascii_case(path.as_os_str()))
+            && !found.iter().any(|p| {
+                p.components()
+                    .map(|c| c.as_os_str().to_ascii_lowercase())
+                    .eq(path
+                        .components()
+                        .map(|c| c.as_os_str().to_ascii_lowercase()))
+            })
         {
             found.push(path);
         }
     }
     if found.len() > 1 {
-        return Err(error(
+        return Err(AppError::new(
             "mpv_ambiguous",
-            "发现多个 MPV 安装位置，请整理后重试；文件未修改。",
+            format!(
+                "发现多个 MPV 安装位置，请核对后重试；文件未修改。\n{}",
+                found
+                    .iter()
+                    .map(|path| path.display().to_string())
+                    .collect::<Vec<_>>()
+                    .join("\n")
+            ),
+            "system-mpv",
         ));
     }
     Ok(found.pop().unwrap_or(fallback))
@@ -411,6 +421,26 @@ pub fn execute(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
 mod tests {
     use super::*;
     #[test]
+    #[ignore = "read-only check of the explicitly selected Windows host registry and MPV file"]
+    fn local_registered_mpv_paths_are_unambiguous() {
+        let fallback = known_folder(&windows_sys::Win32::UI::Shell::FOLDERID_ProgramFiles)
+            .unwrap()
+            .join("MPV Player/mpv.exe");
+        let mut paths = registered_locations().unwrap();
+        paths.push(fallback.clone());
+        let installed = paths.iter().any(|path| path.is_file());
+        let selected = select_player(paths, fallback.clone()).unwrap();
+        eprintln!(
+            "Registered MPV installed: {installed}; selected: {}",
+            selected.display()
+        );
+        if installed {
+            assert!(selected.is_file());
+        } else {
+            assert_eq!(selected, fallback);
+        }
+    }
+    #[test]
     fn configuration_precedence_and_ambiguity() {
         let base = std::env::temp_dir().join(format!(
             "mpvkit-win-paths-{}",
@@ -445,12 +475,21 @@ mod tests {
             select_player(vec![player.clone(), player.clone()], other.clone()).unwrap(),
             player
         );
+        let mixed = PathBuf::from(player.to_string_lossy().replace('\\', "/"));
         assert_eq!(
-            select_player(vec![player.clone(), other], player.clone())
-                .unwrap_err()
-                .code,
-            "mpv_ambiguous"
+            select_player(vec![player.clone(), mixed], other.clone()).unwrap(),
+            player
         );
+        let upper = PathBuf::from(player.to_string_lossy().to_ascii_uppercase());
+        assert_eq!(
+            select_player(vec![player.clone(), upper], other.clone()).unwrap(),
+            player
+        );
+        let ambiguity =
+            select_player(vec![player.clone(), other.clone()], player.clone()).unwrap_err();
+        assert_eq!(ambiguity.code, "mpv_ambiguous");
+        assert!(ambiguity.message.contains(&player.display().to_string()));
+        assert!(ambiguity.message.contains(&other.display().to_string()));
         std::fs::remove_dir_all(base).unwrap();
     }
     #[test]
