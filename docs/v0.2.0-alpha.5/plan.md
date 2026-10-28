@@ -1,6 +1,6 @@
 # v0.2.0-alpha.5 实施与交接
 
-更新：2026-10-28。用户已审核方案并明确授权开始实现、完成必要测试，随后要求生成本地测试程序以审核前端视觉。本版源码为 **0.2.0-alpha.5**，公开预发布仍为 alpha.4。实现已完成，当前可行的 Linux/前端测试结果见文末；Windows 原生及未具备环境的系统授权测试未冒充通过。用户现已确认界面验证通过，授权更新文档、提交/推送 dev、PR 合并 main、将 dev 同步到 main 并发布更新；提交与 PR 文案用极简英文，实际执行结果见后续发布记录。
+更新：2026-10-28。用户已审核方案并明确授权开始实现、完成必要测试，随后要求生成本地测试程序以审核前端视觉。本版源码为 **0.2.0-alpha.5**，公开预发布已为 alpha.5。实现已完成，当前可行的 Linux/前端测试结果见文末；Windows 原生及未具备环境的系统授权测试未冒充通过。用户现已确认界面验证通过，授权更新文档、提交/推送 dev、PR 合并 main、将 dev 同步到 main 并发布更新；提交与 PR 文案用极简英文，实际执行结果见后续发布记录。
 
 下列设计为本版已批准决定；具体落地、验证范围和已知限制以末尾交接为准。
 ## 现状与本轮清理
@@ -136,7 +136,7 @@ alpha.4 遗留的真实 NSIS 跨版本更新及 Linux 授权/重开验收继续�
 | 单实例最终回归 | `python3 scripts/test-single-instance.py` 通过，证据 `/tmp/mpvkit-single-instance-64dnfvc2/result.json`；两轮各六次重复启动退出 0、正常重开、helper 独立及无会话总线拒绝均通过 |
 | 发布契约 | 本地 mock 17 通过；测试打印 Published 仅为 mock，不代表真实发布 |
 | 许可 | Linux 410 包/717 材料、Windows 331 包/587 材料，缺失 0，双平台 `--check` 通过；不把材料齐备等同许可法律审阅完成 |
-| Windows | 原生套件同步三页、门禁、配置独立安装、完成提示，并加入真实 WinGet fixture 的组合安装场景；脚本语法通过。本机无 Windows x64 主机，未运行 WebView2/WinGet/Mica/NSIS 原生回归，不能引用 alpha.4 结果作本版通过 |
+| Windows | PR CI Rust 47 项通过、5 专项忽略，clippy 通过；原生套件同步三页、门禁、配置独立安装、完成提示，并加入真实 WinGet fixture 的组合安装场景；脚本语法通过。本机无 Windows x64 主机，未运行 WebView2/WinGet/Mica/NSIS 原生回归，不能引用 alpha.4 结果作本版通过 |
 
 ## 本地视觉测试程序
 
@@ -153,14 +153,16 @@ alpha.4 遗留的真实 NSIS 跨版本更新及 Linux 授权/重开验收继续�
 - 用户指出左上角缺少应用图标；GTK HeaderBar 之前仅设置标题/关闭按钮，已补入读取 Tauri 嵌入 PNG 的 20px 图标，不增加依赖或重复网页标题。
 - 最终普通/高对比原生回归新增图标像素和 Wayland app_id 断言，分别在 `/tmp/mpvkit-alpha5-ui-u84XBo`、`/tmp/mpvkit-alpha5-ui-t9JvR9` 通过，截图已复核；颜色/alpha 一致性保持。截图期间曾失去焦点，相关截图已丢弃，加入截图前后焦点检查后重跑通过。
 - `io.github.mpvkit.desktop` 的 Icon、StartupWMClass 和窗口 `.set_app_id("io.github.mpvkit")` 一致；新补包测试核对 PNG 与源文件逐字节相同，desktop-file-validate 通过。在 `.local/alpha5-icon-check/` 的独立 XDG 目录及私有 D-Bus 会话运行 kbuildsycoca6 / kiconfinder6，KDE 成功按名称解析到 staged hicolor/256x256 图标；未改宿主菜单或图标缓存。
-- 图标修正后的包为 `.local/alpha5-package-icons/mpvkit-bin-0.2.0alpha5-1-x86_64.pkg.tar.zst`，隔离安装/图标/重装/卸载通过，记录 `/tmp/mpvkit-package-test.0HdSh6xg/pacman.log`。Tauri 构建、fmt、clippy 和 17 项本地 mock 发布契约通过，无实际发布。
+- 图标修正后的包为 `.local/alpha5-package-icons/mpvkit-bin-0.2.0alpha5-1-x86_64.pkg.tar.zst`，隔离安装/图标/重装/卸载通过，记录 `/tmp/mpvkit-package-test.0HdSh6xg/pacman.log`。Tauri 构建、fmt、clippy 和 17 项本地 mock 发布契约通过；本处仅为本地验证，实际公开发布见下节。
 - 本机按用户要求卸载了管理器，独立 ELF 不注册应用菜单；本轮验证包资产与 KDE 解析，不把它写成宿主正式安装后的菜单/任务栏视觉通过。宿主实装后的任务栏固定项、菜单、桌面快捷方式仍待相应安装环境验证。
 
-用户已确认本版界面验证通过；正在按明确授权执行 dev 推送、main PR 合并、分支同步及公开预发布。Windows 原生回归、NSIS 跨版本更新、实际 Linux Polkit 安装/重开尚未完成，需相应隔离主机。未验证物理拖动/缩放、跨屏不同 DPI、平铺及关闭合成器模糊后的动态能力变化；高对比实色路径已测，不能替代无协议合成器实测。本版未改播放器画质/窗口策略，必要原生链已通过，未重复全套扩展渲染矩阵。
+用户已确认本版界面验证通过；已按明确授权完成 dev 推送、main PR 合并和公开预发布，发布记录合并后再次同步分支。Windows 原生回归、NSIS 跨版本更新、实际 Linux Polkit 安装/重开尚未完成，需相应隔离主机。未验证物理拖动/缩放、跨屏不同 DPI、平铺及关闭合成器模糊后的动态能力变化；高对比实色路径已测，不能替代无协议合成器实测。本版未改播放器画质/窗口策略，必要原生链已通过，未重复全套扩展渲染矩阵。
 
 ## 发布执行（2026-10-28）
 
 - 用户视觉验收通过，已授权本版提交、推送、PR 合并、同步分支及发布；不增加人工发布确认。
 - 发布前复核：TypeScript/Vite、前端 2 项、Rust 52 通过/5 专项忽略、fmt/clippy、发布契约 mock 17 项、两端依赖材料检查均通过。许可检查曾因沙箱子进程限制中断，在允许子进程的环境复验通过。
 - 桌面图标回归现在调用 desktop-file-validate，PR 的 Arch 环境补充显式 desktop-file-utils 依赖；未改变用户安装包依赖。
-- PR 双端 CI、合并 SHA、正式构建/签名、公开 Release、匿名 manifest 及分支同步结果将在真实完成后补录；不提前写为成功。
+- [PR #12](https://github.com/Leovikii/mpvkit/pull/12) 已合并，源码提交 b4119c5（Improve setup）、main 合并提交 3bcf323（Merge dev）。[双端 CI](https://github.com/Leovikii/mpvkit/actions/runs/40684418540) 全部成功：Windows Rust 47 / Arch 52 项，Arch 包元数据专项另 1 项及隔离 Pacman 安装/重装/卸载通过；两个平台各 5 项专项默认忽略。
+- 合并后 dev 已快进并推送到 main 的 3bcf323，远端分支差异 0/0；tag v0.2.0-alpha.5 固定 3bcf323，后续文档提交不移动该 tag。
+- [正式发布流程](https://github.com/Leovikii/mpvkit/actions/runs/40685498426) 全部成功；[alpha.5](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-alpha.5) 从创建起公开、Pre-release，未设为 Latest。六项资产已匿名下载并核对 GitHub digest、SHA256SUMS、manifest，两端正式 Minisign 签名通过。详见[发布证据](evidence.md)。

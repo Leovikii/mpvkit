@@ -1,12 +1,12 @@
 # MpvKit：AI agent 开发规范
 
-## 当前任务（2026-10-28，alpha.5 发布执行）
+## 当前任务（2026-10-28，alpha.5 已发布）
 
 用户已审核 [alpha.5 开发方案](docs/v0.2.0-alpha.5/plan.md)，明确要求开始实现并自行完成必要的所有测试：Linux 统一标题栏/窗口基底、播放器与配置管理拆页、一次确认的一键安装。本机管理器及限定残留已清理，系统 MPV 保留。用户已确认界面验证通过，并授权更新文档、提交/推送 dev、PR 合并 main、将 dev 同步到 main，以及发布本版更新。提交和 PR 文案使用极简英文。
 
 实现与当前可行的 Linux/前端验证已完成，独立测试程序位于 `.local/alpha5-visual-test/run.sh`，用户已确认界面验证通过；标题栏/外壳的浅深主题及高对比截图已复核。Windows 原生、实际 Polkit 安装/重开及其他未测项见本版交接，不把历史结果写成本版通过。
 
-当前源码为 **0.2.0-alpha.5**，公开预发布仍为 **0.2.0-alpha.4**；以下代码、双端 CI、Windows 原生完整回归和匿名发布核验均指 alpha.4 已完成结果，证据见[已发布交接](docs/v0.2.0-alpha.4/plan.md)。alpha.4 用户曾批准方案，并授权修复类似设计问题、完成 Windows 与当前可行的 Linux 测试、推送 dev、PR 合并 main 后同步 dev；main 合并沿用自动公开预发布流程。该批收尾为发布记录与分支同步，遗留实测为隔离 Windows NSIS 跨版本更新及 Arch/CachyOS KDE Wayland 原生授权/重开；不扩张为 alpha.5 授权。提交和 PR 文案用极简英文。保留已有改动，未验证结果不能写成通过。
+当前源码及公开预发布为 **0.2.0-alpha.5**。用户界面验收、双端 CI、PR #12 合并、正式签名和匿名公开发布核验已完成，见[本版交接](docs/v0.2.0-alpha.5/plan.md)和[发布证据](docs/v0.2.0-alpha.5/evidence.md)。发布 tag 固定 3bcf323，不随后续文档提交移动；发布记录通过文档 PR 合并，随后同步 dev/main。Windows 原生、NSIS 跨版本更新、实际 Linux Polkit 安装/重开等未测项继续保留，不继承 alpha.4 的原生通过结果。提交和 PR 文案用极简英文。
 
 alpha.3 采用 GitHub Releases 发现版本和 Tauri 标准 manifest，删除自建渠道索引与 AUR 分支，无旧 alpha 兼容负担；Windows 保留官方 updater，Arch 下载验签后用 pkexec/Pacman 原生安装。[alpha.3 交接](docs/v0.2.0-alpha.3/plan.md)保留已完成的验证和公开发布结果。用户本轮明确要求 alpha.4 取消按钮背景进度，改为同一个 Mantine 弹窗内的标准进度条/短阶段与正常尺寸按钮，遵循 WinUI 3 / Fluent；此决定已实施，覆盖旧进度样式要求。下列 alpha.2 记录仅作历史依据。
 

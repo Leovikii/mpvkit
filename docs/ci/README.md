@@ -1,6 +1,6 @@
 # CI/CD 与分发
 
-当前源码 v0.2.0-alpha.5，用户已授权发布；本版验证与实际发布见[交接](../v0.2.0-alpha.5/plan.md)，公开状态以实际核验为准。配置以 [.github/workflows](../../.github/workflows) 为准。
+当前 v0.2.0-alpha.5，双端 CI、正式签名和公开发布核验已完成，见[交接](../v0.2.0-alpha.5/plan.md)与[发布证据](../v0.2.0-alpha.5/evidence.md)。配置以 [.github/workflows](../../.github/workflows) 为准。
 
 ## PR 检查
 
