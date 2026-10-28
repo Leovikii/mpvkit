@@ -4,7 +4,7 @@
 
 已提交基线为 **0.2.0-alpha.2**，目标 **0.2.0-alpha.3**。用户现已明确授权完成 [alpha.3 开发计划](docs/v0.2.0-alpha.3/plan.md)、Windows 与可行 Linux 验证、更新 Actions、推送 dev、PR 合并 main，再同步 dev。提交和 PR 文案用极简英文。继续核对工作区已有改动，未验证结果不能写成通过。
 
-alpha.3 采用 GitHub Releases 发现版本和 Tauri 标准 manifest，删除自建渠道索引与 AUR 分支，无旧 alpha 兼容负担；Windows 保留官方 updater，Arch 下载验签后用 pkexec/Pacman 原生安装。前端依照 WinUI 3 / Fluent 指导，以 Mantine 实现；两端更新立即反馈下载及安装状态。下列 alpha.2 发布和行为记录只作历史依据，本版结果写入 alpha.3 交接。
+alpha.3 采用 GitHub Releases 发现版本和 Tauri 标准 manifest，删除自建渠道索引与 AUR 分支，无旧 alpha 兼容负担；Windows 保留官方 updater，Arch 下载验签后用 pkexec/Pacman 原生安装。前端依照 WinUI 3 / Fluent 指导，以 Mantine 实现；两端更新只保留按钮背景进度与短阶段文案，不重复展示横条、状态段落或明显操作指南。下列 alpha.2 发布和行为记录只作历史依据，本版结果写入 alpha.3 交接。
 
 ## 已完成批次（2026-10-27）
 

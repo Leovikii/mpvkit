@@ -57,20 +57,20 @@ export function useAppUpdates(props: {
     } catch (cause) { setProblem(cause); setPrepared(null); }
     finally { setProgress(null); }
   }
-  const status = completed ? t("updateComplete") : failed ? t("updateCheckFailed") : result?.status === "noRelease" ? t("noStableRelease") : result?.status === "current" ? t("upToDate") : update ? t("newAppVersion", { version: update.version }) : t("startupUpdateHint");
+  const status = completed ? t("updateComplete") : failed ? t("updateCheckFailed") : result?.status === "noRelease" ? t("noStableRelease") : result?.status === "current" ? t("upToDate") : update ? t("newAppVersion", { version: update.version }) : "";
   const phaseText = progress?.phase === "verify" ? t("verifyingUpdate") : progress?.phase === "prepare" ? t("preparingUpdate") : progress?.phase === "install" ? t(update?.method === "pacman" ? "authorizingUpdate" : "installingUpdate") : progress?.percent != null ? t("downloadingPercent", { percent: progress.percent }) : t("downloadingUpdate");
   const date = update?.date ? new Date(update.date) : null;
   const about = <>
     <div className="setting-row update-setting update-check-row">
-      <div><Text fw={500}>{t("appUpdate")}</Text><Text size="sm" c="dimmed" role="status" aria-live="polite" mt={4}>{status}</Text></div>
+      <div><Text fw={500}>{t("appUpdate")}</Text>{status && <Text size="sm" c="dimmed" role="status" aria-live="polite" mt={4}>{status}</Text>}</div>
       <Group className="row-control update-controls" gap={8} justify="flex-end">
         <Button type="button" variant="default" disabled={!props.desktop || !props.ready || checking || running || completed || props.blocked || props.saving} onClick={() => void check()}>{t(checking ? "checkingUpdate" : "checkUpdates")}</Button>
         {update && <Button type="button" variant="default" disabled={props.blocked} onClick={() => setShown(true)}>{t("viewUpdate")}</Button>}
       </Group>
     </div>
     <div className="setting-row update-setting">
-      <div><Text component="label" htmlFor="preview-update-switch" id="preview-update-label" fw={500}>{t("previewUpdates")}</Text><Text id="preview-update-hint" size="sm" c="dimmed" mt={4}>{t("previewUpdateHint")}</Text></div>
-      <div className="row-control"><Switch id="preview-update-switch" aria-labelledby="preview-update-label" aria-describedby="preview-update-hint" checked={props.previews} disabled={!props.desktop || props.saving || running || completed || props.blocked} onChange={event => void previews(event.currentTarget.checked)} /></div>
+      <div><Text component="label" htmlFor="preview-update-switch" id="preview-update-label" fw={500}>{t("previewUpdates")}</Text></div>
+      <div className="row-control"><Switch id="preview-update-switch" aria-labelledby="preview-update-label" checked={props.previews} disabled={!props.desktop || props.saving || running || completed || props.blocked} onChange={event => void previews(event.currentTarget.checked)} /></div>
     </div>
   </>;
   const dialog = <Modal opened={shown && (!props.blocked || running)} onClose={dismiss} title={t("appUpdate")} size={560} centered radius={8} padding={0} closeButtonProps={{ "aria-label": t("close") }} closeOnEscape={!running} closeOnClickOutside={!running} withCloseButton={!running} classNames={{ content: "update-dialog-content", header: "update-dialog-header", title: "update-dialog-title", body: "update-dialog-body" }}>
@@ -81,14 +81,13 @@ export function useAppUpdates(props: {
         <Text fw={500} size="sm" mt="lg" mb={8}>{t("releaseNotes")}</Text>
         <pre className="update-notes" tabIndex={0} aria-label={t("releaseNotes")}>{update.notes || t("noReleaseNotes")}</pre>
         {props.dirty && !completed && <Alert color="orange" mt="md">{t("updateDraft")}</Alert>}
-        {!completed && <Text size="sm" c="dimmed" mt="md">{t(update.method === "installer" ? "updateExit" : "pacmanUpdateHint")}</Text>}
+        {!completed && update.method === "installer" && <Text size="sm" c="dimmed" mt="md">{t("updateExit")}</Text>}
         {prepared && !completed && <><Text fw={500} size="sm" mt="md">{t("installationPreview")}</Text><pre className="update-notes" tabIndex={0}>{prepared.changes.join("\n")}</pre></>}
         {problem != null && <Alert color={errorKey(problem) === "updateCancelled" ? "gray" : "red"} mt="md" role={errorKey(problem) === "updateCancelled" ? "status" : "alert"}>{t(errorKey(problem))}</Alert>}
         {completed && <Alert color="green" mt="md" role="status">{t("updateComplete")}</Alert>}
-        {running && <div className="download-progress"><progress max={100} value={progress.percent ?? undefined} aria-label={t("appUpdate")} /><Text size="sm" mt={8}><span role="status" aria-live="polite">{progress.phase === "download" ? t("downloadingUpdate") : phaseText}</span>{progress.phase === "download" && progress.percent != null && <span aria-hidden="true"> {progress.percent}%</span>}</Text></div>}
       </div>
       <Group className="update-dialog-actions" justify="flex-end" gap={8}>
-        {!completed && (problem != null ? <Button type="button" onClick={() => void check()}>{t("checkUpdates")}</Button> : <Button type="button" classNames={{label:"update-action-label"}} className={running ? "update-progress-button" : undefined} style={{ "--update-percent": `${progress?.percent ?? 0}%` } as CSSProperties} disabled={props.dirty || props.blocked || running || props.saving} onClick={() => void install()}>{running ? phaseText : t(prepared ? "installUpdate" : "downloadUpdate")}</Button>)}
+        {!completed && (problem != null ? <Button type="button" onClick={() => void check()}>{t("checkUpdates")}</Button> : running ? <Button component="div" role="progressbar" tabIndex={0} aria-label={phaseText} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent ?? undefined} aria-valuetext={phaseText} aria-live={progress.percent === null ? "polite" : "off"} data-disabled className="update-progress-button" classNames={{label:"update-action-label"}} style={{ "--update-percent": `${progress.percent ?? 0}%` } as CSSProperties} loading={progress.percent === null} styles={{inner:{opacity:1,transform:"none"},label:{opacity:1,paddingInlineStart:progress.percent === null ? 18 : 0},loader:{left:12}}}>{phaseText}</Button> : <Button type="button" classNames={{label:"update-action-label"}} disabled={props.dirty || props.blocked || running || props.saving} onClick={() => void install()}>{t(prepared ? "installUpdate" : "downloadUpdate")}</Button>)}
         <Button type="button" variant="default" data-autofocus disabled={running} onClick={dismiss}>{t(completed ? "close" : "later")}</Button>
       </Group>
     </>}

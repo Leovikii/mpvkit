@@ -116,18 +116,19 @@ try {
   await page.getByRole('switch',{name:'接收预览版更新',exact:true}).focus();await page.keyboard.press('Space');
   await button('检查更新').click();await dialog.waitFor();
   await dialog.getByRole('button',{name:'下载并更新',exact:true}).click();
-  await dialog.getByRole('button',{name:'正在下载…',exact:true}).waitFor();
-  assert.equal(await dialog.locator('progress').getAttribute('value'),null);
-  await dialog.getByRole('button',{name:'正在下载 42%',exact:true}).waitFor();
+  await dialog.getByRole('progressbar',{name:'正在下载…',exact:true}).waitFor();
+  assert.equal(await dialog.getByRole('progressbar').getAttribute('aria-valuenow'),null);
+  assert.equal(await dialog.locator('progress').count(),0);
+  await dialog.getByRole('progressbar',{name:'正在下载 42%',exact:true}).waitFor();
   await screenshot('linux-update-progress');
   await dialog.getByText('安装预览',{exact:true}).waitFor();
   await dialog.getByRole('button',{name:'安装更新',exact:true}).click();
-  await dialog.getByRole('button',{name:'正在等待系统授权并安装…',exact:true}).waitFor();
+  await dialog.getByRole('progressbar',{name:'授权并安装…',exact:true}).waitFor();
   assert(await dialog.getByRole('button',{name:'稍后',exact:true}).isDisabled());
-  await dialog.getByText('更新完成。请退出并重新打开 MpvKit。',{exact:true}).waitFor();
+  await dialog.getByText('已更新，请重新打开应用。',{exact:true}).waitFor();
   assert.equal(await dialog.getByRole('link').count(),0);
   await screenshot('linux-update-complete');
-  for(const [failure,message] of [['download','下载失败或网络不可用，请检查网络后重试。'],['cancel','已取消系统授权，未安装更新。请重新检查后重试。']]) {
+  for(const [failure,message] of [['download','下载失败或网络不可用，请检查网络后重试。'],['cancel','授权已取消，未安装。']]) {
     linuxPreview.searchParams.set('updateFailure',failure);
     await page.goto(linuxPreview.href);await button('应用设置').click();
     await page.getByRole('switch',{name:'接收预览版更新',exact:true}).focus();await page.keyboard.press('Space');

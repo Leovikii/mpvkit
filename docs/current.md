@@ -52,7 +52,7 @@ Linux 管理器入口由 Arch 包维护 packaging/io.github.mpvkit.desktop 与�
 
 应用设置 → 关于：GUI 就绪 3 秒后检查一次，提前手动检查则合并，无周期检查。接收预览版默认 false；切换废弃旧结果，迟到响应无效。固定 GitHub Releases API 按 SemVer 发现完整版本，排除草稿及不符合预览偏好的版本；每版 latest.json 包含双平台标准项，不再有渠道索引或 AUR。API 分页/超时/限流错误不能当成无更新。
 
-更新对话框显示纯文本日志、版本和日期，点击立即显示未知进度，已知下载总量后显示真实百分比；校验、准备、安装只显示相应阶段。两端复用官方 updater 下载/验签、GitHub digest 与 SHA256SUMS 核对。Windows 继续官方 NSIS 安装；Arch 先下载到私有临时目录，核对包名/版本/架构及 Pacman 事务，再由用户确认并通过 pkexec 执行固定 Pacman 参数。安装前核对候选/包/事务状态，持有应用及配置锁；草稿或当前事务阻断安装。无 shell、签名降级、数据库刷新、常驻提权服务或 Pacman 强杀。Linux 仅支持 /usr/bin/mpvkit 且归属 mpvkit-bin 的系统安装，开发/解压程序明确拒绝应用内系统升级。
+更新对话框显示纯文本日志、版本和日期，点击后立即在按钮显示加载反馈，已知下载总量后以同一按钮背景及百分比反馈；不重复显示独立进度条或状态说明。校验、准备、安装只显示短阶段文字。两端复用官方 updater 下载/验签、GitHub digest 与 SHA256SUMS 核对。Windows 继续官方 NSIS 安装；Arch 先下载到私有临时目录，核对包名/版本/架构及 Pacman 事务，再由用户确认并通过 pkexec 执行固定 Pacman 参数。安装前核对候选/包/事务状态，持有应用及配置锁；草稿或当前事务阻断安装。无 shell、签名降级、数据库刷新、常驻提权服务或 Pacman 强杀。Linux 仅支持 /usr/bin/mpvkit 且归属 mpvkit-bin 的系统安装，开发/解压程序明确拒绝应用内系统升级。
 
 Arch 成功后查询已装版本和文件归属，显示退出后重新打开；运行进程仍是原版本。授权取消/失败就地反馈，重新检查后重试。关于区遵守 WinUI 3 设置行，对话框操作区固定，未知进度不伪造百分比。Arch Minisign 文件使用 .tauri.sig，避免被 Pacman 当作 OpenPGP 的 .sig；继承系统 LocalFileSigLevel。首次安装仍从 GitHub 下载后 pacman -U 本地包，不通过 AUR。
 
