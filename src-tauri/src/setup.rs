@@ -319,6 +319,189 @@ pub fn execute(plan: ChangePlan) -> Result<deploy::DeploymentStatus> {
     deploy::execute(plan.files)
 }
 
+#[derive(Clone, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct InstallationPreview {
+    #[serde(flatten)]
+    pub files: ChangePreview,
+    pub core: Option<crate::platform::core::CorePreview>,
+    pub components: Vec<String>,
+}
+
+pub struct InstallationPlan {
+    pub files: deploy::DeploymentPlan,
+    core: Option<crate::platform::core::CorePlan>,
+    components: Vec<String>,
+    player: PathBuf,
+}
+
+impl InstallationPlan {
+    pub fn preview(&self) -> InstallationPreview {
+        InstallationPreview {
+            files: ChangePreview {
+                files: self.files.preview.clone(),
+                retained: vec![],
+            },
+            core: self.core.as_ref().map(|plan| plan.preview.clone()),
+            components: self.components.clone(),
+        }
+    }
+}
+
+pub fn prepare_installation(
+    root: &Path,
+    component: Option<&str>,
+    cancel: &std::sync::atomic::AtomicBool,
+    progress: &mut impl FnMut(crate::components::Progress),
+) -> Result<InstallationPlan> {
+    let report = status(root)?;
+    if report.recovery_required {
+        return Err(AppError::new(
+            "recovery_required",
+            "请先恢复未完成操作。",
+            "install",
+        ));
+    }
+    let selected = if let Some(id) = component {
+        if !report.player_ready {
+            return Err(AppError::new(
+                "components_required",
+                "请先完成 MPV 核心安装。",
+                "install",
+            ));
+        }
+        if !crate::components::ASSETS.iter().any(|asset| asset.id == id) {
+            return Err(AppError::new("component_unknown", "未知组件。", "install"));
+        }
+        vec![id.to_string()]
+    } else {
+        crate::components::ASSETS
+            .iter()
+            .filter(|asset| {
+                !report
+                    .components
+                    .iter()
+                    .any(|health| health.id == asset.id && health.ready)
+            })
+            .map(|asset| asset.id.to_string())
+            .collect::<Vec<_>>()
+    };
+    if report.player_installed && !report.player_ready {
+        return Err(AppError::new(
+            "core_unusable",
+            "MPV 核心不可用，请先检查核心版本和系统安装状态。",
+            "install",
+        ));
+    }
+    let core = if !report.player_installed {
+        Some(crate::platform::core::prepare("install")?)
+    } else {
+        None
+    };
+    if selected.is_empty() && core.is_none() {
+        return Err(AppError::new(
+            "already_installed",
+            "播放器组件已就绪。",
+            "install",
+        ));
+    }
+    let player = config::player_path(root)?;
+    let files = if selected.is_empty() {
+        deploy::prepare_update(root, vec![], false, Default::default())?
+    } else {
+        crate::components::prepare_selected(root, &selected, true, cancel, progress)?
+    };
+    if crate::platform::app_root()? != root || config::player_path(root)? != player {
+        return Err(AppError::new(
+            "stale_preview",
+            "安装位置已变化，请重新预览。",
+            "install",
+        ));
+    }
+    Ok(InstallationPlan {
+        files,
+        core,
+        components: selected,
+        player,
+    })
+}
+
+pub fn execute_installation(
+    mut plan: InstallationPlan,
+    progress: &mut impl FnMut(crate::components::Progress),
+) -> Result<deploy::DeploymentStatus> {
+    let _application_lock = deploy::acquire(&crate::platform::default_root()?)?;
+    let root = plan.files.preview.root.clone();
+    let validate_location = || -> Result<()> {
+        if crate::platform::app_root()? != root || config::player_path(&root)? != plan.player {
+            return Err(AppError::new(
+                "stale_preview",
+                "核心或配置位置已变化，请重新预览。",
+                "install",
+            ));
+        }
+        Ok(())
+    };
+    validate_location()?;
+    plan.files.validate()?;
+    let core_installed = plan.core.is_some();
+    let event = |component: &str, phase: &'static str| crate::components::Progress {
+        component: component.into(),
+        phase,
+        received: 0,
+        total: 0,
+    };
+    if let Some(core) = plan.core.take() {
+        progress(event("mpv", "install-core"));
+        if let Err(failure) = crate::platform::core::execute_locked(core) {
+            if plan.player.is_file() {
+                return Err(AppError::new(
+                    "installation_partial",
+                    format!("检测到 MPV 核心，组件尚未安装：{}", failure.message),
+                    "install",
+                ));
+            }
+            return Err(failure);
+        }
+        progress(event("mpv", "core-installed"));
+    }
+    let result = (|| {
+        validate_location()?;
+        mpv::inspect(&plan.player)?;
+        mpv::ensure_managed_options(&plan.player)?;
+        plan.files
+            .guard(plan.player.clone(), deploy::file_hash(&plan.player)?);
+        progress(event(&plan.components.join(", "), "install-components"));
+        let status = deploy::execute(plan.files)?;
+        let installed = self::status(&root)?;
+        if plan.components.iter().any(|id| {
+            !installed
+                .components
+                .iter()
+                .any(|health| &health.id == id && health.ready)
+        }) {
+            return Err(AppError::new(
+                "installation_incomplete",
+                "组件安装后检查未通过，请重新检查安装状态。",
+                "install",
+            ));
+        }
+        progress(event(&plan.components.join(", "), "components-installed"));
+        Ok(status)
+    })();
+    result.map_err(|failure: AppError| {
+        if core_installed {
+            AppError::new(
+                "installation_partial",
+                format!("MPV 已安装，组件未完成：{}", failure.message),
+                "install",
+            )
+        } else {
+            failure
+        }
+    })
+}
+
 #[cfg(test)]
 mod transaction_tests {
     use super::*;

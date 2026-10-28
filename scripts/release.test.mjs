@@ -176,6 +176,9 @@ test('Arch resource layout and release completeness use actual source mapping', 
     assert(!fs.existsSync(path.join(stage, 'usr/lib/mpvkit/third-party/WEBVIEW2-SDK-LICENSE.txt')));
     const desktop = fs.readFileSync(path.join(stage, 'usr/share/applications/io.github.mpvkit.desktop'), 'utf8');
     assert.match(desktop, /^Exec=mpvkit$/m);
+    assert.match(desktop, /^Icon=io\.github\.mpvkit$/m);
+    assert.match(desktop, /^StartupWMClass=io\.github\.mpvkit$/m);
+    assert.deepEqual(fs.readFileSync(path.join(stage, 'usr/share/icons/hicolor/256x256/apps/io.github.mpvkit.png')), fs.readFileSync('src-tauri/icons/icon.png'));
     assert.match(desktop, /^Categories=AudioVideo;$/m);
     assert.throws(() => stageArch(root, executable), /fresh staging/);
     assert.throws(() => manifest(root, version, new Date().toISOString(), 'notes'), /windows-x86_64 package/);

@@ -137,6 +137,8 @@
 
 ## 本轮交接
 
+2026-10-28 后续：已进入 [alpha.5 实施与交接](../v0.2.0-alpha.5/plan.md)，本机管理器与限定残留已清理、系统核心保留；本节以下继续保留 alpha.4 实际证据，不代表 alpha.5 已实施或通过。本版实施与测试已获授权，后续入口以 alpha.5 交接为准，以下原生未测项继续保留。
+
 - 已实施：Windows 候选路径组件去重；双端应用更新 prepare/install 分离与候选释放；普通任务同窗准备/进度/错误/结果；独立组件安装与配置保存；短退出弹窗、正常按钮、页面 Paper 样式作用域及异步准备焦点。
 - Linux 核心提交改为临时文件承接输出并等待系统包管理器结束，不沿用查询超时。tempfile 生产依赖原已用于 Linux；仅补同版本 dev 依赖供 Windows 编译共享 Linux 测试，不新增运行时库。
 - 已通过：TypeScript/Vite、前端与发布契约 20 项、Windows Rust 45 项（5 条环境条件测试默认忽略）、fmt/clippy、Windows Tauri debug 构建、离线预览完整交互回归。Windows 最终完整原生套件 9/9 通过（274207ms），含 52 项真实音轨选择、更新、WinGet、窗口/uosc/连播/字幕、原生配置/保存、播放快捷键/续播/字体、双语主题/诊断及草稿/过期/退出布局。详见[证据](evidence.md#alpha4-实施与本地验证)。双平台 [CI 全部通过](https://github.com/Leovikii/mpvkit/actions/runs/40635264476)：Windows 45 / Arch 50 项，Arch 包元数据另 1 项、makepkg 与隔离 Pacman 验收通过。

@@ -10,11 +10,11 @@
     "随应用分发保留原文；完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "327a19f6bde46e004d4fbfc388ca423cd23c705df28e6ac7802d3a8f6566eb4b",
-    "src-tauri/Cargo.lock": "2904609e294357800739f1968ae9ec44bd982e120fbf5af91c835e42e856b1a4",
-    "package.json": "c44add23258de6a8fb113d2edbd4cd1eb43013024ddcc4f3bee4ad163797997a",
+    "src-tauri/Cargo.toml": "3eeefaa06b25c5e9efb1dcca722ec3c7eaff2b194c909fcee9b33e14963799b1",
+    "src-tauri/Cargo.lock": "9121d18609567dbd24bd817e5519c9c509e4050c3e93d396886359f06830fed2",
+    "package.json": "385fc783078202aa12ec57864e3712542c81285dfd5a7aadad33588b7902fc42",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
-    "resources/app-license-supplements.json": "b94978d00b5b303a1da551dac94d38609248b11a8033a9272e3197ee573d6364"
+    "resources/app-license-supplements.json": "30953a5d100bc8a11baa534b3e6782ea371b23d257aced700f25f2ab4a0ff68c"
   },
   "missingMaterials": [],
   "packages": [

@@ -1,4 +1,16 @@
 export const messages = {
+  quickInstall: ["一键安装", "Install player"],
+  repairInstallation: ["修复安装", "Repair installation"],
+  goConfiguration: ["前往配置", "Go to configuration"],
+  configurationLocked: ["请先完成播放器安装", "Complete player installation first"],
+  installationCompleted: ["安装完成。", "Installation complete."],
+  componentsInstalled: ["播放器组件已就绪。", "Player components are ready."],
+  installingCore: ["正在安装 MPV，可能需要系统授权…", "Installing MPV; system authorization may be required…"],
+  installingComponents: ["正在安装组件…", "Installing components…"],
+  completedItems: ["已完成：{items}", "Completed: {items}"],
+  partialInstallation: ["MPV 已安装，组件未完成。请重新准备剩余组件。", "MPV is installed; components are incomplete. Prepare the remaining components again."],
+  coreUnusable: ["MPV 核心不可用，请检查版本和系统安装状态。", "MPV is unavailable. Check its version and system installation."],
+  prepareAgain: ["重新准备", "Prepare again"],
   exitApp: ["退出 MpvKit？", "Exit MpvKit?"],
   executingTask: ["正在执行，请稍候…", "Working, please wait…"],
   mpvAmbiguous: ["发现多个 MPV 安装位置，请核对安装位置后重试。", "Multiple MPV installations found. Check the installation paths and retry."],
@@ -59,8 +71,8 @@ export const messages = {
   powerHint: ["降低渲染负担，适合低性能设备。","Lower rendering load for less powerful devices."],
   qualityHint: ["推荐独立显卡使用，卡顿时请降低档位。","A dedicated GPU is recommended; lower quality if playback stutters."],
   updateComponents: ["更新组件", "Update components"],
-  management: ["播放器设置","Player settings"],
-  configuration: ["播放设置","Playback"],
+  management: ["播放器管理","Player management"],
+  configuration: ["配置管理","Configuration"],
   installEnhancements: ["安装播放增强", "Install playback enhancements"],
   systemMpvHint: ["使用系统 MPV。请先安装 mpv 和 Vulkan 驱动；核心更新由系统包管理器负责。", "Uses system MPV. Install mpv and a Vulkan driver first; update the player with your package manager."],
   systemInstalled: ["已安装（系统）", "Installed (system)"],
@@ -190,6 +202,8 @@ export function translator(locale: Locale) {
 }
 export function errorKey(error: unknown): Key {
   const code = (error as {code?: string})?.code ?? "";
+  if (code === "installation_partial") return "partialInstallation";
+  if (code === "core_unusable") return "coreUnusable";
   if (code === "mpv_ambiguous") return "mpvAmbiguous";
   if (code === "winget_missing") return "wingetMissing";
   if (code === "update_authorization_cancelled") return "updateCancelled";

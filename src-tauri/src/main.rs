@@ -45,6 +45,8 @@ fn main() {
     builder
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
+                #[cfg(target_os = "linux")]
+                platform::appearance::initialize(&window)?;
                 platform::appearance::apply(&window);
                 window.show()?;
             }
@@ -93,7 +95,8 @@ fn main() {
             commands::preview_install,
             commands::deployment_status,
             commands::preview_maintenance,
-            commands::apply_deployment
+            commands::apply_deployment,
+            commands::discard_deployment
         ])
         .run(tauri::generate_context!())
         .expect("MpvKit 无法启动桌面窗口");

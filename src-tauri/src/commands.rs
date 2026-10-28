@@ -8,12 +8,14 @@ use tauri::State;
 enum PendingOperation {
     Deployment(Box<crate::setup::ChangePlan>),
     Recovery(Box<crate::deploy::RecoveryPlan>),
+    Installation(Box<crate::setup::InstallationPlan>),
 }
 
 impl PendingOperation {
     fn preview(&self) -> crate::setup::ChangePreview {
         match self {
             Self::Deployment(plan) => plan.preview(),
+            Self::Installation(plan) => plan.preview().files,
             Self::Recovery(plan) => crate::setup::ChangePreview {
                 files: plan.preview.clone(),
                 retained: vec![],
@@ -72,6 +74,8 @@ pub async fn preview_maintenance(
 #[tauri::command]
 pub async fn apply_deployment(
     preview_id: String,
+    on_progress: Option<tauri::ipc::JavaScriptChannelId>,
+    webview: tauri::Webview,
     state: State<'_, PendingDeployment>,
 ) -> Result<crate::deploy::DeploymentStatus> {
     let operation = {
@@ -94,9 +98,18 @@ pub async fn apply_deployment(
         }
         pending.take().expect("checked operation")
     };
+    let on_progress =
+        on_progress.map(|id| id.channel_on::<_, crate::components::Progress>(webview));
     tauri::async_runtime::spawn_blocking(move || match operation {
         PendingOperation::Deployment(plan) => crate::setup::execute(*plan),
         PendingOperation::Recovery(plan) => crate::deploy::recover(*plan),
+        PendingOperation::Installation(plan) => {
+            crate::setup::execute_installation(*plan, &mut |progress| {
+                if let Some(channel) = &on_progress {
+                    let _ = channel.send(progress);
+                }
+            })
+        }
     })
     .await
     .map_err(|_| {
@@ -130,11 +143,11 @@ pub fn cancel_component_download(state: State<'_, ComponentJob>) -> Result<()> {
 
 #[tauri::command]
 pub async fn preview_install(
-    replace_existing: bool,
+    component: Option<String>,
     on_progress: tauri::ipc::Channel<crate::components::Progress>,
     job: State<'_, ComponentJob>,
     state: State<'_, PendingDeployment>,
-) -> Result<crate::setup::ChangePreview> {
+) -> Result<crate::setup::InstallationPreview> {
     let root = platform::app_root()?;
     let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     {
@@ -152,7 +165,7 @@ pub async fn preview_install(
         *current = Some(cancel.clone());
     }
     let result = tauri::async_runtime::spawn_blocking(move || {
-        crate::components::prepare_install(&root, replace_existing, &cancel, &mut |progress| {
+        crate::setup::prepare_installation(&root, component.as_deref(), &cancel, &mut |progress| {
             let _ = on_progress.send(progress);
         })
     })
@@ -167,15 +180,24 @@ pub async fn preview_install(
     *job.0
         .lock()
         .map_err(|_| AppError::new("state_unavailable", "获取状态不可用。", "components"))? = None;
-    let files = result??;
-    let plan = crate::setup::files_only(files);
+    let plan = result??;
     let preview = plan.preview();
     *state
         .0
         .lock()
         .map_err(|_| AppError::new("state_unavailable", "部署状态不可用。", "components"))? =
-        Some(PendingOperation::Deployment(Box::new(plan)));
+        Some(PendingOperation::Installation(Box::new(plan)));
     Ok(preview)
+}
+
+#[tauri::command]
+pub fn discard_deployment(state: State<'_, PendingDeployment>) -> Result<()> {
+    state
+        .0
+        .lock()
+        .map_err(|_| AppError::new("state_unavailable", "操作状态不可用。", "deploy"))?
+        .take();
+    Ok(())
 }
 
 #[tauri::command]

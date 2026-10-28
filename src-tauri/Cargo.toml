@@ -1,6 +1,6 @@
 [package]
 name = "mpvkit"
-version = "0.2.0-alpha.4"
+version = "0.2.0-alpha.5"
 edition = "2024"
 rust-version = "1.98.1"
 publish = false
@@ -23,6 +23,9 @@ tauri-plugin-updater = { version = "=2.11.0", default-features = false, features
 tempfile = "=3.27.0" # Private, automatically cleaned package-update staging.
 libc = "=0.2.191" # Bounded reads from child pipes on Unix.
 gtk = "=0.18.2" # Native desktop preferences and portal settings.
+gdkwayland-sys = "=0.18.2" # Borrow the GTK window's existing Wayland display and surface.
+wayland-client = { version = "=0.31.15", features = ["system"] } # Safe protocol bindings on the borrowed GDK connection.
+wayland-protocols = { version = "=0.32.13", features = ["client", "staging"] } # Standard background blur with compositor capability feedback.
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "=0.61.2", features = [

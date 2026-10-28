@@ -1,191 +1,113 @@
-import React, { useEffect, useState } from 'react';
+// Render the actual product UI against isolated in-memory IPC fixtures.
 import { createRoot } from 'react-dom/client';
-import { MantineProvider, AppShell, NavLink, Tooltip, Paper, Group, Stack, Text, Title, Button, Accordion, NativeSelect, Switch, Modal, Alert, Transition, createTheme } from '@mantine/core';
-import { useMediaQuery } from '@mantine/hooks';
-import '@mantine/core/styles.css';
-import './preview.css';
-import logo from '../../../src/assets/mpv.svg?inline';
-import { brandTheme } from '../../../src/brand';
-import { TaskProgress } from '../../../src/task-progress';
-import { useAppUpdates } from '../../../src/app-updates';
-import { translator } from '../../../src/i18n';
-import { mockIPC } from '@tauri-apps/api/mocks';
-
-// Real update UI with offline-only IPC. No executable or package manager is run.
-mockIPC(async (command, args) => {
-  const params = new URLSearchParams(location.search);
-  const linux = params.get('updates') === 'linux';
-  if (command === 'discard_app_update') return;
-  if (command === 'check_app_update') return args.preview ? { status:'available',update:{id:'preview',version:'0.2.0-alpha.5',notes:'Sample release notes / 更新日志示例',date:'2026-10-28T00:00:00Z',method:linux?'pacman':'installer'} } : {status:'noRelease',update:null};
-  if (command === 'prepare_app_update' || command === 'install_app_update') {
-    const id=args.onProgress.id;let index=0;
-    const send=message=>window.__TAURI_INTERNALS__.runCallback(id,{index:index++,message});
-    const pause=()=>new Promise(resolve=>setTimeout(resolve,500));
-    try {
-      if (command === 'prepare_app_update') {
-        await pause();
-        for(const percent of [0,42,100]) {send({phase:'download',percent:params.has('updateUnknown')?null:percent});await pause();}
-        if(params.get('updateFailure')==='download')throw {code:'update_download'};
-        send({phase:'verify',percent:null});await pause();
-        if(params.get('updateFailure')==='verify')throw {code:'update_metadata'};
-        send({phase:'prepare',percent:null});await pause();return {id:'preview',changes:[linux?'mpvkit-bin 0.2.0alpha5-1 (x86_64)':'MpvKit x64']};
-      }
-      send({phase:'install',percent:null});await pause();
-      if(params.get('updateFailure')==='cancel')throw {code:'update_authorization_cancelled'};
-      if(params.get('updateFailure')==='install'||!linux)throw {code:'update_install'};
-    } finally {window.__TAURI_INTERNALS__.runCallback(id,{index,end:true});}
-    return;
-  }
-  throw Error('Unexpected preview command: '+command);
-});
-
-const theme = createTheme({ ...brandTheme, respectReducedMotion: true, defaultRadius: 4, fontFamily: '"Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", sans-serif', fontSizes: { xs: '0.75rem', sm: '0.875rem', md: '0.875rem' }, components: { Accordion: Accordion.extend({ defaultProps: { transitionDuration: 180 } }), Modal: Modal.extend({ defaultProps: { transitionProps: { transition: 'fade', duration: 160, exitDuration: 120 } } }), Tooltip: Tooltip.extend({ defaultProps: { transitionProps: { transition: 'fade', duration: 120, exitDuration: 90 } } }), Button: Button.extend({ defaultProps: { size: 'sm', fw: 400 } }), Paper: Paper.extend({ defaultProps: { withBorder: true, shadow: 'none' } }) } });
-function Row({ title, description, children }) { return <div className="setting-row"><div className="row-copy"><Text fw={500}>{title}</Text>{description && <Text size="xs" c="dimmed" mt={4}>{description}</Text>}</div><div className="row-action">{children}</div></div>; }
-function Expand({ title, description, children }) { return <Accordion variant="default" order={3}><Accordion.Item value="details"><Accordion.Control><Text size="sm">{title}</Text>{description && <Text size="xs" c="dimmed" mt={4}>{description}</Text>}</Accordion.Control><Accordion.Panel>{children}</Accordion.Panel></Accordion.Item></Accordion>; }
-function PageEntrance({ children }) {
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
-  return <Transition mounted={mounted} transition="fade-up" duration={200} timingFunction="ease-out">{styles => <div className="page-content" style={styles}>{children}</div>}</Transition>;
-}
+import { useState } from 'react';
+import { MantineProvider, Group, NativeSelect, Text } from '@mantine/core';
+import { mockIPC, mockWindows } from '@tauri-apps/api/mocks';
+import { defaultSettings, defaultAppSettings } from '../../../src/types';
 import { sampleFiles } from './sample-config';
-const initialDraft = { quality: 'balanced', hdr: 'auto', keepOpen: false, autoPlaylist: true };
-function App() {
-  const [previews, setPreviews] = useState(false);
-  const [lang, setLang] = useState('zh');
-  const [dark, setDark] = useState(false);
-  const [page, setPage] = useState('player');
-  const [scenario, setScenario] = useState('fresh');
-  const [ready, setReady] = useState(false);
-  const [coreReady,setCoreReady] = useState(true);
-  const [coreUpdate,setCoreUpdate] = useState(null);
-  const [saved, setSaved] = useState(null);
-  const [draft, setDraft] = useState(initialDraft);
-  const [dialog, setDialog] = useState(null);
-  const [finished,setFinished] = useState(false);
-  const [file, setFile] = useState('mpv.conf');
-  const [conflict, setConflict] = useState(false);
-  const [failure, setFailure] = useState('');
-  const [error, setError] = useState('');
-  const [phase, setPhase] = useState(null);
-  const [operation, setOperation] = useState(null);
-  const [notice, setNotice] = useState('');
-  const [fileTimes, setFileTimes] = useState({});
-  const compact = useMediaQuery('(max-width: 899px)');
-  const t = (zh, en) => lang === 'zh' ? zh : en;
-  const busy = phase !== null;
-  const updates = useAppUpdates({desktop:true,ready:true,previews,saving:false,blocked:busy||dialog!==null,dirty:false,version:'0.2.0-alpha.4',t:translator(lang==='zh'?'zh-Hans':'en'),save:async enabled=>setPreviews(enabled),operation:async action=>action()});
-  const dirty = !saved || JSON.stringify(saved) !== JSON.stringify(draft);
-  const names = { player: t('播放器设置', 'Player settings'), settings: t('应用设置', 'App settings') };
-  const actionLabel = t('保存配置', 'Save configuration');
-  const files = sampleFiles(draft);
-  const modifiedTime = name => fileTimes[name] ? <time dateTime={new Date(fileTimes[name]).toISOString()}>{new Intl.DateTimeFormat(lang==='zh'?'zh-CN':'en',{dateStyle:'medium',timeStyle:'medium'}).format(fileTimes[name])}</time> : t('尚未生成','Not created');
-  const mock = () => setNotice(t('演示：打开对应文件夹或系统页面。', 'Demo: open the folder or system page.'));
-  const open = kind => { setFile('mpv.conf');setError('');setNotice('');setFinished(false);setDialog(kind);if(kind==='components')setPhase('download'); };
-  const nav = (value, glyph) => <Tooltip label={names[value]} disabled={!compact} position="right" events={{ hover: true, focus: true, touch: false }}><NavLink component="button" aria-label={names[value]} aria-current={page === value ? 'page' : undefined} active={page === value} label={compact ? null : names[value]} leftSection={<span className="nav-icon" aria-hidden="true">{glyph}</span>} onClick={() => { setPage(value); setNotice(''); }} /></Tooltip>;
-  const button = (zh, en, fn, disabled = false) => <Button variant="default" disabled={disabled} onClick={fn}>{t(zh,en)}</Button>;
-  function selectScenario(value) {
-    setScenario(value); setReady(!['fresh', 'no-core', 'broken', 'download-error'].includes(value));
-    setCoreReady(value!=='no-core');setCoreUpdate(value==='update'?true:null);
-    setSaved(['ready', 'broken', 'conflict', 'config-error'].includes(value) ? initialDraft : null);
-    setDraft(initialDraft); setConflict(value === 'conflict'); setFailure(value === 'download-error' ? 'install' : value === 'config-error' ? 'write' : '');
-    setFileTimes(['ready', 'broken', 'conflict', 'config-error'].includes(value) ? Object.fromEntries(Object.keys(files).map(name=>[name,new Date('2026-10-22T18:07:00+08:00').getTime()])) : {});
-    setError(''); setNotice(''); setDialog(null); setPage('player');
-  }
-  function begin() {
-    if(busy) return;
-    setOperation({ kind:dialog, draft: { ...draft } });
-    setError(''); setNotice(''); setPhase(dialog==='components'?'install':dialog==='save'?'write':'execute');
-  }
-  useEffect(() => {
-    if (!phase) return;
-    const timer = setTimeout(() => {
-      if(phase==='download'){setPhase(null);return;}
-      if (failure === phase) {
-        setError(phase === 'install' ? 'install' : 'write'); setFailure(''); setPhase(null); return;
-      }
-      if(phase==='execute') {
-        if(operation.kind==='core'){setCoreReady(true);setCoreUpdate(false);}
-        if(operation.kind==='uninstall-core')setCoreReady(false);
-        if(operation.kind==='reset'){setDraft(initialDraft);setSaved(initialDraft);setConflict(false);setFileTimes(Object.fromEntries(Object.keys(files).map(name=>[name,Date.now()])));}
-        if(operation.kind==='uninstall'){setReady(false);setSaved(null);setFileTimes({});setScenario('fresh');}
-        setPhase(null);setFinished(true);setNotice('done');return;
-      }
-      if (phase === 'install') {
-        setReady(true); setCoreReady(true); setScenario('core');
-        setPhase(null); setNotice('components'); setFinished(true);
-      } else {
-        const previous = saved ? sampleFiles(saved) : {}, next = sampleFiles(operation.draft), now = Date.now();
-        setFileTimes(times=>Object.fromEntries(Object.keys(next).map(name=>[name,next[name]===previous[name]?times[name]:now])));
-        setSaved(operation.draft);
-        setConflict(false); setPhase(null); setScenario('ready'); setNotice('saved'); setFinished(true);
-      }
-    }, 850);
-    return () => clearTimeout(timer);
-  }, [phase, operation, failure]);
-  const hint = { 'power-saving': t('适合低性能设备。', 'For less powerful devices.'), balanced: t('推荐日常使用。', 'Recommended for everyday use.'), 'high-quality': t('推荐独立显卡使用。', 'A dedicated GPU is recommended.') }[draft.quality];
-  return <MantineProvider theme={theme} forceColorScheme={dark?'dark':'light'}>
-    <AppShell header={{height:88}} navbar={{width:compact?64:216,breakpoint:0}} padding={0} withBorder={false}>
-      <AppShell.Header className="shell-header">
-        <Group className="preview-tools" justify="space-between" gap={8} wrap="nowrap">
-          <Text size="xs" c="dimmed" className="preview-label">{t('0.2.0-alpha.4 设计预览 · 模拟操作', '0.2.0-alpha.4 design preview · simulated actions')}</Text>
-          <Group gap={8} wrap="nowrap"><NativeSelect aria-label="预览场景 / Scenario" size="xs" disabled={busy} value={scenario} onChange={e=>selectScenario(e.currentTarget.value)} data={[
-            ['fresh','未安装','Not installed'],['no-core','核心未安装','Core not installed'],['update','有更新','Update available'],['core','组件已安装','Components ready'],['ready','配置已保存','Configured'],['broken','组件损坏','Damaged components'],['conflict','配置手改','Manual edits'],['download-error','安装失败演示','Install failure'],['config-error','保存失败演示','Save failure']
-          ].map(([value,zh,en])=>({value,label:t(zh,en)}))}/><Button size="xs" variant="default" onClick={()=>setLang(lang==='zh'?'en':'zh')}>{lang==='zh'?'English':'简体中文'}</Button><Button size="xs" variant="default" onClick={()=>setDark(!dark)}>{dark?t('浅色','Light'):t('深色','Dark')}</Button></Group>
-        </Group>
-        <Group h={44} px={20} gap={10}><img src={logo} width={22} height={22} alt=""/><Text size="sm">MpvKit</Text></Group>
-      </AppShell.Header>
-      <AppShell.Navbar p={8} className="sidebar" aria-label={t('主导航','Main navigation')}><AppShell.Section grow>{nav('player','\uE9E9')}</AppShell.Section><AppShell.Section>{nav('settings','\uE115')}</AppShell.Section></AppShell.Navbar>
-      <AppShell.Main><main className="page-surface"><PageEntrance key={page}>
-        <div className="page-scroll"><Title order={1} size={28} fw={600} mb={24}>{names[page]}</Title>
-          {page==='player'?<>
-            <Paper className="status-card">
-              <Row title="MPV" description={coreReady?'v0.41.0 (WinGet)':t('尚未安装','Not installed')}><Group>{!coreReady?button('安装','Install',()=>open('core'),busy):coreUpdate?button('更新','Update',()=>open('core'),busy):button('检查更新','Check for updates',()=>{setCoreUpdate(false);setNotice(t('暂无更新。','No updates available.'));},busy)}{button('设置默认应用','Open Default apps',mock,!coreReady||busy)}{coreReady&&button('卸载 MPV 核心','Uninstall MPV core',()=>open('uninstall-core'),busy)}</Group></Row>
-              <Row title={t('播放器组件','Player components')}><Group>{!ready&&button(scenario==='broken'?'仅修复组件':'仅安装组件',scenario==='broken'?'Repair components only':'Install components only',()=>open('components'),busy||!coreReady)}{ready&&scenario==='update'&&button('更新组件','Update components',()=>open('components'),busy)}{ready&&button('移除播放增强','Remove enhancements',()=>open('uninstall'),busy)}</Group></Row>
-              <Expand title={t('组件明细','Component details')}><Stack gap={12}>{[['uosc','5.13.0'],['thumbfast','0f711de'],[t('文楷字体','WenKai font'),'1.530']].map(([name,version])=><Group justify="space-between" key={name}><Text size="sm">{name}</Text><Text size="xs" c="dimmed">{ready?version:t('待安装','Not installed')}</Text></Group>)}</Stack></Expand>
-              <Row title="mpv.conf" description={saved?modifiedTime('mpv.conf'):t('配置尚未保存','Configuration not saved')}>{saved&&button('重置配置','Reset configuration',()=>open('reset'),busy)}</Row>
-            </Paper>
-            {error&&dialog===null&&<Alert color="red" mb={16} role="alert">{error==='install'?t('组件安装失败，配置未写入。请重试。','Component installation failed. Configuration was not written. Retry to continue.'):t('组件已就绪，配置保存失败。可以重试保存。','Components are ready. Configuration could not be saved. Retry saving.')}</Alert>}
-            {conflict&&<Alert color="yellow" mb={16}>{t('配置有手动修改，保存前请检查变更。','Configuration has manual edits. Review changes before saving.')}</Alert>}
-            <Paper><Row title={t('画质','Quality')} description={hint}><NativeSelect aria-label={t('画质','Quality')} value={draft.quality} disabled={busy} onChange={e=>setDraft({...draft,quality:e.currentTarget.value})} data={[['power-saving','节能','Efficient'],['balanced','均衡','Balanced'],['high-quality','高画质','High quality']].map(([value,zh,en])=>({value,label:t(zh,en)}))}/></Row>
-              <Row title={t('HDR 输出','HDR output')} description={draft.hdr==='on'?t('需支持 HDR 的屏幕，并在系统中开启 HDR。','Requires an HDR display with system HDR enabled.'):undefined}><NativeSelect aria-label={t('HDR 输出','HDR output')} disabled={busy} value={draft.hdr} onChange={e=>setDraft({...draft,hdr:e.currentTarget.value})} data={[['auto','自动（推荐）','Auto (recommended)'],['on','强制开启','Force on'],['off','关闭（SDR）','Off (SDR)']].map(([value,zh,en])=>({value,label:t(zh,en)}))}/></Row>
-              <Row title={t('自动连播','Auto continue')} description={t('按文件名顺序载入同文件夹的音视频并连播。','Load audio and video from the same folder in filename order.')}><Switch aria-label={t('自动连播','Auto continue')} checked={draft.autoPlaylist} disabled={busy} onChange={e=>setDraft({...draft,autoPlaylist:e.currentTarget.checked})}/></Row>
-              <Row title={t('全部播放结束后','After all playback ends')}><NativeSelect aria-label={t('全部播放结束后','After all playback ends')} value={draft.keepOpen?'keep':'close'} disabled={busy} onChange={e=>setDraft({...draft,keepOpen:e.currentTarget.value==='keep'})} data={[{value:'close',label:t('关闭播放器','Close player')},{value:'keep',label:t('保留窗口','Keep window')}]}/></Row>
-            </Paper>
-            <Paper className="section-gap"><Expand title={t('高级选项','Advanced options')}>
-              <Stack gap={16}>
-                <div className="setting-row"><div><Text>{t('打开安装目录','Open installation folder')}</Text><Text size="sm" c="dimmed" className="path">C:/Program Files/MPV Player</Text></div>{button('打开','Open',mock,!ready||busy)}</div>
-                <div className="setting-row"><div><Text>{t('打开配置目录','Open configuration folder')}</Text><Text size="sm" c="dimmed" className="path">%APPDATA%/mpv</Text></div>{button('打开','Open',mock,!ready||busy)}</div><Group gap={8}>{button('刷新状态','Refresh status',()=>setNotice(t('状态已刷新（示例）。','Status refreshed (sample).')),busy)}</Group>
-              </Stack>
-            </Expand></Paper>
-            {notice&&dialog===null&&<Text role="status" mt={16} size="sm">{notice==='components'?t('组件已安装，草稿尚未保存。','Components installed. Draft not saved.'):notice==='saved'?t('配置已保存。','Configuration saved.'):notice}</Text>}
-          </>:<>
-            <Paper><Row title={t('界面语言','App language')}><NativeSelect aria-label={t('界面语言','App language')} value={lang} onChange={e=>setLang(e.currentTarget.value)} data={[{value:'zh',label:'简体中文'},{value:'en',label:'English'}]}/></Row><Row title={t('主题','Theme')}><NativeSelect aria-label={t('主题','Theme')} value={dark?'dark':'light'} onChange={e=>setDark(e.currentTarget.value==='dark')} data={[{value:'light',label:t('浅色','Light')},{value:'dark',label:t('深色','Dark')}]}/></Row></Paper>
-            <Title order={2} size="sm" mt={24} mb={8}>{t('关于','About')}</Title><Paper><Row title="MpvKit" description={t('0.2.0-alpha.4 设计预览','0.2.0-alpha.4 design preview')}><img src={logo} width={36} height={36} alt=""/></Row><Row title={t('项目仓库','Repository')}><a href="https://github.com/Leovikii/mpvkit" target="_blank" rel="noreferrer">GitHub ↗</a></Row><Row title={t('许可证','License')} description="GPL-3.0-or-later">{button('查看许可','View licenses',mock)}</Row>{updates.about}</Paper>
-            <Paper className="section-gap"><Expand title={t('高级选项','Advanced options')}><Group>{button('导出诊断','Export diagnostics',mock)}</Group></Expand></Paper>
-            {notice&&<Text role="status" mt={16}>{notice==='components'?t('组件已安装，草稿尚未保存。','Components installed. Draft not saved.'):notice==='saved'?t('配置已保存。','Configuration saved.'):notice}</Text>}
-          </>}
-        </div>
-        {page==='player'&&<footer className="save-bar"><Text className="draft-status" size="xs" c="dimmed">{dirty?t('未保存','Unsaved'):t('已保存','Saved')}</Text>{button('预览配置','Preview configuration',()=>open('preview'),busy)}<Button disabled={busy||!ready||(!dirty&&ready&&!conflict)} onClick={()=>open('save')}>{actionLabel}</Button></footer>}
-      </PageEntrance></main></AppShell.Main>
-    </AppShell>
-    {updates.dialog}
-    <Modal opened={dialog!==null} onClose={()=>{if(!busy)setDialog(null);}} closeOnEscape={!busy} closeOnClickOutside={!busy} withCloseButton={!finished&&!error} title={dialog==='uninstall-core'?t('卸载 MPV 核心','Uninstall MPV core'):dialog==='reset'?t('重置配置','Reset configuration'):dialog==='core'?(coreReady?t('更新','Update'):t('安装','Install')):dialog==='components'?(scenario==='update'?t('更新组件','Update components'):scenario==='broken'?t('修复组件','Repair components'):t('仅安装组件','Install components only')):dialog==='uninstall'?t('移除播放增强','Remove enhancements'):t('预览配置','Preview configuration')} size={720} centered radius={8} closeButtonProps={{'aria-label':t('关闭','Close')}} classNames={{content:'task-dialog-content',body:'task-dialog-body',title:'dialog-title'}}>
-      <div className="task-dialog-scroll" tabIndex={-1} data-autofocus={busy||undefined}>
-      {finished?<Text role="status">{notice==='components'?t('组件已安装，草稿尚未保存。','Components installed. Draft not saved.'):notice==='saved'?t('配置已保存。','Configuration saved.'):t('已完成。','Done.')}</Text>:dialog==='uninstall-core'?<Text>{t('通过 WinGet 卸载核心，影响所有使用此核心的程序。配置保留。','Uninstall the core through WinGet. All apps using it are affected. Configuration is retained.')}</Text>:dialog==='reset'?<Text>{t('恢复全部默认预设，包括设置、快捷键和脚本选项。覆盖手改内容，不保留历史备份。','Restore all preset settings, keys and script options. Overwrites manual edits without historical backups.')}</Text>:dialog==='core'?<><Text size="sm">{t('通过 WinGet 安装或更新 MPV，接受包协议。可能需要系统授权。','Install or update MPV through WinGet and accept package agreements. System approval may be required.')}</Text><Text mt={12}>shinchiro.mpv · winget · 0.41.0</Text><Text className="path">C:/Program Files/MPV Player/mpv.exe</Text><Text className="path">%APPDATA%/mpv</Text></>:dialog==='components'?<><Text size="sm">uosc · thumbfast · {t('文楷字体','WenKai font')}</Text><Text size="sm" mt={12}>{t('仅安装组件，不写入播放配置。','Install components without writing playback configuration.')}</Text></>:dialog==='uninstall'?<Text size="sm">{t('移除未修改的预设及增强。手改文件、续播和系统核心保留；临时生成项自动清理。','Remove unchanged presets and enhancements. Retain modified files, playback positions and system core; clean temporary files automatically.')}</Text>:<>
-        <Text size="sm" mb={16}>{t('保存以下配置。','Save the configuration below.')}</Text>
-        <NativeSelect aria-label={t('配置文件','Configuration file')} value={file} onChange={e=>setFile(e.currentTarget.value)} data={Object.keys(files)}/>
-        <Text size="xs" c="dimmed" mt={8}>{t('上次修改：','Last modified: ')}{modifiedTime(file)}</Text>
-        <pre className="config-preview" tabIndex={0} aria-label={t('待生成配置内容','Pending configuration content')}>{files[file]}</pre>
-        <Text size="xs" c="dimmed" mt={8}>{t('示例文件；路径使用占位值。正式程序以实际文件预览为准。','Sample files with example paths. The app will preview actual files.')}</Text>
-        {conflict&&<Alert color="yellow" mt={16}>{t('核对差异后保存将替换管理区域的手改内容，不保留历史备份。','Review differences. Saving replaces manual edits in the managed section without historical backups.')}</Alert>}
-      </>}
-      {error&&<Alert color="red" mt={16}>{error==='install'?t('下载失败，可重试。','Download failed. Retry.'):t('保存失败，可重试。','Save failed. Retry.')}</Alert>}
-      </div>
-      <div className="task-footer">
-        {busy&&<TaskProgress label={phase==='download'?t('下载中…','Downloading…'):phase==='install'?t('正在安装组件…','Installing components…'):phase==='execute'?t('正在执行…','Working…'):t('正在保存配置…','Saving configuration…')} percent={phase==='download'?42:null}/>}
-      <Group  justify="flex-end" gap={8}>{!finished&&!busy&&dialog!=='preview'&&<Button color={dialog==='uninstall'?'red':undefined} onClick={begin}>{dialog==='uninstall-core'?t('卸载 MPV 核心','Uninstall MPV core'):dialog==='reset'?t('重置配置','Reset configuration'):dialog==='core'?(coreReady?t('更新','Update'):t('安装','Install')):dialog==='components'?(scenario==='update'?t('更新组件','Update components'):scenario==='broken'?t('修复组件','Repair components'):t('安装组件','Install components')):dialog==='uninstall'?t('卸载','Uninstall'):actionLabel}</Button>}<Button variant="default" data-autofocus disabled={busy} onClick={()=>setDialog(null)}>{finished||error||dialog==='preview'?t('关闭','Close'):t('取消','Cancel')}</Button></Group>
-      </div>
-    </Modal>
-  </MantineProvider>;
+import pkg from '../../../package.json';
+import './preview.css';
+const params = new URLSearchParams(location.search);
+const linux = params.get('updates') === 'linux';
+const assets = [{id:'uosc',version:'5.13.0'},{id:'thumbfast',version:'0f711de3138c9bd6718209d819ac54022c23ded2'},{id:'subtitle-font',version:'1.530'}].map(asset=>({...asset,size:100,url:'https://example.invalid/'+asset.id,sha256:'0'.repeat(64)}));
+const clone = value => structuredClone(value);
+const files = settings => sampleFiles({quality:settings.profile,...settings.playback});
+const pause = () => new Promise(resolve=>setTimeout(resolve,180));
+let preferences, settings, installed, configured, core, scenario, pending, cancelled, modified, fileTime;
+const counts = {prepare:0,confirm:0,writes:0};
+function reset(value) {
+  scenario=value; pending=null; cancelled=false; modified=value==='conflict';
+  preferences={...defaultAppSettings,language:'zh-Hans'}; settings=clone(defaultSettings);
+  core=value!=='no-core'; configured=['ready','conflict','config-error'].includes(value);
+  installed=Object.fromEntries(assets.map(asset=>[asset.id, {version:['fresh','no-core','download-error'].includes(value)?null:asset.version,ready:!['fresh','no-core','download-error'].includes(value)&&!(value==='broken'&&asset.id==='uosc')&&!(value==='partial'&&asset.id!=='uosc')} ]));
+  if(value==='update')installed.uosc.version='5.12.0';
+  fileTime=configured?Date.parse('2026-10-28T10:00:00Z'):null;
+  counts.prepare=0;counts.confirm=0;counts.writes=0;
 }
-createRoot(document.getElementById('root')).render(<App />);
+reset('fresh');
+const report = () => ({root:'/example/config/mpv',playerDirectory:linux?'/usr/bin':'C:/Program Files/MPV Player',configDirectory:'/example/config/mpv',configDirectorySource:'Example',generation:Object.values(installed).some(item=>item.version)?'example':null,components:[{id:'mpv',version:core?'mpv 0.41.0':null,ready:core,issues:[]},...assets.map(asset=>({id:asset.id,...installed[asset.id],issues:[]}))],playerReady:core,playerInstalled:core,componentsReady:core&&Object.values(installed).every(item=>item.ready),settingsReady:configured,configurationInstalled:configured,configurationModified:modified,configModifiedAt:fileTime,recoveryRequired:false,issues:[],rootExists:true,configDirectoryExists:true});
+const deployment = paths => ({id:crypto.randomUUID(),root:'/example/config/mpv',retained:[],conflicts:[],configurationDiffs:[],noChanges:false,changes:paths.map(path=>({path,before:configured?'old':null,after:'new'}))});
+const corePreview = action => ({id:crypto.randomUUID(),action,package:linux?'mpv':'shinchiro.mpv',source:linux?'pacman':'winget',executable:linux?'/usr/bin/mpv':'C:/Program Files/MPV Player/mpv.exe',configDirectory:'/example/config/mpv',details:'Example native package transaction / 原生包事务示例'});
+async function stream(channel, action) {
+  const id=channel.id;let index=0;
+  const send=message=>window.__TAURI_INTERNALS__.runCallback(id,{index:index++,message});
+  try{return await action(send);} finally{window.__TAURI_INTERNALS__.runCallback(id,{index,end:true});}
+}
+window.isTauri=true;
+mockWindows('main');
+mockIPC(async (command,args={})=>{
+  if(command==='setup_status')return clone(report());
+  if(command==='read_app_settings')return clone(preferences);
+  if(command==='save_app_settings'){preferences=clone(args.settings);return clone(preferences);}
+  if(command==='desktop_environment')return {languages:['zh-CN'],dark:false,highContrast:false,materialAllowed:false};
+  if(command==='apply_appearance')return false;
+  if(command==='app_information')return {version:pkg.version,license:'GPL-3.0-or-later',repository:'https://github.com/Leovikii/mpvkit',platform:linux?'linux':'windows'};
+  if(command==='component_sources')return assets;
+  if(command==='read_settings')return clone(settings);
+  if(command==='preview_configuration')return {fingerprint:'example',files:Object.entries(files(args.settings)).map(([path,after])=>({path,after,before:configured?files(settings)[path]:'',modifiedAt:fileTime,retained:configured&&files(settings)[path]===after,exists:configured}))};
+  if(command==='preview_settings'){
+    if(!report().componentsReady)throw {code:'components_required'};
+    pending={kind:'configuration',settings:clone(args.settings)};
+    return deployment(Object.keys(files(args.settings)));
+  }
+  if(command==='check_core_update')return scenario==='update';
+  if(command==='preview_core'){pending={kind:'core',action:args.action};return corePreview(args.action);}
+  if(command==='apply_core'){counts.confirm++;await pause();core=pending.action!=='uninstall';counts.writes++;return;}
+  if(command==='preview_install'){
+    counts.prepare++;cancelled=false;
+    const selected=args.component?[args.component]:assets.filter(asset=>!installed[asset.id].ready).map(asset=>asset.id);
+    return stream(args.onProgress,async send=>{
+      for(const id of selected){for(const received of [0,42,100]){send({component:id,phase:'download',received,total:100});await pause();if(cancelled)throw {code:'cancelled'};}send({component:id,phase:'verify-extract',received:100,total:100});}
+      if(scenario==='download-error')throw {code:'download_failed'};
+      pending={kind:'installation',components:selected,core:!core};
+      return {...deployment(selected.map(id=>'scripts/'+id+'.lua')),core:core?null:corePreview('install'),components:selected};
+    });
+  }
+  if(command==='cancel_component_download'){cancelled=true;return;}
+  if(command==='discard_deployment'){pending=null;return;}
+  if(command==='preview_maintenance'){pending={kind:'maintenance',action:args.action};return deployment(args.action==='reset-config'?Object.keys(files(defaultSettings)):['scripts/uosc/main.lua']);}
+  if(command==='apply_deployment'){
+    counts.confirm++;const operation=pending;if(!operation)throw {code:'stale_preview'};
+    if(window.__preview.stale)throw {code:'stale_preview'};
+    return stream(args.onProgress,async send=>{
+      if(operation.kind==='installation'){
+        if(operation.core){send({component:'mpv',phase:'install-core',received:0,total:0});await pause();core=true;send({component:'mpv',phase:'core-installed',received:0,total:0});}
+        send({component:operation.components.join(', '),phase:'install-components',received:0,total:0});await pause();
+        if(window.__preview.partial){window.__preview.partial=false;throw {code:'installation_partial'};}
+        for(const id of operation.components)installed[id]={version:assets.find(asset=>asset.id===id).version,ready:true};
+        send({component:operation.components.join(', '),phase:'components-installed',received:0,total:0});
+      }else if(operation.kind==='configuration'){
+        await pause();if(scenario==='config-error'){scenario='core';throw {code:'write_failed',message:'Example write failure'};}
+        settings=operation.settings;configured=true;modified=false;fileTime=Date.now();
+      }else if(operation.action==='reset-config'){settings=clone(defaultSettings);configured=true;modified=false;fileTime=Date.now();}
+      else if(operation.action==='uninstall'){for(const id of Object.keys(installed))installed[id]={version:null,ready:false};configured=false;}
+      counts.writes++;pending=null;return {};
+    });
+  }
+  if(command==='check_app_update')return args.preview?{status:'available',update:{id:'example',version:'0.2.0-alpha.6',notes:'Example release notes / 更新日志示例\n'+'Update details\n'.repeat(30),date:'2026-10-28T00:00:00Z',method:linux?'pacman':'installer'}}:{status:'noRelease',update:null};
+  if(command==='prepare_app_update'||command==='install_app_update')return stream(args.onProgress,async send=>{
+    if(command==='prepare_app_update'){
+      for(const percent of [0,42,100]){send({phase:'download',percent:params.has('updateUnknown')?null:percent});await pause();}
+      if(params.get('updateFailure')==='download')throw {code:'update_download'};
+      send({phase:'verify',percent:null});await pause();if(params.get('updateFailure')==='verify')throw {code:'update_metadata'};
+      return {id:'example',changes:[linux?'mpvkit-bin 0.2.0alpha6-1 (x86_64)':'MpvKit x64']};
+    }
+    send({phase:'install',percent:null});await pause();
+    if(params.get('updateFailure')==='cancel')throw {code:'update_authorization_cancelled'};
+    if(params.get('updateFailure')==='install'||!linux)throw {code:'update_install'};
+  });
+  if(command==='discard_app_update'||command.startsWith('open_'))return;
+  if(command==='license_text')return 'Example GPL-3.0-or-later notice';
+  if(command==='preview_diagnostics')return {id:'example',version:pkg.version,redacted:true};
+  if(command==='export_diagnostics')return;
+  throw Error('Unexpected preview command: '+command);
+},{shouldMockEvents:true});
+window.__preview={counts,report,stale:false,partial:false};
+const {App}=await import('../../../src/App');
+function Preview(){
+  const [value,setValue]=useState('fresh');const [revision,setRevision]=useState(0);
+  return <><MantineProvider><Group className="preview-tools" gap={8}><Text size="xs">{pkg.version} · 模拟操作 / Simulated actions</Text><NativeSelect aria-label="预览场景 / Scenario" value={value} onChange={event=>{reset(event.currentTarget.value);setValue(event.currentTarget.value);setRevision(index=>index+1);}} data={[
+    ['fresh','仅核心 / Core only'],['no-core','全未安装 / Empty installation'],['partial','部分组件 / Partial'],['core','等待配置 / Components ready'],['ready','配置已保存 / Configured'],['broken','组件损坏 / Damaged'],['conflict','配置手改 / Manual edits'],['download-error','下载失败 / Download failure'],['config-error','保存失败 / Save failure'],['update','有更新 / Updates']
+  ].map(([value,label])=>({value,label}))}/></Group></MantineProvider><App key={revision}/></>;
+}
+createRoot(document.getElementById('root')).render(<Preview/>);

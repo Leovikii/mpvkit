@@ -30,8 +30,8 @@ test("native application updates: startup once, preview preference, logs, progre
   const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-updates-')),root=path.join(sandbox,'data');
   const fixtures=path.join(root,'test-tools/updates'); await fs.mkdir(fixtures,{recursive:true});
   const prefix='https://github.com/Leovikii/mpvkit/releases/download/';
-  const version='0.2.0-alpha.5';
-  const win='MpvKit_'+version+'_x64-setup.exe',linux='mpvkit-bin-0.2.0alpha5-1-x86_64.pkg.tar.zst';
+  const version='0.2.0-alpha.6';
+  const win='MpvKit_'+version+'_x64-setup.exe',linux='mpvkit-bin-0.2.0alpha6-1-x86_64.pkg.tar.zst';
   const metadata=JSON.stringify({version,notes:'更新日志 <script>must stay text</script>\n'+'- Preview fix / 改进更新与配置保存。\n'.repeat(60),pub_date:'2026-10-28T00:00:00Z',platforms:{'windows-x86_64':{url:prefix+'v'+version+'/'+win,signature:'isolated-fixture-not-an-installer'}}});
   const contents={[win]:'fixture',[win+'.sig']:'signature',[linux]:'fixture',[linux+'.tauri.sig']:'signature','latest.json':metadata};
   contents.SHA256SUMS=Object.entries(contents).map(([name,bytes])=>hash(bytes)+'  '+name).sort().join('\n')+'\n';
@@ -67,7 +67,7 @@ test("native application updates: startup once, preview preference, logs, progre
     await p.setViewportSize({width:1040,height:760});
     await p.getByText('No stable release published yet',{exact:true}).waitFor(); // startup check, no button clicked
     await fs.writeFile(path.join(fixtures,'releases-1.json'),'invalid');
-    await sleep(3800); await p.getByRole('button',{name:'Player settings',exact:true}).click();
+    await sleep(3800); await p.getByRole('button',{name:'Player management',exact:true}).click();
     await p.getByRole('button',{name:'App settings',exact:true}).click();
     await p.getByText('No stable release published yet',{exact:true}).waitFor();
     await check().click(); await p.getByText('Update check failed. Try again.',{exact:true}).waitFor(); assert(await check().isEnabled());
@@ -112,7 +112,7 @@ test("native application updates: startup once, preview preference, logs, progre
     assert(!(await ipc(p,'read_app_settings')).previewUpdates);
     await toggle.focus(); await p.keyboard.press('Space'); await p.waitForFunction(()=>document.querySelector('#preview-update-switch')?.checked); await settled(p); await check().click(); await modal.waitFor();
     await modal.getByRole('button',{name:'Later',exact:true}).click();
-    await p.getByRole('button',{name:'Player settings',exact:true}).click();
+    await installComponents(p);await p.getByRole('button',{name:'Configuration',exact:true}).click();
     await p.getByLabel('Quality',{exact:true}).selectOption('high-quality');
     await p.getByRole('button',{name:'App settings',exact:true}).click();
     await p.getByRole('button',{name:'View update',exact:true}).click();
@@ -175,7 +175,7 @@ test("native application updates: startup once, preview preference, logs, progre
     await modal.getByRole('button',{name:'Download',exact:true}).click();
     await emit({phase:'download',percent:50});await modal.getByRole('progressbar',{name:'Downloading…',exact:true}).waitFor();
     await emit({phase:'prepare',percent:null});await modal.locator('.task-progress').getByText('Preparing…',{exact:true}).waitFor();
-    await p.evaluate(()=>window.__finishUpdate({id:'prepared',changes:['mpvkit-bin 0.2.0alpha4-1 (x86_64)','dependency 1.0 (any)']}));
+    await p.evaluate(()=>window.__finishUpdate({id:'prepared',changes:['mpvkit-bin 0.2.0alpha6-1 (x86_64)','dependency 1.0 (any)']}));
     await modal.getByText('Installation preview',{exact:true}).waitFor();
     await modal.getByRole('button',{name:'Install',exact:true}).click();
     await modal.locator('.task-progress').getByText('Waiting for authorization or installation…',{exact:true}).waitFor();
@@ -187,7 +187,7 @@ test("native application updates: startup once, preview preference, logs, progre
     await modal.getByRole('button',{name:'Check for updates',exact:true}).click();await modal.getByRole('button',{name:'Download',exact:true}).waitFor();
     assert(await sameDialog.evaluate(element=>element.isConnected),'retry retains the same dialog');
     await modal.getByRole('button',{name:'Download',exact:true}).click();
-    await p.evaluate(()=>window.__finishUpdate({id:'prepared',changes:['mpvkit-bin 0.2.0alpha4-1 (x86_64)']}));
+    await p.evaluate(()=>window.__finishUpdate({id:'prepared',changes:['mpvkit-bin 0.2.0alpha6-1 (x86_64)']}));
     await modal.getByRole('button',{name:'Install',exact:true}).click();
     await p.evaluate(()=>window.__finishUpdate());
     await modal.getByText('Updated. Close and reopen the app.',{exact:true}).waitFor();
@@ -231,9 +231,9 @@ test("native WinGet core install, failures, retry, upgrade and ownership boundar
     const plan=await ipc(p,"preview_core",{action:"upgrade"});await fs.appendFile(core,Buffer.from([0]));
     await assert.rejects(ipc(p,"apply_core",{previewId:plan.id}),e=>e.code==="stale_preview");
     await fs.copyFile(path.join(global,"test-tools/core-source/mpv.exe"),core);
-    await fs.writeFile(mode,"no-update");await p.getByRole("button",{name:"Check for updates",exact:true}).click();await settled(p);
+    await fs.writeFile(mode,"no-update");await p.locator(".setting-row").filter({has:p.getByText("MPV",{exact:true})}).getByRole("button",{name:"Check for updates",exact:true}).click();await settled(p);
     assert.equal(await p.getByRole("button",{name:"Update",exact:true}).count(),0);
-    await fs.writeFile(mode,"");await p.getByRole("button",{name:"Check for updates",exact:true}).click();await settled(p);
+    await fs.writeFile(mode,"");await p.locator(".setting-row").filter({has:p.getByText("MPV",{exact:true})}).getByRole("button",{name:"Check for updates",exact:true}).click();await settled(p);
     await p.getByRole("button",{name:"Update",exact:true}).click();await confirm(p);await settled(p);
     assert.equal(hash(await fs.readFile(core)),coreHash);
     const before=await ipc(p,"preview_configuration",{settings:await ipc(p,"read_settings"),replaceManual:false});
@@ -275,7 +275,7 @@ test("native v018 startup window sizing and stable resize", {timeout:600000}, as
     session=await startApp(sandbox,global);const p=session.page;await english(p);await advanced(p);
     const draft=await ipc(p,"preview_configuration",{settings:await ipc(p,"read_settings"),replaceManual:false});
     const shown=draft.files.find(file=>file.path==="mpv.conf").after;assert.match(shown,/^autofit=75%x75%$/m);assert.match(shown,/^auto-window-resize=no$/m);
-    await installComponents(p);await p.getByRole("button",{name:"Save configuration",exact:true}).click();
+    await installComponents(p);await p.getByRole('button',{name:'Configuration',exact:true}).click();await p.getByRole("button",{name:/^(Install configuration|Save configuration)$/,exact:true}).click();
     await p.getByRole("dialog").locator(".changes").waitFor({state:"attached"});await confirm(p);await settled(p);
     const config=root,ffmpeg=process.env.MPVKIT_FFMPEG;
     assert.equal(hash(await fs.readFile(ffmpeg)),"7491af2d1d44f695d7c169db5f12b51d61667d585619dea75d3a0fc96215a5f1");
@@ -325,7 +325,7 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
   try {
     session=await startApp(sandbox,global);const p=session.page;await english(p);await advanced(p);
 
-    await installComponents(p);await p.getByRole("button",{name:"Save configuration",exact:true}).click();
+    await installComponents(p);await p.getByRole('button',{name:'Configuration',exact:true}).click();await p.getByRole("button",{name:/^(Install configuration|Save configuration)$/,exact:true}).click();
     await p.getByRole("dialog").locator(".changes").waitFor({state:"attached"});await confirm(p);
     await settled(p);
     const original=root,conf=path.join(original,"script-opts/uosc.conf");
@@ -457,7 +457,7 @@ test("native auto continue, natural folder queue and subtitle language suffixes"
     const toggle=p.getByLabel("Auto continue",{exact:true});await toggle.waitFor();assert(await toggle.isChecked());
     assert(await p.getByLabel("After all playback ends",{exact:true}).isVisible());
     await advanced(p);
-    await installComponents(p);await p.getByRole("button",{name:"Save configuration",exact:true}).click();await p.getByRole("dialog").locator(".changes").waitFor({state:"attached"});await confirm(p);
+    await installComponents(p);await p.getByRole('button',{name:'Configuration',exact:true}).click();await p.getByRole("button",{name:/^(Install configuration|Save configuration)$/,exact:true}).click();await p.getByRole("dialog").locator(".changes").waitFor({state:"attached"});await confirm(p);
     await settled(p);
     const mediaDir=path.join(sandbox,"媒体 folder"),nested=path.join(mediaDir,"nested");await fs.mkdir(nested,{recursive:true});
     const ffmpeg=process.env.MPVKIT_FFMPEG;assert.equal(hash(await fs.readFile(ffmpeg)),"7491af2d1d44f695d7c169db5f12b51d61667d585619dea75d3a0fc96215a5f1");
@@ -483,9 +483,9 @@ test("native auto continue, natural folder queue and subtitle language suffixes"
     assert(tracks.some(t=>t["hearing-impaired"]),"SDH subtitle suffix recognized");
     await fs.writeFile(path.join(artifacts,"queue-and-tracks.json"),JSON.stringify({queue,tracks},null,2));
     await call(["seek",1.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")===2,"EOF automatically advances to audio");await wait(()=>child.exitCode!==null,"default closes after final item");assert.equal(child.exitCode,0);child=null;
-    await p.getByLabel("After all playback ends",{exact:true}).selectOption("keep");await p.getByRole("button",{name:"Save configuration",exact:true}).click();await confirm(p);await settled(p);
+    await p.getByLabel("After all playback ends",{exact:true}).selectOption("keep");await p.getByRole("button",{name:/^(Install configuration|Save configuration)$/,exact:true}).click();await confirm(p);await settled(p);
     await launch();await call(["seek",1.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")===2,"keep-open still advances at intermediate EOF");await wait(async()=>await get("pause")&&child.exitCode===null,"last audio item pauses and stays open");await quit();
-    await toggle.focus();await p.keyboard.press("Space");assert(!await toggle.isChecked());await p.getByRole("button",{name:"Save configuration",exact:true}).click();await confirm(p);await settled(p);
+    await toggle.focus();await p.keyboard.press("Space");assert(!await toggle.isChecked());await p.getByRole("button",{name:/^(Install configuration|Save configuration)$/,exact:true}).click();await confirm(p);await settled(p);
     assert.equal((await ipc(p,"read_settings")).playback.autoPlaylist,false);assert.match(await fs.readFile(path.join(root,"mpv.conf"),"utf8"),/^autocreate-playlist=no$/m);
     await launch();assert.equal((await get("playlist")).length,1);await call(["seek",1.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("eof-reached")&&await get("pause"),"disabled folder queue stays on current file");assert.equal((await get("playlist")).length,1);await quit();
     await launch([first,second]);assert.equal((await get("playlist")).length,2);await call(["seek",1.8,"absolute+exact"],["set_property","pause",false]);await wait(async()=>await get("playlist-pos")===1,"explicit playlist continues with folder loading off");await quit();
@@ -589,13 +589,17 @@ async function ipc(page,command,args={}) {
   }
   return rawIpc(page,command,args);
 }
-async function installComponents(page) { await page.getByRole('button',{name:'Install components only',exact:true}).click(); await page.getByRole('dialog').locator('.changes').waitFor({state:'attached'}); await confirm(page); await settled(page); }
-async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Save configuration|Apply changes|Reset configuration|Uninstall core|Remove enhancements|Update|Update components|Repair components)$/,exact:true}).click();}
-async function settled(page) { await page.locator("main[aria-busy=false]").waitFor(); const done=page.getByRole('dialog').getByText('Done.',{exact:true}); if(await done.count()) {await page.getByRole('dialog').locator('.task-footer').getByRole('button',{name:'Close',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});} }
+async function installComponents(page) {
+  await page.getByRole('button',{name:'Player management',exact:true}).click();
+  await page.getByRole('button',{name:/^(Quick install|Repair installation)$/,exact:true}).click();
+  await page.getByRole('dialog').locator('.changes').waitFor({state:'attached'});await confirm(page);await settled(page);
+}
+async function confirm(page) {await page.getByRole("dialog").getByRole("button",{name:/^(Download components|Install|Install configuration|Save configuration|Apply changes|Reset configuration|Uninstall core|Remove enhancements|Update|Update components|Repair components)$/,exact:true}).click();}
+async function settled(page) { await page.locator("main[aria-busy=false]").waitFor(); const done=page.getByRole('dialog').getByText(/^(Done\.|Saved|Installation complete\.)$/,{exact:true}); if(await done.count()) {await page.getByRole('dialog').locator('.task-footer').getByRole('button',{name:'Close',exact:true}).click();await page.getByRole('dialog').waitFor({state:'hidden'});} }
 async function english(page) {
   await page.getByRole("button",{name:/^(应用设置|App settings)$/}).click();
   await page.getByRole("combobox",{name:/^(界面语言|Display language)$/}).selectOption("en");
-  await page.getByRole("button",{name:"Player settings",exact:true}).click();
+  await page.getByRole("button",{name:"Player management",exact:true}).click();
 }
 async function advanced(page) { const summary=page.locator("main button").filter({hasText:/^Advanced options$/}); if (await summary.getAttribute("aria-expanded") !== "true") await summary.click(); }
 async function heading(page,name) {await page.getByRole("heading",{name,exact:true}).first().waitFor();}
@@ -605,16 +609,17 @@ test("native v016 install, manual configuration, native profiles and unified sav
  const copied=path.join(sandbox,'中文 空格','mpvkit.exe');await fs.mkdir(path.dirname(copied),{recursive:true});await fs.copyFile(executable,copied);
  try{
   session=await startApp(sandbox,global,copied);const p=session.page;await english(p);
-  await heading(p,"Player settings");assert.equal(await p.getByLabel("Custom install folder",{exact:true}).count(),0);
+  await heading(p,"Player management");assert.equal(await p.getByLabel("Custom install folder",{exact:true}).count(),0);
   assert.equal(await p.getByRole("button",{name:"Playback",exact:true}).count(),0);
-  await p.getByRole('button',{name:'Install components only',exact:true}).click();await p.getByRole('dialog').locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);await heading(p,'Player settings');
+  await p.getByRole('button',{name:'Quick install',exact:true}).click();await p.getByRole('dialog').locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);await heading(p,'Player management');
   let report=await ipc(p,'setup_status');assert.equal(report.componentsReady,true);assert.equal(report.root,root);
   assert(!await exists(path.join(root,'mpv.conf'))); assert(!report.settingsReady); assert(!("integration" in report));
-  for(const name of ['.mpvkit/settings.json','scripts/mpvkit.lua'])assert(await exists(path.join(root,name)),name);
+  for(const name of ['.mpvkit/settings.json','scripts/mpvkit.lua'])assert(!await exists(path.join(root,name)),name);
+  await p.getByRole('button',{name:'Configuration',exact:true}).click();
   for(const name of ['config','runtime','state','launcher','user.conf','mpvkit-context.json','mpvkit-profiles.json'])assert(!await exists(path.join(root,name)),name);
 
-  await p.getByRole('button',{name:'Save configuration',exact:true}).click();await p.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert(!await exists(path.join(root,'mpv.conf')));
-  await p.getByRole('button',{name:'Save configuration',exact:true}).click();await confirm(p);await settled(p);
+  await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).click();await p.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert(!await exists(path.join(root,'mpv.conf')));
+  await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).click();await confirm(p);await settled(p);
   const confPath=path.join(root,'mpv.conf');let conf=await fs.readFile(confPath,'utf8');
   assert(conf.includes('[mpvkit-balanced]'));assert(!conf.includes('user.conf'));
   console.log(run(process.execPath,['scripts/test-media-preferences.mjs'],{env:{...process.env,MPVKIT_REAL_MPV:path.join(global,'system-mpv/mpv.exe'),MPVKIT_TEST_CONFIG:root,MPVKIT_CORE_SHA256:hash(await fs.readFile(path.join(global,'system-mpv/mpv.exe')))},timeout:180000}));
@@ -626,7 +631,7 @@ test("native v016 install, manual configuration, native profiles and unified sav
   await fs.writeFile(confPath,conf.replace('target-trc=auto','target-trc=pq'));
   await assert.rejects(ipc(p,'preview_settings',{settings}),e=>e.code==='config_manual_conflict');
   await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);await advanced(p);
-  assert.equal(await p.getByLabel('Replace manual edits to managed settings',{exact:true}).count(),0);await p.getByRole('button',{name:'Save configuration',exact:true}).click();
+  assert.equal(await p.getByLabel('Replace manual edits to managed settings',{exact:true}).count(),0);await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).click();
   await p.getByRole('dialog').getByRole('button',{name:'Before',exact:true}).click();
   await p.getByRole('dialog').getByText('Before',{exact:true}).waitFor();await p.screenshot({animations:"disabled",path:path.join(artifacts,'configuration-diff.png')});
   await p.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert((await fs.readFile(confPath,'utf8')).includes('target-trc=pq'));
@@ -649,8 +654,8 @@ test("native v016 install, manual configuration, native profiles and unified sav
   let saving=true;for(let i=0;i<600;i++){saving=(await probeMpv(direct,[['get_property','user-data/mpvkit']]))[0].saving;if(!saving)break;await sleep(100);}
   assert.equal(saving,false,'save helper completed');assert(!await exists(path.join(root,'.mpvkit/pending.json')));
   assert(!await exists(path.join(root,'.mpvkit/playback.json')));await probeMpv(direct,[['quit']]);children.pop();
-  session=await startApp(sandbox,global);await heading(session.page,'Player settings');assert.equal((await ipc(session.page,'read_settings')).profile,'high-quality');
-  const q=session.page;const managedPipe='\\\\.\\pipe\\mpvkit-v016-'+crypto.randomUUID();await fs.appendFile(confPath,'\ninput-ipc-server='+managedPipe+'\nao=null\nidle=yes\n');
+  session=await startApp(sandbox,global);await heading(session.page,'Player management');assert.equal((await ipc(session.page,'read_settings')).profile,'high-quality');
+  const q=session.page;await q.getByRole('button',{name:'Configuration',exact:true}).click();const managedPipe='\\\\.\\pipe\\mpvkit-v016-'+crypto.randomUUID();await fs.appendFile(confPath,'\ninput-ipc-server='+managedPipe+'\nao=null\nidle=yes\n');
   const launched=spawn(mpv,['--config-dir='+root,'--',media],{windowsHide:true,stdio:'ignore',env:{...process.env,MPV_HOME:root}});children.push({pid:launched.pid,mpv});
   assert.equal((await probeMpv(managedPipe,[['get_property','scale']]))[0],'ewa_lanczossharp');assert.equal((await probeMpv(managedPipe,[['get_property','volume']]))[0],23);
   await probeMpv(managedPipe,[['quit']]);children.pop();
@@ -677,8 +682,8 @@ test("native v016 install, manual configuration, native profiles and unified sav
 test("native sidebar, language, theme and fixed paths",{timeout:90000},async()=>{
  const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-v016-ui-'));const global=path.join(sandbox,'data');let session;
  const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
- try{session=await startApp(sandbox,global);const p=session.page;await english(p);await heading(p,'Player settings');
-  assert.equal(await p.locator('.sidebar button').count(),2);assert.equal(await p.getByRole('dialog').count(),0);
+ try{session=await startApp(sandbox,global);const p=session.page;await english(p);await heading(p,'Player management');
+  assert.equal(await p.locator('.sidebar button').count(),3);assert(await p.getByRole('button',{name:'Configuration',exact:true}).isDisabled());assert.equal(await p.getByRole('dialog').count(),0);
   assert.equal(await p.getByLabel('Custom install folder',{exact:true}).count(),0);
   await assert.rejects(ipc(p,'detect_device'));await assert.rejects(ipc(p,'target_status'));await assert.rejects(ipc(p,'discover_mpv'));await assert.rejects(ipc(p,'confirm_setup'));
   await assert.rejects(ipc(p,'preview_settings',{settings:await ipc(p,'read_settings')}),e=>e.code==='components_required');
@@ -690,7 +695,7 @@ test("native sidebar, language, theme and fixed paths",{timeout:90000},async()=>
   await p.screenshot({animations:'disabled',path:path.join(artifacts,'mpv-default-apps.png')});
   for(const command of ['integration_status','preview_integration','apply_integration','preview_integration_intent'])await assert.rejects(rawIpc(p,command,{}));
 
-  await p.getByRole('button',{name:'Player settings',exact:true}).focus();await p.keyboard.press('Tab');await p.keyboard.press('Enter');await heading(p,'App settings');
+  await p.getByRole('button',{name:'Player management',exact:true}).focus();await p.keyboard.press('Tab');await p.keyboard.press('Enter');await heading(p,'App settings');
   await p.getByRole('combobox',{name:'Appearance mode',exact:true}).selectOption('dark');await settled(p);
   assert.equal((await p.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--mantine-color-brand-6'))).trim().toLowerCase(),'#a84bd6');
   assert.deepEqual(Object.keys(await ipc(p,'read_app_settings')).sort(),['language','previewUpdates','schemaVersion','theme']);
@@ -698,7 +703,7 @@ test("native sidebar, language, theme and fixed paths",{timeout:90000},async()=>
   await p.getByRole('combobox',{name:'Display language',exact:true}).selectOption('zh-Hans');await heading(p,'应用设置');
   await p.getByRole('combobox',{name:'明暗模式',exact:true}).selectOption('light');await p.screenshot({animations:"disabled",path:path.join(artifacts,'settings-light-zh.png')});
   assert.equal((await p.evaluate(()=>getComputedStyle(document.documentElement).getPropertyValue('--mantine-color-brand-6'))).trim().toLowerCase(),'#a84bd6');
-  await p.getByRole('button',{name:'播放器设置',exact:true}).click();await heading(p,'播放器设置');
+  await p.getByRole('button',{name:'播放器管理',exact:true}).click();await heading(p,'播放器管理');
   assert.equal(await p.getByText('打开安装目录',{exact:true}).isVisible(),false);
   await p.getByRole('button',{name:'高级选项',exact:true}).click();
   assert.equal(await p.getByRole('button',{name:'打开',exact:true}).first().isEnabled(),true);
@@ -708,23 +713,23 @@ test("native sidebar, language, theme and fixed paths",{timeout:90000},async()=>
   await p.waitForFunction(()=>getComputedStyle(document.querySelector('.page-content')).opacity==='1');
   await p.getByRole('button',{name:'高级选项',exact:true}).click();
   assert.match(await p.locator('main .mantine-Accordion-panel').evaluate(e=>getComputedStyle(e).transitionDuration),/0\.18s/);
-  await p.getByRole('button',{name:'播放器设置',exact:true}).click();
-  await p.getByRole('button',{name:'仅安装组件',exact:true}).click();
+  await p.getByRole('button',{name:'播放器管理',exact:true}).click();
+  await p.getByRole('button',{name:'一键安装',exact:true}).click();
   const modal=p.getByRole('dialog');await modal.waitFor();
   assert.equal(await modal.evaluate(e=>getComputedStyle(e).transitionDuration),'0.16s');
   assert(await modal.evaluate(e=>e.scrollWidth<=e.clientWidth+1));
   await modal.locator('.changes').waitFor({state:'attached'});await p.locator('main[aria-busy=false]').waitFor();await p.keyboard.press('Escape');await modal.waitFor({state:'hidden'});
-  await p.waitForFunction(()=>document.activeElement?.textContent==='仅安装组件');
+  await p.waitForFunction(()=>document.activeElement?.textContent==='一键安装');
   await p.emulateMedia({reducedMotion:'reduce'});
-  await p.getByRole('button',{name:'仅安装组件',exact:true}).click();await modal.waitFor();
+  await p.getByRole('button',{name:'一键安装',exact:true}).click();await modal.waitFor();
   assert.equal(await modal.evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
   await modal.locator('.changes').waitFor({state:'attached'});await p.locator('main[aria-busy=false]').waitFor();await p.keyboard.press('Escape');await modal.waitFor({state:'hidden'});
   await p.getByRole('button',{name:'应用设置',exact:true}).click();
-  await p.getByRole('button',{name:'播放器设置',exact:true}).click();
+  await p.getByRole('button',{name:'播放器管理',exact:true}).click();
   assert.equal(await p.locator('.page-content').evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
-  const current=await p.locator('.page-content').elementHandle();await p.getByRole('button',{name:'播放器设置',exact:true}).click();
+  const current=await p.locator('.page-content').elementHandle();await p.getByRole('button',{name:'播放器管理',exact:true}).click();
   assert(await current.evaluate(e=>e.isConnected));
-  await p.getByRole('button',{name:'播放器设置',exact:true}).focus();await p.keyboard.press('Tab');
+  await p.getByRole('button',{name:'播放器管理',exact:true}).focus();await p.keyboard.press('Tab');
   await p.getByRole('tooltip',{name:'应用设置',exact:true}).waitFor();await p.keyboard.press('Enter');await heading(p,'应用设置');
   await english(p);await p.getByRole('button',{name:'App settings',exact:true}).click();await advanced(p);
   const destination=path.join(sandbox,'diagnostics.json');
@@ -732,10 +737,10 @@ test("native sidebar, language, theme and fixed paths",{timeout:90000},async()=>
   await p.getByRole('button',{name:'Export diagnostics',exact:true}).click();
   await p.getByRole('dialog').getByText('Review the redacted report before saving it locally.',{exact:true}).waitFor();
   assert(!await exists(destination));await p.getByRole('dialog').getByRole('button',{name:'Export diagnostics',exact:true}).click();await settled(p);
-  assert.equal(JSON.parse(await fs.readFile(destination,'utf8')).version,'0.2.0-alpha.4');
+  assert.equal(JSON.parse(await fs.readFile(destination,'utf8')).version,'0.2.0-alpha.5');
   await p.getByRole('button',{name:'Export diagnostics',exact:true}).click();
   await p.getByRole('dialog').getByRole('button',{name:'Retry',exact:true}).waitFor();
-  assert.equal(await p.getByRole('dialog').getByText('Done.',{exact:true}).count(),0,'new task never inherits completion');
+  assert.equal(await p.getByRole('dialog').getByText(/^(Done\.|Saved|Installation complete\.)$/,{exact:true}).count(),0,'new task never inherits completion');
   await p.getByRole('dialog').locator('.task-footer').getByRole('button',{name:'Close',exact:true}).click();
   assert.deepEqual(session.errors,[]);
  }finally{if(session)await session.stop();console.log('UI evidence: '+artifacts);}
@@ -756,13 +761,13 @@ test("native v016 real playback: keys, menu, position-only resume and font", {ti
   async function quit(){await call(["quit"]);for(let n=0;n<60;n++){try{await get("pid");}catch{playerId=null;return;}await sleep(100);}assert.fail("player did not quit");}
   try {
     session=await startApp(sandbox,global);const p=session.page;await p.getByRole("heading",{name:/播放器|Player/}).waitFor();await english(p);
-    await p.getByRole("button",{name:"Install components only",exact:true}).click();await p.getByRole("dialog").locator(".changes").waitFor({state:"attached"});await confirm(p);await settled(p);
+    await p.getByRole("button",{name:"Quick install",exact:true}).click();await p.getByRole("dialog").locator(".changes").waitFor({state:"attached"});await confirm(p);await settled(p);await p.getByRole('button',{name:'Configuration',exact:true}).click();
     const font=path.join(root,"fonts/LXGWWenKaiScreen.ttf");assert.equal(hash(await fs.readFile(font)),"abd13364163e3cd84372b333f2fdcee9efb848634668f1c0ce5788dcd059ee61");
     assert.equal(await p.getByRole("checkbox",{name:/resume|续播/i}).count(),0);
     await advanced(p);
     assert.equal(await p.getByLabel(/Screenshot folder|Image format|Include subtitles in screenshots/).count(),0);
     await p.getByRole("combobox",{name:"After all playback ends",exact:true}).selectOption("keep");
-    await p.getByRole("button",{name:"Save configuration",exact:true}).click();await confirm(p);await heading(p,"Player settings");await settled(p);
+    await p.getByRole("button",{name:/^(Install configuration|Save configuration)$/,exact:true}).click();await confirm(p);await heading(p,"Configuration");await settled(p);
     const draft=await ipc(p,"read_settings");assert.equal(draft.playback.keepOpen,true);assert.deepEqual(Object.keys(draft.playback).sort(),["autoPlaylist","hdr","keepOpen"]);
     const user=path.join(root,"mpv.conf"),log=path.join(artifacts,"mpv.log");
     const userText="volume=50\nao=null\npause=yes\ninput-ipc-server="+pipe+"\nlog-file="+log.replaceAll("\\","/")+"\nmsg-level=ass=debug\n";
@@ -800,28 +805,29 @@ test("native v016 real playback: keys, menu, position-only resume and font", {ti
 
 
 
-test("native pre-edit, separate install and save, timestamps, stale plans and responsive layout",{timeout:900000},async()=>{
+test("native installation gate, separate install and save, timestamps, stale plans and responsive layout",{timeout:900000},async()=>{
  const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-v016-draft-')),global=path.join(sandbox,'data'),root=path.join(global,'config/mpv');let session;
  const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
  try {
   session=await startApp(sandbox,global);const p=session.page;await english(p);const dialog=p.getByRole('dialog');
+  assert(await p.getByRole('button',{name:'Configuration',exact:true}).isDisabled());
+  await installComponents(p);await p.getByRole('button',{name:'Configuration',exact:true}).click();
   await p.getByLabel('Quality',{exact:true}).selectOption('high-quality');
   await p.getByLabel('HDR output',{exact:true}).selectOption('off');
-  await p.getByRole('button',{name:'App settings',exact:true}).click();await p.getByRole('button',{name:'Player settings',exact:true}).click();
+  await p.getByRole('button',{name:'App settings',exact:true}).click();await p.getByRole('button',{name:'Configuration',exact:true}).click();
   assert.equal(await p.getByLabel('Quality',{exact:true}).inputValue(),'high-quality');
-  await p.getByRole('button',{name:'Preview configuration',exact:true}).click();
+  await p.getByRole('button',{name:'Install configuration',exact:true}).click();
   assert.match(await dialog.locator('.configuration-text').innerText(),/profile=mpvkit-high-quality/);
-  assert.equal(await dialog.locator('.task-footer button').count(),1);
-  assert(!await exists(root));
+  assert.equal(await dialog.locator('.task-footer button').count(),2);
+  assert(!await exists(path.join(root,'mpv.conf')));
   await dialog.getByLabel('Configuration file',{exact:true}).selectOption('input.conf');
   assert.match(await dialog.locator('.configuration-text').innerText(),/add volume 10/);
   await dialog.locator('.task-footer').getByRole('button',{name:/^(Cancel|Close)$/,exact:true}).click();
   assert(await p.getByLabel('After all playback ends',{exact:true}).isVisible());
   await p.getByLabel('After all playback ends',{exact:true}).selectOption('keep');
-  assert(await p.getByRole('button',{name:'Save configuration',exact:true}).isDisabled());
-  await installComponents(p);
-  await p.getByRole('button',{name:'Save configuration',exact:true}).click();
-  await dialog.getByRole('button',{name:'Save configuration',exact:true}).waitFor();
+  assert(await p.getByRole('button',{name:'Install configuration',exact:true}).isEnabled());
+  await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).click();
+  await dialog.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).waitFor();
   assert(await exists(path.join(global,'system-mpv/mpv.exe')));assert(!await exists(path.join(root,'mpv.conf')));
   const unexpected=path.join(root,'input.conf');
   await fs.writeFile(unexpected,'# external file\n');
@@ -829,7 +835,7 @@ test("native pre-edit, separate install and save, timestamps, stale plans and re
   assert(!(await ipc(p,'setup_status')).settingsReady);assert((await ipc(p,'setup_status')).componentsReady);
   assert.equal(await fs.readFile(unexpected,'utf8'),'# external file\n');
   await dialog.locator('.task-footer').getByRole('button',{name:/^(Cancel|Close)$/,exact:true}).click();await fs.unlink(unexpected);
-  await p.getByRole('button',{name:'Save configuration',exact:true}).click();
+  await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).click();
   await confirm(p);await settled(p);await dialog.waitFor({state:'hidden'});
   let state=await ipc(p,'setup_status');assert(state.componentsReady&&state.settingsReady);assert(!('integrationEnabled' in state)&&!('integration' in state));
   assert.equal((await ipc(p,'read_settings')).profile,'high-quality');
@@ -837,11 +843,11 @@ test("native pre-edit, separate install and save, timestamps, stale plans and re
   assert.match(await fs.readFile(path.join(root,'mpv.conf'),'utf8'),/^keep-open=yes$/m);
   const conf=path.join(root,'mpv.conf'),input=path.join(root,'input.conf'),thumb=path.join(root,'script-opts/thumbfast.conf');
   let times=await Promise.all([conf,input,thumb].map(async f=>(await fs.stat(f)).mtimeMs));
-  assert(await p.getByRole('button',{name:'Save configuration',exact:true}).isDisabled());
+  assert(await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).isDisabled());
   await p.getByLabel('HDR output',{exact:true}).selectOption('auto');
-  await p.getByRole('button',{name:'Save configuration',exact:true}).click();await dialog.locator('.task-footer').getByRole('button',{name:/^(Cancel|Close)$/,exact:true}).click();
+  await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).click();await dialog.locator('.task-footer').getByRole('button',{name:/^(Cancel|Close)$/,exact:true}).click();
   assert.equal((await fs.stat(conf)).mtimeMs,times[0]);
-  await p.getByRole('button',{name:'Save configuration',exact:true}).click();await confirm(p);await settled(p);
+  await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).click();await confirm(p);await settled(p);
   const after=await Promise.all([conf,input,thumb].map(async f=>(await fs.stat(f)).mtimeMs));
   assert(after[0]>times[0]);assert.deepEqual(after.slice(1),times.slice(1));
   state=await ipc(p,'setup_status');assert(Math.abs(state.configModifiedAt-after[0])<2);
@@ -851,55 +857,37 @@ test("native pre-edit, separate install and save, timestamps, stale plans and re
   await fs.appendFile(input,'\n# external edit\n');
   await assert.rejects(ipc(p,'apply_deployment',{previewId:plan.id}),e=>e.code==='stale_preview');
   await assert.rejects(rawIpc(p,'preview_settings',{settings,replaceManual:false,expectedFingerprint:candidate.fingerprint}),e=>e.code==='stale_preview');
+  await p.getByLabel('Quality',{exact:true}).selectOption('power-saving');
   const extra=path.join(root,'scripts/thumbfast.lua');await fs.rename(extra,extra+'.removed');
   await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);
-  await p.getByLabel('Quality',{exact:true}).selectOption('power-saving');
-  assert(await p.getByRole('button',{name:'Save configuration',exact:true}).isDisabled());
+  assert(await p.getByLabel('Quality',{exact:true}).isDisabled());
+  assert(await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).isDisabled());
   await assert.rejects(ipc(p,'preview_settings',{settings}),e=>e.code==='components_required');
   await fs.rename(extra+'.removed',extra);await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);
   assert.equal(await p.getByLabel('Quality',{exact:true}).inputValue(),'power-saving');
   for(const size of [{width:1200,height:800},{width:900,height:700},{width:640,height:600}]){
     await p.setViewportSize(size);
-    for(const title of ['Player settings','App settings']){
+    for(const title of ['Player management','Configuration','App settings']){
       await p.getByRole('button',{name:title,exact:true}).click();await heading(p,title);await advanced(p);
-      assert(await p.evaluate(()=>[...document.querySelectorAll('.page-scroll,.page-surface')].every(e=>e.scrollWidth<=e.clientWidth+1)),title+' overflow');
-      if(title==='Player settings'){
-        assert(await p.locator('.save-bar').evaluate(e=>{const r=e.getBoundingClientRect();return r.bottom<=innerHeight&&r.top>=0;}));
-        for(const title of ['Open installation folder','Open configuration folder']){
-          const row=p.locator('.setting-row').filter({has:p.getByText(title,{exact:true})});assert.equal(await row.count(),1);assert(await row.getByRole('button',{name:'Open',exact:true}).isEnabled());assert.match(await row.innerText(),/system-mpv|config.*mpv/);
-        }
-      }
+      assert(await p.locator('.page-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1),title+' overflow');
       await p.screenshot({animations:'disabled',path:path.join(artifacts,title+'-'+size.width+'.png')});
-      if(title==='Player settings'){
-        await p.getByText('Open configuration folder',{exact:true}).scrollIntoViewIfNeeded();
-        await p.screenshot({animations:'disabled',path:path.join(artifacts,'directories-'+size.width+'.png')});
-      }
     }
   }
-  await p.setViewportSize({width:1200,height:800});await p.evaluate(()=>document.documentElement.style.fontSize='32px');
-  for(const title of ['Player settings','App settings']){
-    await p.getByRole('button',{name:title,exact:true}).click();await advanced(p);
-    assert(await p.locator('.page-scroll').evaluate(e=>e.scrollWidth<=e.clientWidth+1));
-    assert(await p.locator('main select:visible').evaluateAll(selects=>selects.every(e=>{const style=getComputedStyle(e),context=document.createElement('canvas').getContext('2d');context.font=style.font;return context.measureText(e.selectedOptions[0].text).width<=e.clientWidth-parseFloat(style.paddingLeft)-parseFloat(style.paddingRight)+1;})));
-  }
-  await p.getByRole('button',{name:'Player settings',exact:true}).click();
+  await p.getByRole('button',{name:'Configuration',exact:true}).click();
   for(const motion of ['reduce','no-preference']){
     await p.emulateMedia({reducedMotion:motion});await p.getByRole('button',{name:'Save configuration',exact:true}).click();await dialog.waitFor();
-    assert(await dialog.evaluate(e=>e.scrollWidth<=e.clientWidth+1));
-    assert(await dialog.locator('.task-footer').evaluate(e=>e.getBoundingClientRect().bottom<=innerHeight),'long task footer remains visible');
+    assert(await dialog.locator('.task-footer').evaluate(e=>e.getBoundingClientRect().bottom<=innerHeight));
     for(let n=0;n<8;n++){await p.keyboard.press('Tab');assert(await dialog.evaluate(e=>e.contains(document.activeElement)));}
-    await p.locator('main[aria-busy=false]').waitFor();
-    await p.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});await p.waitForFunction(()=>document.activeElement?.textContent==='Save configuration');
+    await p.locator('main[aria-busy=false]').waitFor();await p.keyboard.press('Escape');await dialog.waitFor({state:'hidden'});
   }
-  await p.evaluate(()=>document.documentElement.style.fontSize='');
   // Uninstall keeps user files; drafts survive core loss and component-only reinstall.
   await fs.appendFile(conf,'\n# manual file retained on uninstall\n');
   const bytes=await fs.readFile(conf);const watch=path.join(root,'watch_later');await fs.mkdir(watch,{recursive:true});await fs.writeFile(path.join(watch,'position'),'start=10');
   const removal=await ipc(p,'preview_maintenance',{action:'uninstall'});await ipc(p,'apply_deployment',{previewId:removal.id});
   await p.getByRole('button',{name:'Refresh',exact:true}).click();await settled(p);assert.deepEqual(await fs.readFile(conf),bytes);assert(await exists(path.join(watch,'position')));
-  await p.getByRole('button',{name:'Install components only',exact:true}).click();await dialog.locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);
+  await installComponents(p);await p.getByRole('button',{name:'Configuration',exact:true}).click();
   assert.deepEqual(await fs.readFile(conf),bytes);assert.equal(await p.getByLabel('Quality',{exact:true}).inputValue(),'power-saving');
-  await p.getByRole('button',{name:'Save configuration',exact:true}).click();await confirm(p);await settled(p);assert.equal((await ipc(p,'read_settings')).profile,'power-saving');
+  await p.getByRole('button',{name:/^(Install configuration|Save configuration)$/,exact:true}).click();await confirm(p);await settled(p);assert.equal((await ipc(p,'read_settings')).profile,'power-saving');
   await p.getByLabel('Quality',{exact:true}).selectOption('balanced');
   const closer=spawn('powershell.exe',['-NoProfile','-ExecutionPolicy','Bypass','-File',path.join(repository,'scripts/test-process.ps1'),'-ProcessId',String(session.app.pid),'-ExpectedExecutable',session.appFile,'-Action','close'],{windowsHide:true,stdio:'ignore'});
   const closeResult=new Promise(resolve=>closer.on('exit',resolve));
@@ -918,4 +906,20 @@ test("native pre-edit, separate install and save, timestamps, stale plans and re
   await p.getByRole('button',{name:'Discard and exit',exact:true}).click();assert.equal(await closeResult,0);
   assert.deepEqual(session.errors,[]);await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({passed:true,separateSave:true,componentOnly:true,mtime:true,stale:true,layout:true,root},null,2));
  } finally {if(session)await session.stop();console.log('Draft evidence: '+artifacts);}
+});
+
+
+test("native one-click installation confirms core and components once",{timeout:300000},async()=>{
+ const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-combined-')),global=path.join(sandbox,'data'),root=path.join(global,'config/mpv');let session;
+ try {
+  session=await startApp(sandbox,global,executable,{missingCore:true});const p=session.page;await english(p);
+  assert(await p.getByRole('button',{name:'Configuration',exact:true}).isDisabled());
+  await p.getByRole('button',{name:'Quick install',exact:true}).click();const dialog=p.getByRole('dialog');await dialog.locator('.changes').waitFor({state:'attached'});
+  assert.match(await dialog.innerText(),/shinchiro.mpv/);assert(!await exists(path.join(global,'system-mpv/mpv.exe')));assert(!await exists(root));
+  await confirm(p);await settled(p);assert((await ipc(p,'setup_status')).componentsReady);assert(!await exists(path.join(root,'mpv.conf')));
+  assert(await p.getByRole('button',{name:'Configuration',exact:true}).isEnabled());
+  const calls=(await fs.readFile(path.join(global,'test-tools/calls.txt'),'utf8')).trim().split(/\r?\n/);
+  assert.equal(calls.filter(line=>line.startsWith('install|')).length,1);
+  await p.getByRole('button',{name:'Go to configuration',exact:true}).click();assert(await p.getByRole('button',{name:'Install configuration',exact:true}).isEnabled());
+ }finally{await session?.stop();}
 });

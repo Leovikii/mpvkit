@@ -10,11 +10,11 @@
     "随应用分发保留原文；完整声明与适用源码材料仍需审阅。"
   ],
   "inputs": {
-    "src-tauri/Cargo.toml": "327a19f6bde46e004d4fbfc388ca423cd23c705df28e6ac7802d3a8f6566eb4b",
-    "src-tauri/Cargo.lock": "2904609e294357800739f1968ae9ec44bd982e120fbf5af91c835e42e856b1a4",
-    "package.json": "c44add23258de6a8fb113d2edbd4cd1eb43013024ddcc4f3bee4ad163797997a",
+    "src-tauri/Cargo.toml": "3eeefaa06b25c5e9efb1dcca722ec3c7eaff2b194c909fcee9b33e14963799b1",
+    "src-tauri/Cargo.lock": "9121d18609567dbd24bd817e5519c9c509e4050c3e93d396886359f06830fed2",
+    "package.json": "385fc783078202aa12ec57864e3712542c81285dfd5a7aadad33588b7902fc42",
     "pnpm-lock.yaml": "87b803622c1784e6c706c9eea5724a9dcf19a5279b201dcde01a31172d625979",
-    "resources/app-license-supplements.json": "b94978d00b5b303a1da551dac94d38609248b11a8033a9272e3197ee573d6364"
+    "resources/app-license-supplements.json": "30953a5d100bc8a11baa534b3e6782ea371b23d257aced700f25f2ab4a0ff68c"
   },
   "missingMaterials": [],
   "packages": [
@@ -1302,6 +1302,19 @@
       ]
     },
     {
+      "id": "cargo:dlib@0.5.3",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/elinorbgr/dlib",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE.txt",
+          "size": 1056,
+          "sha256": "10e5daea68c3ab7da6468ea51860e9d4ac87ea6a9a2d34127beff17b7193b618"
+        }
+      ]
+    },
+    {
       "id": "cargo:dlopen2@0.8.2",
       "declaredLicense": "MIT",
       "repository": "https://github.com/OpenByteDev/dlopen2",
@@ -1343,6 +1356,24 @@
           "file": "LICENSE",
           "size": 1328,
           "sha256": "7554701d1e74fc434f68c522b1dd743c8c16d816a4b761b5213f367b898884c8"
+        }
+      ]
+    },
+    {
+      "id": "cargo:downcast-rs@1.2.1",
+      "declaredLicense": "MIT/Apache-2.0",
+      "repository": "https://github.com/marcianx/downcast-rs",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE-APACHE",
+          "size": 10850,
+          "sha256": "8173d5c29b4f956d532781d2b86e4e30f83e6b7878dce18c919451d6ba707c90"
+        },
+        {
+          "file": "LICENSE-MIT",
+          "size": 1073,
+          "sha256": "fb252fecf98d9af8f1d9201c5860319a514f5a8a24700dc84fc6ea287a7a4958"
         }
       ]
     },
@@ -3803,6 +3834,19 @@
       ]
     },
     {
+      "id": "cargo:quick-xml@0.41.0",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/tafia/quick-xml",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE-MIT.md",
+          "size": 1105,
+          "sha256": "5b2c207dcf571267ebe0bbdd5bf321f561ddc22ff597e7b363e96f4539507a29"
+        }
+      ]
+    },
+    {
       "id": "cargo:quick-xml@0.42.0",
       "declaredLicense": "MIT",
       "repository": "https://github.com/tafia/quick-xml",
@@ -4366,6 +4410,24 @@
           "file": "LICENSE",
           "size": 1068,
           "sha256": "1954992a2b32e8a2af24a4c11b726902e344c1934b947a77f04d404908f8db30"
+        }
+      ]
+    },
+    {
+      "id": "cargo:scoped-tls@1.0.1",
+      "declaredLicense": "MIT/Apache-2.0",
+      "repository": "https://github.com/alexcrichton/scoped-tls",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE-APACHE",
+          "size": 10847,
+          "sha256": "a60eea817514531668d7e00765731449fe14d059d3249e0bc93b36de45f759f2"
+        },
+        {
+          "file": "LICENSE-MIT",
+          "size": 1057,
+          "sha256": "378f5840b258e2779c39418f3f2d7b2ba96f1c7917dd6be0713f88305dbda397"
         }
       ]
     },
@@ -6051,6 +6113,84 @@
           "file": "LICENSE",
           "size": 1063,
           "sha256": "a65f5d0a945d267751344c95665945b90c030ea107faf5c85d518929886187da"
+        }
+      ]
+    },
+    {
+      "id": "cargo:wayland-backend@0.3.17",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/smithay/wayland-rs",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE.txt",
+          "size": 1057,
+          "sha256": "1cb6f4dee8c649f175736380495f0af0c753c87f22d50931692968bb24bf2161"
+        }
+      ]
+    },
+    {
+      "id": "cargo:wayland-client@0.31.15",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/smithay/wayland-rs",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE.txt",
+          "size": 1057,
+          "sha256": "1cb6f4dee8c649f175736380495f0af0c753c87f22d50931692968bb24bf2161"
+        }
+      ]
+    },
+    {
+      "id": "cargo:wayland-protocols@0.32.13",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/smithay/wayland-rs",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE.txt",
+          "size": 1057,
+          "sha256": "1cb6f4dee8c649f175736380495f0af0c753c87f22d50931692968bb24bf2161"
+        },
+        {
+          "file": "protocols/COPYING",
+          "size": 1502,
+          "sha256": "f1a2b233e8a9a71c40f4aa885be08a0842ac85bb8588703c1dd7e6e6502e3124"
+        },
+        {
+          "file": "upstream/ext-background-effect-MIT.txt",
+          "size": 1269,
+          "sha256": "412133b707f315f3a94b5fac292e8c673ac1a57f52cf6133de8ebf7d1f2a5729",
+          "url": "https://github.com/Smithay/wayland-rs/blob/661cf141f5de4ec83559125b3d8bb1c79f25116b/wayland-protocols/protocols/staging/ext-background-effect/ext-background-effect-v1.xml",
+          "commit": "661cf141f5de4ec83559125b3d8bb1c79f25116b",
+          "evidence": "锁定 crate 内 ext_background_effect_v1 XML 的 copyright 原文，保留生成协议绑定的版权与许可。"
+        }
+      ]
+    },
+    {
+      "id": "cargo:wayland-scanner@0.31.11",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/smithay/wayland-rs",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE.txt",
+          "size": 1057,
+          "sha256": "1cb6f4dee8c649f175736380495f0af0c753c87f22d50931692968bb24bf2161"
+        }
+      ]
+    },
+    {
+      "id": "cargo:wayland-sys@0.31.11",
+      "declaredLicense": "MIT",
+      "repository": "https://github.com/smithay/wayland-rs",
+      "source": "registry+https://github.com/rust-lang/crates.io-index",
+      "materials": [
+        {
+          "file": "LICENSE.txt",
+          "size": 1057,
+          "sha256": "1cb6f4dee8c649f175736380495f0af0c753c87f22d50931692968bb24bf2161"
         }
       ]
     },

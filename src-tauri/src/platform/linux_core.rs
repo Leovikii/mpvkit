@@ -28,6 +28,27 @@ pub struct CorePlan {
     pub preview: CorePreview,
     stamp: Option<mpv::FileStamp>,
     created: Instant,
+    transaction: String,
+}
+
+// Pacman's print transaction resolves dependencies without authorization or writes.
+fn transaction(action: &str) -> Result<String> {
+    let mut command = super::command(std::path::Path::new("/usr/bin/pacman"));
+    command.args(if action == "uninstall" {
+        vec!["-Rp"]
+    } else {
+        vec!["-Sp", "--needed"]
+    });
+    command.args(["--print-format", "%n %v %a %h", "--", "mpv"]);
+    let (status, output, errors) = mpv::capture_output(command, Duration::from_secs(15))?;
+    if !status.success() {
+        return Err(AppError::new(
+            "package_failed",
+            format!("无法准备 Pacman 事务：{}", errors.trim()),
+            "system-mpv",
+        ));
+    }
+    Ok(output)
 }
 fn stamp() -> Result<Option<mpv::FileStamp>> {
     let path = std::path::Path::new("/usr/bin/mpv");
@@ -84,21 +105,48 @@ pub fn prepare(action: &str) -> Result<CorePlan> {
     if action == "uninstall" && state.is_none() {
         return Err(error("MPV 核心未安装。"));
     }
-    Ok(CorePlan { preview: CorePreview {
-        id: deploy::operation_id(), action: action.into(), package: "mpv", source: "pacman",
-        executable: "/usr/bin/mpv".into(), config_directory: super::app_root()?,
-        details: "通过系统授权执行固定 mpv 包操作；不绕过依赖检查，不移除依赖或用户配置。安装/更新使用当前同步数据库，不单独刷新数据库。".into(),
-    }, stamp: state, created: Instant::now() })
+    let transaction = transaction(action)?;
+    Ok(CorePlan {
+        preview: CorePreview {
+            id: deploy::operation_id(),
+            action: action.into(),
+            package: "mpv",
+            source: "pacman",
+            executable: "/usr/bin/mpv".into(),
+            config_directory: super::app_root()?,
+            details: format!(
+                "通过系统授权执行以下包事务（名称 / 版本 / 架构 / 摘要）。不绕过依赖检查，不移除依赖或用户配置，不刷新数据库。\n\n{transaction}"
+            ),
+        },
+        stamp: state,
+        created: Instant::now(),
+        transaction,
+    })
 }
 pub fn execute(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
+    reject_test_install()?;
+    let _lock = deploy::acquire(&super::default_root()?)?;
+    execute_locked(plan)
+}
+
+pub(crate) fn execute_locked(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
+    reject_test_install()?;
+    execute_native(plan)
+}
+
+fn reject_test_install() -> Result<()> {
     // Debug test mode never reaches the real package manager.
     if cfg!(debug_assertions) && std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
         return Err(error("Linux 隔离模式禁止调用真实包管理器。"));
     }
-    let _lock = deploy::acquire(&super::default_root()?)?;
+    Ok(())
+}
+
+fn execute_native(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
     if plan.created.elapsed() > Duration::from_secs(300)
         || plan.stamp != stamp()?
         || plan.preview.config_directory != super::app_root()?
+        || plan.transaction != transaction(&plan.preview.action)?
     {
         return Err(AppError::new(
             "stale_preview",
