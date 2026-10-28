@@ -1,6 +1,6 @@
 # v0.2.0-alpha.4 设计与开发计划
 
-更新：2026-10-28。**方案已通过，代码与本地验证已完成，正在完成远端验证与交付。** 当前源码 **0.2.0-alpha.4**。用户本轮明确授权修复相似问题、自行完成 Windows 与当前可行 Linux 测试、推送 dev、PR 合并 main 后同步 dev。提交、PR 与合并文案使用极简英文；公开结果在验证后记录。
+更新：2026-10-28。**代码、Windows 原生完整回归、双端 CI 与公开发布核验已完成。** 当前源码及公开预发布 **0.2.0-alpha.4**。用户本轮明确授权修复相似问题、自行完成 Windows 与当前可行 Linux 测试、推送 dev、PR 合并 main 后同步 dev。提交、PR 与合并文案使用极简英文；真实系统安装的未测边界见文末。
 
 ## 目标与范围
 
@@ -139,7 +139,8 @@
 
 - 已实施：Windows 候选路径组件去重；双端应用更新 prepare/install 分离与候选释放；普通任务同窗准备/进度/错误/结果；独立组件安装与配置保存；短退出弹窗、正常按钮、页面 Paper 样式作用域及异步准备焦点。
 - Linux 核心提交改为临时文件承接输出并等待系统包管理器结束，不沿用查询超时。tempfile 生产依赖原已用于 Linux；仅补同版本 dev 依赖供 Windows 编译共享 Linux 测试，不新增运行时库。
-- 已通过：TypeScript/Vite、前端与发布契约 20 项、Windows Rust 45 项（5 条环境条件测试默认忽略）、fmt/clippy、Windows Tauri debug 构建、离线预览完整交互回归。Windows 最终完整原生套件 9/9 通过（274207ms），含 52 项真实音轨选择、更新、WinGet、窗口/uosc/连播/字幕、原生配置/保存、播放快捷键/续播/字体、双语主题/诊断及草稿/过期/退出布局。详见[证据](evidence.md#alpha4-实施与本地验证)。CI、公开结果完成后补录。
+- 已通过：TypeScript/Vite、前端与发布契约 20 项、Windows Rust 45 项（5 条环境条件测试默认忽略）、fmt/clippy、Windows Tauri debug 构建、离线预览完整交互回归。Windows 最终完整原生套件 9/9 通过（274207ms），含 52 项真实音轨选择、更新、WinGet、窗口/uosc/连播/字幕、原生配置/保存、播放快捷键/续播/字体、双语主题/诊断及草稿/过期/退出布局。详见[证据](evidence.md#alpha4-实施与本地验证)。双平台 [CI 全部通过](https://github.com/Leovikii/mpvkit/actions/runs/40635264476)：Windows 45 / Arch 50 项，Arch 包元数据另 1 项、makepkg 与隔离 Pacman 验收通过。
 - 本机只读复验：当前固定注册表及文件已不存在，选中预期 fallback；未再误报歧义，但不能声称已在仍安装的真实主机上重测。本轮不安装/卸载/修复真实 MPV。混合分隔符和真实双文件阻断在临时根测试。
 - 未验证边界：Windows 真实 NSIS 跨版本安装/退出重开、Linux Polkit/KDE Wayland/首次依赖获取及跨版本重开；当前没有对应隔离用户/VM。Linux Rust/包检查通过 PR 与 Release Arch 容器完成。
-- 下一步：推送 dev、创建并合并 PR、同步分支，验证公开发布及匿名资产。
+- 远端：[PR #10](https://github.com/Leovikii/mpvkit/pull/10) 已合并为 e9d41f0，源码 dev/main 已同步；[Release 全部成功](https://github.com/Leovikii/mpvkit/actions/runs/40635983418)。[alpha.4](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-alpha.4) 从创建起 draft=false / prerelease=true，未设为 Latest；tag 固定 e9d41f0，不随后续文档移动。六项资产已匿名下载并核对 GitHub digest、SHA256SUMS 及标准 manifest；两个正式 Minisign 签名均通过。摘要见[发布证据](evidence.md#公开发布核验)。
+- 本批代码、测试与公开发布已完成，收尾仅合并本次发布记录后同步 dev/main。下一任务：在隔离 Windows 用户/VM 实测真实 NSIS 跨版本安装/退出重开，在 Arch/CachyOS KDE Wayland 实测 Polkit 授权、首次依赖获取及跨版本重开；不把本轮 mock、容器或包载荷检查当作这些实测。

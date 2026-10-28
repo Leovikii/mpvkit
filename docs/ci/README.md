@@ -1,6 +1,6 @@
 # CI/CD 与分发
 
-当前 v0.2.0-alpha.3，验证与实际发布见[交接](../v0.2.0-alpha.3/plan.md)。配置以 [.github/workflows](../../.github/workflows) 为准。
+当前 v0.2.0-alpha.4，验证与实际发布见[交接](../v0.2.0-alpha.4/plan.md)。配置以 [.github/workflows](../../.github/workflows) 为准。
 
 ## PR 检查
 

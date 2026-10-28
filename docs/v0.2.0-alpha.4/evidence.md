@@ -110,3 +110,25 @@ source_select_player_would_return=mpv_ambiguous
 Linux 当前主机没有发行版或桌面会话；Rust/clippy、构建、makepkg、真实包元数据与隔离 Pacman 载荷由 Arch CI 验证。Windows NSIS 跨版本安装/重开及 Arch Polkit/KDE Wayland/首次依赖获取/跨版本重开仍缺隔离环境，不能用 IPC mock 或容器冒充。
 
 强制颜色模拟已由 Edge 离线预览补验并目视复核（.local/ui-v016/forced-colors.png）：边界、文字及关闭按钮可辨。此项不等于 Windows 设置开关、真实读屏或物理高 DPI 多显示器验收。
+
+## 双平台 CI 与合并
+
+[PR #10](https://github.com/Leovikii/mpvkit/pull/10) 的 [Checks](https://github.com/Leovikii/mpvkit/actions/runs/40635264476) 全部通过，提交 e7ed20c。Windows Rust 45 通过 / 5 环境专项忽略；Arch Rust 50 通过 / 5 环境专项忽略，包元数据专项另 1 通过。Arch makepkg 与全新隔离根中的 Pacman 安装、同版重装、资源与卸载全部通过；日志 .local/alpha4-ci-windows.log、alpha4-ci-arch.log。隔离包脚本使用 -dd/--noscriptlet，不代表首次依赖拉取或图形授权代理。
+
+PR 以极简英文 Merge dev 合并，提交 e9d41f0；源码 dev/main 已快进同步。本版 tag 指向该源码提交，不以交接文档后续补录移动 tag。自动 Release [运行](https://github.com/Leovikii/mpvkit/actions/runs/40635983418) 全部成功，公开结果见下文。
+
+正式 Arch 包也通过 Rust、真实包元数据专项、makepkg、隔离安装/同版重装/资源/卸载、desktop-file-validate、readelf 和 vercmp。已下载当前 release-Linux 诊断产物核对 namcap：无错误；警告为 !strip 保留符号、ELF loader 的 unused、由已声明依赖传递满足的 libsoup3/cairo/glib2/hicolor-icon-theme/glibc/dbus/libgcc/gdk-pixbuf2，以及外部命令调用的 xdg-utils/polkit 未被链接分析识别。保留相应运行时依赖。完整日志和诊断在 .local/alpha4-release-arch.log 与 .local/alpha4-release-linux/。
+
+## 公开发布核验
+
+[v0.2.0-alpha.4](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-alpha.4) 于 2026-10-28 05:15:24 UTC 从创建起公开，draft=false / prerelease=true；创建请求 make_latest=false，匿名 releases/latest 返回 404，未成为稳定 Latest。tag 已通过 GitHub ref API 核对，固定指向 e9d41f0dcffe64c1a404196e7682a959ec131d83。
+
+六项资产均已从公开下载地址匿名获取，核对文件大小、GitHub SHA-256 digest、SHA256SUMS、双平台 manifest URL/签名字段与 notes 契约。发布日志确认两个正式 Minisign 的 Signature and comment signature verified；未执行公开安装器。日志 .local/alpha4-release-publish.log、alpha4-release-windows.log；下载与校验脚本 .local/verify-public-alpha4.mjs，文件留在 .local/public-alpha4/。
+
+| 公开文件 | 字节数 | SHA-256 |
+| --- | --- | --- |
+| MpvKit_0.2.0-alpha.4_x64-setup.exe | 4110578 | 4b8b2f83cfe1fe77e9fd5b7972f820c37d02bdb19d410cd5ea8e22f7bb9b7392 |
+| mpvkit-bin-0.2.0alpha4-1-x86_64.pkg.tar.zst | 6937063 | 71ba698831c8ccda27223e790c3e84d14bd1a581c426511f70e10a29ef069bba |
+| latest.json | 1642 | c17089bcb2cd63728eeb48b9cb09c08f76c254be6e7055568cb0a54bcea8fecb |
+
+另外三项为两平台签名及 SHA256SUMS。公开下载成功不等于跨版本安装验收；Windows NSIS、Linux Polkit/KDE Wayland 和真实首次依赖/重开仍保留上述未测范围。

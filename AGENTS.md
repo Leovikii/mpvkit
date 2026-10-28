@@ -1,8 +1,8 @@
 # MpvKit：AI agent 开发规范
 
-## 当前任务（2026-10-28，alpha.4 实施与验证）
+## 当前任务（2026-10-28，alpha.4 已发布）
 
-当前源码为 **0.2.0-alpha.4**，公开结果以[本版交接](docs/v0.2.0-alpha.4/plan.md)为准。用户已批准方案，并授权修复类似设计问题、完成 Windows 与当前可行的 Linux 测试、推送 dev、PR 合并 main 后同步 dev；main 合并沿用自动公开预发布流程。提交和 PR 文案用极简英文。保留已有改动，未验证结果不能写成通过。
+当前源码及公开预发布为 **0.2.0-alpha.4**，代码、双端 CI、Windows 原生完整回归和匿名发布核验已完成，证据见[本版交接](docs/v0.2.0-alpha.4/plan.md)。用户已批准方案，并授权修复类似设计问题、完成 Windows 与当前可行的 Linux 测试、推送 dev、PR 合并 main 后同步 dev；main 合并沿用自动公开预发布流程。收尾仅合并发布记录并同步分支；下一项实测为隔离 Windows NSIS 跨版本更新及 Arch/CachyOS KDE Wayland 原生授权/重开。提交和 PR 文案用极简英文。保留已有改动，未验证结果不能写成通过。
 
 alpha.3 采用 GitHub Releases 发现版本和 Tauri 标准 manifest，删除自建渠道索引与 AUR 分支，无旧 alpha 兼容负担；Windows 保留官方 updater，Arch 下载验签后用 pkexec/Pacman 原生安装。[alpha.3 交接](docs/v0.2.0-alpha.3/plan.md)保留已完成的验证和公开发布结果。用户本轮明确要求 alpha.4 取消按钮背景进度，改为同一个 Mantine 弹窗内的标准进度条/短阶段与正常尺寸按钮，遵循 WinUI 3 / Fluent；此决定已实施，覆盖旧进度样式要求。下列 alpha.2 记录仅作历史依据。
 
