@@ -3,9 +3,9 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
-import { base, digest, parseVersion, promote, versionCheck } from './release.mjs';
+import { base, digest, parseVersion, versionCheck } from './release.mjs';
 
-export async function publishRelease({ tag, token, repository, directory, archPackage = 'none', run = execFileSync }) {
+export async function publishRelease({ tag, token, repository, directory, run = execFileSync }) {
   const version = versionCheck(tag);
   assert.equal(repository, 'Leovikii/mpvkit', 'Unexpected release repository');
   assert(token, 'GitHub token required');
@@ -17,7 +17,6 @@ export async function publishRelease({ tag, token, repository, directory, archPa
     assert(response.ok, `Cannot inspect releases: HTTP ${response.status}`);
     return response.json();
   };
-  // Include authenticated drafts, which the public release-by-tag endpoint may omit.
   const releases = [];
   for (let page = 1; ; page++) {
     const batch = await api(`releases?per_page=100&page=${page}`);
@@ -26,68 +25,57 @@ export async function publishRelease({ tag, token, repository, directory, archPa
     if (batch.length < 100) break;
   }
   const existing = releases.find(r => r.tag_name === tag);
-  const channelsRelease = releases.find(r => r.tag_name === 'updates');
-  let index = { schemaVersion: 1, stable: null, preview: null };
-  if (channelsRelease) {
-    assert(!channelsRelease.draft, 'Existing update channels must be public');
-    assert(channelsRelease.assets.some(a => a.name === 'channels.json'), 'Existing channels.json is missing; refusing to reset channels');
-    const response = await fetch(`${base}updates/channels.json`, { signal: AbortSignal.timeout(15_000) });
-    assert(response.ok, `Cannot read existing channels: HTTP ${response.status}`);
-    index = await response.json();
-  }
-  const next = promote(index, { version, manifest: `${base}${tag}/updater.json`, archPackage: archPackage === 'none' ? null : archPackage });
   const files = fs.readdirSync(directory).filter(f => fs.statSync(path.join(directory, f)).isFile()).sort();
-  assert(files.includes('SHA256SUMS') && files.includes('updater.json'), 'Verified release assets required');
-  if (existing) {
-    assert.equal(existing.prerelease, Boolean(parseVersion(version).pre), 'Existing release channel differs');
-    for (const asset of existing.assets) {
+  assert(files.length === 6 && files.includes('SHA256SUMS') && files.includes('latest.json'), 'Verified release assets required');
+  const prerelease = Boolean(parseVersion(version).pre);
+  const verify = (release, expected) => {
+    assert(!release.draft, 'Unexpected draft: releases must be public from creation');
+    assert.equal(release.prerelease, prerelease, 'Existing release channel differs');
+    assert.equal(release.assets.length, expected.length, 'Published asset list is incomplete');
+    for (const asset of release.assets) {
       assert(files.includes(asset.name), `Unexpected existing asset: ${asset.name}`);
+      assert(expected.includes(asset.name), `Unexpected existing asset: ${asset.name}`);
       assert.equal(asset.digest, `sha256:${digest(fs.readFileSync(path.join(directory, asset.name)))}`, `Existing asset differs: ${asset.name}`);
     }
-    assert(!existing.draft || tag === 'v0.2.0-alpha.1', 'Unexpected draft: new releases must be public from creation');
-  }
-  const prerelease = Boolean(parseVersion(version).pre);
-  const gh = args => run('gh', args, { stdio: 'inherit' });
-  const createPublic = (releaseTag, name, body, preview) => {
-    const payload = path.join(path.dirname(directory), 'release-create.json');
-    fs.writeFileSync(payload, JSON.stringify({ tag_name: releaseTag, target_commitish: 'main',
-      name, body, draft: false, prerelease: preview, make_latest: preview ? 'false' : 'true' }) + '\n');
-    // gh release create with assets internally creates a draft, even without --draft.
-    gh(['api', '--method', 'POST', `repos/${repository}/releases`, '--input', payload]);
   };
+  if (existing) {
+    verify(existing, existing.assets.map(a => a.name));
+    for (const asset of existing.assets) assert(files.includes(asset.name), `Unexpected existing asset: ${asset.name}`);
+    // A manifest is a completion marker. Never adopt a release that published it early.
+    assert(!existing.assets.some(a => a.name === 'latest.json') || existing.assets.length === files.length, 'Premature manifest');
+  }
+  const gh = args => run('gh', args, { stdio: 'inherit' });
   if (!existing) {
     await api(`git/ref/tags/${tag}`);
-    createPublic(tag, `MpvKit ${version}`, fs.readFileSync(`docs/v${version}/notes.md`, 'utf8'), prerelease);
+    const payload = path.join(path.dirname(directory), 'release-create.json');
+    const packageFile = files.find(f => f.endsWith('.pkg.tar.zst'));
+    assert(packageFile && /^[a-zA-Z0-9._-]+$/.test(packageFile), 'Arch package required');
+    const sum = digest(fs.readFileSync(path.join(directory, packageFile)));
+    const command = '(d=$(mktemp -d) && cd "$d" && curl -fLO ' + base + tag + '/' + packageFile +
+      " && printf '%s  %s\\n' '" + sum + "' '" + packageFile + "' | sha256sum -c - && sudo pacman -U ./" + packageFile + ')';
+    const notes = fs.readFileSync('docs/v' + version + '/notes.md', 'utf8') + '\n## Arch Linux\n\nDownload, verify and install:\n\n~~~sh\n' + command + '\n~~~\n';
+    fs.writeFileSync(payload, JSON.stringify({ tag_name: tag, target_commitish: 'main', name: `MpvKit ${version}`,
+      body: notes, draft: false, prerelease, make_latest: prerelease ? 'false' : 'true' }) + '\n');
+    // gh release create with assets internally creates a draft. Use REST explicitly.
+    gh(['api', '--method', 'POST', `repos/${repository}/releases`, '--input', payload]);
   }
   const missing = files.filter(file => !existing?.assets.some(a => a.name === file));
-  if (missing.length) gh(['release', 'upload', tag, ...missing.map(f => path.join(directory, f))]);
-  if (existing?.draft) {
-    const flags = prerelease ? ['--prerelease', '--latest=false'] : ['--latest'];
-    gh(['release', 'edit', tag, '--draft=false', ...flags]);
-  }
+  const packages = missing.filter(file => file !== 'latest.json');
+  if (packages.length) gh(['release', 'upload', tag, ...packages.map(f => path.join(directory, f))]);
+  const staged = await api(`releases/tags/${tag}`);
+  verify(staged, files.filter(f => f !== 'latest.json' || !missing.includes(f)));
+  if (missing.includes('latest.json')) gh(['release', 'upload', tag, path.join(directory, 'latest.json')]);
   const published = await api(`releases/tags/${tag}`);
-  assert(!published.draft && published.tag_name === tag && published.prerelease === prerelease, 'Release was not published correctly');
-  assert.equal(published.assets.length, files.length, 'Published asset list is incomplete');
-  for (const file of files) assert.equal(published.assets.find(a => a.name === file)?.digest,
-    `sha256:${digest(fs.readFileSync(path.join(directory, file)))}`, `Published asset differs: ${file}`);
-  const channelsFile = path.join(path.dirname(directory), 'channels.json');
-  fs.writeFileSync(channelsFile, JSON.stringify(next, null, 2) + '\n');
-  if (!channelsRelease) {
-    createPublic('updates', 'Update channels', 'Application update metadata.', true);
-    gh(['release', 'upload', 'updates', channelsFile]);
-  } else {
-    gh(['release', 'upload', 'updates', channelsFile, '--clobber']);
-  }
-  const response = await fetch(`${base}updates/channels.json`, { signal: AbortSignal.timeout(15_000) });
-  assert(response.ok, `Published channels unavailable: HTTP ${response.status}`);
-  assert.deepEqual(await response.json(), next, 'Published channels differ');
-  console.log(`Published ${tag} and update channels`);
+  assert.equal(published.tag_name, tag);
+  verify(published, files);
+  const response = await fetch(`${base}${tag}/latest.json`, { signal: AbortSignal.timeout(15_000) });
+  assert(response.ok, `Public manifest unavailable: HTTP ${response.status}`);
+  assert.equal(digest(Buffer.from(await response.arrayBuffer())), digest(fs.readFileSync(path.join(directory, 'latest.json'))), 'Public manifest differs');
+  console.log(`Published ${tag}`);
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(path.resolve(process.argv[1])).href) {
   execFileSync(process.execPath, [fileURLToPath(new URL('./verify-release.mjs', import.meta.url)), 'gate'], { stdio: 'inherit' });
-  await publishRelease({
-    tag: process.env.RELEASE_TAG, token: process.env.GH_TOKEN, repository: process.env.GITHUB_REPOSITORY,
-    directory: '.local/release', archPackage: process.env.ARCH_PACKAGE || 'none',
-  });
+  await publishRelease({ tag: process.env.RELEASE_TAG, token: process.env.GH_TOKEN,
+    repository: process.env.GITHUB_REPOSITORY, directory: '.local/release' });
 }

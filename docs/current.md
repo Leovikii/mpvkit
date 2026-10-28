@@ -1,6 +1,6 @@
-# 当前开发基线：v0.2.0-alpha.2
+# 当前开发基线：v0.2.0-alpha.3
 
-更新：2026-10-27。当前为第二个 alpha 预览版，0.2.0 稳定版尚未发布。当前修复、验证和发布状态见 [alpha.2 交接](v0.2.0-alpha.2/plan.md)；[alpha.1](v0.2.0-alpha.1/plan.md) 与其证据仅作历史基线。构建和发布流程见 [CI/CD](ci/README.md)，按影响面选择 [必要测试](testing.md)。
+更新：2026-10-28。当前为第三个 alpha 预览版，0.2.0 稳定版尚未发布。实施、验证和发布状态见 [alpha.3 交接](v0.2.0-alpha.3/plan.md)，历史结果不替代本版验收。构建和发布流程见 [CI/CD](ci/README.md)，按影响面选择 [必要测试](testing.md)。
 
 GUI 使用官方单实例插件，同一用户桌面会话重复启动唤回现有窗口；`--save-playback` helper 在 GUI 初始化前独立处理，不受单实例拦截。Linux 依赖有效会话总线，缺失时明确启动失败；desktop 仅声明 AudioVideo，升级软件包后生效。单实例不限制 MPV、WebKit 子进程或其他用户会话。
 
@@ -50,7 +50,11 @@ Windows 使用用户级 NSIS：启动即显示进度并自动安装到 `%LOCALAP
 
 Linux 管理器入口由 Arch 包维护 packaging/io.github.mpvkit.desktop 与系统图标；Exec=mpvkit，无媒体 MIME、--open 或用户 applications 链接。GTK app_id 为 io.github.mpvkit。移除增强不会删除系统包入口。
 
-应用设置 → 关于：正常 GUI 界面就绪 3 秒后检查一次；提前手动检查则合并，无周期检查或自动检查开关。接收预览版默认 false；切换废弃旧结果，保存后可立即重查，迟到响应无效。结果/进度只在内存。弹窗显示纯文本日志、版本和日期；Windows 签名下载/安装，草稿未保存时禁止；Linux 提示用户通过 yay/paru 等 AUR 助手手动更新本程序后重启，仅链接已发布配方，不执行 helper 或写 /usr/bin。预览开关只控制应用内提醒，不限制包管理器的更新渠道。关于区采用 WinUI 3 设置行，更新弹窗操作区固定。公开渠道已提供 alpha.2 预览；接收预览后同版检查返回最新，关闭预览且尚无稳定版时正常提示无稳定版。
+应用设置 → 关于：GUI 就绪 3 秒后检查一次，提前手动检查则合并，无周期检查。接收预览版默认 false；切换废弃旧结果，迟到响应无效。固定 GitHub Releases API 按 SemVer 发现完整版本，排除草稿及不符合预览偏好的版本；每版 latest.json 包含双平台标准项，不再有渠道索引或 AUR。API 分页/超时/限流错误不能当成无更新。
+
+更新对话框显示纯文本日志、版本和日期，点击立即显示未知进度，已知下载总量后显示真实百分比；校验、准备、安装只显示相应阶段。两端复用官方 updater 下载/验签、GitHub digest 与 SHA256SUMS 核对。Windows 继续官方 NSIS 安装；Arch 先下载到私有临时目录，核对包名/版本/架构及 Pacman 事务，再由用户确认并通过 pkexec 执行固定 Pacman 参数。安装前核对候选/包/事务状态，持有应用及配置锁；草稿或当前事务阻断安装。无 shell、签名降级、数据库刷新、常驻提权服务或 Pacman 强杀。Linux 仅支持 /usr/bin/mpvkit 且归属 mpvkit-bin 的系统安装，开发/解压程序明确拒绝应用内系统升级。
+
+Arch 成功后查询已装版本和文件归属，显示退出后重新打开；运行进程仍是原版本。授权取消/失败就地反馈，重新检查后重试。关于区遵守 WinUI 3 设置行，对话框操作区固定，未知进度不伪造百分比。Arch Minisign 文件使用 .tauri.sig，避免被 Pacman 当作 OpenPGP 的 .sig；继承系统 LocalFileSigLevel。首次安装仍从 GitHub 下载后 pacman -U 本地包，不通过 AUR。
 
 Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写根；配置位于其 config/mpv；更新元数据只读其 test-tools/updates，禁止测试安装器。Release 忽略测试覆写。Windows 隔离核心/WinGet 仅来自 system-mpv/test-tools；不得回退调用本机包管理器。
 
@@ -66,4 +70,4 @@ Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写�
 | 系统默认应用快捷入口 / 管理器桌面 | platform/windows.rs、linux.rs 只打开系统设置；系统包入口在 packaging/ |
 | 更新/诊断/核心进程 | updates.rs、app-updates.tsx、mpv.rs、diagnostics.rs |
 
-业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。本版验证见 [交接](v0.2.0-alpha.2/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。
+业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。本版验证见 [交接](v0.2.0-alpha.3/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。

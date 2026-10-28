@@ -14,9 +14,19 @@ export const messages = {
   updateExit: ["安装更新将退出并重新启动 MpvKit。", "Installing the update will close and restart MpvKit."],
   later: ["稍后", "Later"],
   downloadUpdate: ["下载并更新", "Download and update"],
-  viewAur: ["在 AUR 查看", "View on AUR"],
-  aurNotReady: ["此版本的 AUR 配方尚未发布。", "The AUR recipe for this version is not available yet."],
-  packageUpdateHint: ["请使用 AUR 助手（如 yay 或 paru）手动更新 MpvKit，然后重新启动应用。", "Update MpvKit manually with your AUR helper, such as yay or paru, then restart the application."],
+  pacmanUpdateHint: ["下载并验证更新包后，确认安装预览并完成系统授权。", "Download and verify the update, review the installation, then authorize it through the system."],
+  installationPreview: ["安装预览", "Installation preview"],
+  installUpdate: ["安装更新", "Install update"],
+  downloadingUpdate: ["正在下载…", "Downloading…"],
+  downloadingPercent: ["正在下载 {percent}%", "Downloading {percent}%"],
+  verifyingUpdate: ["正在验证更新…", "Verifying update…"],
+  preparingUpdate: ["正在准备安装预览…", "Preparing installation preview…"],
+  installingUpdate: ["正在安装…", "Installing…"],
+  authorizingUpdate: ["正在等待系统授权并安装…", "Waiting for authorization and installation…"],
+  updateComplete: ["更新完成。请退出并重新打开 MpvKit。", "Update installed. Close and reopen MpvKit."],
+  updateCancelled: ["已取消系统授权，未安装更新。请重新检查后重试。", "Authorization cancelled. Check for updates to try again."],
+  updatePackageFailure: ["无法安装更新。请检查系统授权、包数据库及依赖后重新检查更新。", "Cannot install the update. Check authorization, package databases and dependencies, then check for updates again."],
+  updatePackageUnmanaged: ["应用内更新仅支持通过 Pacman 安装的 /usr/bin/mpvkit。请先安装发布的软件包。", "In-app updates require /usr/bin/mpvkit installed through Pacman. Install the released package first."],
   getWinget: ["获取应用安装程序", "Get App Installer"],
   installCore: ["安装", "Install"],
   upgradeCore: ["更新", "Update"],
@@ -185,6 +195,9 @@ export function translator(locale: Locale) {
 export function errorKey(error: unknown): Key {
   const code = (error as {code?: string})?.code ?? "";
   if (code === "winget_missing") return "wingetMissing";
+  if (code === "update_authorization_cancelled") return "updateCancelled";
+  if (code === "update_package_unmanaged") return "updatePackageUnmanaged";
+  if (code.startsWith("update_package_") || code === "update_authorization_failed") return "updatePackageFailure";
   if (code.startsWith("winget_") || code === "mpv_install_incomplete") return "wingetFailure";
   if (code === "cancelled") return "downloadCancelled";
   if (code.includes("stale") || code.includes("changed")) return "stale";

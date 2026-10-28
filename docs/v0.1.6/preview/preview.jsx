@@ -6,6 +6,36 @@ import '@mantine/core/styles.css';
 import './preview.css';
 import logo from '../../../src/assets/mpv.svg?inline';
 import { brandTheme } from '../../../src/brand';
+import { useAppUpdates } from '../../../src/app-updates';
+import { translator } from '../../../src/i18n';
+import { mockIPC } from '@tauri-apps/api/mocks';
+
+// Real update UI with offline-only IPC. No executable or package manager is run.
+mockIPC(async (command, args) => {
+  const params = new URLSearchParams(location.search);
+  const linux = params.get('updates') === 'linux';
+  if (command === 'check_app_update') return args.preview ? { status:'available',update:{id:'preview',version:'0.2.0-alpha.4',notes:'Sample release notes / 更新日志示例',date:'2026-10-28T00:00:00Z',method:linux?'pacman':'installer'} } : {status:'noRelease',update:null};
+  if (command === 'prepare_app_update' || command === 'install_app_update') {
+    const id=args.onProgress.id;let index=0;
+    const send=message=>window.__TAURI_INTERNALS__.runCallback(id,{index:index++,message});
+    const pause=()=>new Promise(resolve=>setTimeout(resolve,500));
+    try {
+      if (command === 'prepare_app_update' || !linux) {
+        await pause();
+        for(const percent of [0,42,100]) {send({phase:'download',percent:params.has('updateUnknown')?null:percent});await pause();}
+        if(params.get('updateFailure')==='download')throw {code:'update_download'};
+        send({phase:'verify',percent:null});await pause();
+        if(params.get('updateFailure')==='verify')throw {code:'update_metadata'};
+        if(linux) {send({phase:'prepare',percent:null});await pause();return {id:'preview',changes:['mpvkit-bin 0.2.0alpha4-1 (x86_64)']};}
+      }
+      send({phase:'install',percent:null});await pause();
+      if(params.get('updateFailure')==='cancel')throw {code:'update_authorization_cancelled'};
+      if(params.get('updateFailure')==='install'||!linux)throw {code:'update_install'};
+    } finally {window.__TAURI_INTERNALS__.runCallback(id,{index,end:true});}
+    return;
+  }
+  throw Error('Unexpected preview command: '+command);
+});
 
 const theme = createTheme({ ...brandTheme, respectReducedMotion: true, defaultRadius: 4, fontFamily: '"Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", sans-serif', fontSizes: { xs: '0.75rem', sm: '0.875rem', md: '0.875rem' }, components: { Accordion: Accordion.extend({ defaultProps: { transitionDuration: 180 } }), Modal: Modal.extend({ defaultProps: { transitionProps: { transition: 'fade', duration: 160, exitDuration: 120 } } }), Tooltip: Tooltip.extend({ defaultProps: { transitionProps: { transition: 'fade', duration: 120, exitDuration: 90 } } }), Button: Button.extend({ defaultProps: { size: 'sm', fw: 400 } }), Paper: Paper.extend({ defaultProps: { withBorder: true, shadow: 'none' } }) } });
 function Row({ title, description, children }) { return <div className="setting-row"><div className="row-copy"><Text fw={500}>{title}</Text>{description && <Text size="xs" c="dimmed" mt={4}>{description}</Text>}</div><div className="row-action">{children}</div></div>; }
@@ -18,10 +48,7 @@ function PageEntrance({ children }) {
 import { sampleFiles } from './sample-config';
 const initialDraft = { quality: 'balanced', hdr: 'auto', keepOpen: false, autoPlaylist: true };
 function App() {
-  const linuxUpdates = new URLSearchParams(window.location.search).get('updates') === 'linux';
   const [previews, setPreviews] = useState(false);
-  const [updateOpen, setUpdateOpen] = useState(false);
-  const [checkedUpdate, setCheckedUpdate] = useState(false);
   const [lang, setLang] = useState('zh');
   const [dark, setDark] = useState(false);
   const [page, setPage] = useState('player');
@@ -43,6 +70,7 @@ function App() {
   const compact = useMediaQuery('(max-width: 899px)');
   const t = (zh, en) => lang === 'zh' ? zh : en;
   const busy = phase !== null;
+  const updates = useAppUpdates({desktop:true,ready:true,previews,saving:false,blocked:busy||dialog!==null,dirty:false,version:'0.2.0-alpha.3',t:translator(lang==='zh'?'zh-Hans':'en'),save:async enabled=>setPreviews(enabled),operation:async action=>action()});
   const dirty = !saved || JSON.stringify(saved) !== JSON.stringify(draft);
   const names = { player: t('播放器设置', 'Player settings'), settings: t('应用设置', 'App settings') };
   const actionLabel = ready ? t('保存配置', 'Save configuration') : scenario === 'broken' ? t('修复并保存配置', 'Repair and save') : t('安装并保存配置', 'Install and save');
@@ -92,7 +120,7 @@ function App() {
     <AppShell header={{height:88}} navbar={{width:compact?64:216,breakpoint:0}} padding={0} withBorder={false}>
       <AppShell.Header className="shell-header">
         <Group className="preview-tools" justify="space-between" gap={8} wrap="nowrap">
-          <Text size="xs" c="dimmed" className="preview-label">{t('0.2.0-alpha.1 设计预览 · 模拟操作', '0.2.0-alpha.1 design preview · simulated actions')}</Text>
+          <Text size="xs" c="dimmed" className="preview-label">{t('0.2.0-alpha.3 设计预览 · 模拟操作', '0.2.0-alpha.3 design preview · simulated actions')}</Text>
           <Group gap={8} wrap="nowrap"><NativeSelect aria-label="预览场景 / Scenario" size="xs" disabled={busy} value={scenario} onChange={e=>selectScenario(e.currentTarget.value)} data={[
             ['fresh','未安装','Not installed'],['no-core','核心未安装','Core not installed'],['update','有更新','Update available'],['core','组件已安装','Components ready'],['ready','配置已保存','Configured'],['broken','组件损坏','Damaged components'],['conflict','配置手改','Manual edits'],['download-error','安装失败演示','Install failure'],['config-error','保存失败演示','Save failure']
           ].map(([value,zh,en])=>({value,label:t(zh,en)}))}/><Button size="xs" variant="default" onClick={()=>setLang(lang==='zh'?'en':'zh')}>{lang==='zh'?'English':'简体中文'}</Button><Button size="xs" variant="default" onClick={()=>setDark(!dark)}>{dark?t('浅色','Light'):t('深色','Dark')}</Button></Group>
@@ -126,7 +154,7 @@ function App() {
             {notice&&<Text role="status" mt={16} size="sm">{notice==='components'?t('组件已安装，草稿尚未保存。','Components installed. Draft not saved.'):notice==='saved'?t('配置已保存。','Configuration saved.'):notice}</Text>}
           </>:<>
             <Paper><Row title={t('界面语言','App language')}><NativeSelect aria-label={t('界面语言','App language')} value={lang} onChange={e=>setLang(e.currentTarget.value)} data={[{value:'zh',label:'简体中文'},{value:'en',label:'English'}]}/></Row><Row title={t('主题','Theme')}><NativeSelect aria-label={t('主题','Theme')} value={dark?'dark':'light'} onChange={e=>setDark(e.currentTarget.value==='dark')} data={[{value:'light',label:t('浅色','Light')},{value:'dark',label:t('深色','Dark')}]}/></Row></Paper>
-            <Title order={2} size="sm" mt={24} mb={8}>{t('关于','About')}</Title><Paper><Row title="MpvKit" description={t('0.2.0-alpha.1 设计预览','0.2.0-alpha.1 design preview')}><img src={logo} width={36} height={36} alt=""/></Row><Row title={t('项目仓库','Repository')}><a href="https://github.com/Leovikii/mpvkit" target="_blank" rel="noreferrer">GitHub ↗</a></Row><Row title={t('许可证','License')} description="GPL-3.0-or-later">{button('查看许可','View licenses',mock)}</Row><div className="setting-row update-setting update-check-row"><div><Text fw={500}>{t('应用更新','Application updates')}</Text><Text size="sm" c="dimmed" mt={4}>{checkedUpdate&&!previews?t('尚无稳定版发布','No stable release published yet'):t('每次启动时自动检查一次。','Checks once each time you open MpvKit.')}</Text></div><Group className="row-control" gap={8}>{button('检查更新','Check for updates',()=>{setCheckedUpdate(true);setUpdateOpen(previews);})}</Group></div><div className="setting-row update-setting"><div><Text component="label" htmlFor="preview-update-switch" id="preview-update-label" fw={500}>{t('接收预览版更新','Include preview releases')}</Text><Text size="sm" c="dimmed" mt={4}>{t('包含 alpha、beta 和 rc 测试版本。','Includes alpha, beta and rc releases.')}</Text></div><div className="row-control"><Switch id="preview-update-switch" aria-labelledby="preview-update-label" checked={previews} onChange={e=>{setPreviews(e.currentTarget.checked);setCheckedUpdate(false);}}/></div></div></Paper>
+            <Title order={2} size="sm" mt={24} mb={8}>{t('关于','About')}</Title><Paper><Row title="MpvKit" description={t('0.2.0-alpha.3 设计预览','0.2.0-alpha.3 design preview')}><img src={logo} width={36} height={36} alt=""/></Row><Row title={t('项目仓库','Repository')}><a href="https://github.com/Leovikii/mpvkit" target="_blank" rel="noreferrer">GitHub ↗</a></Row><Row title={t('许可证','License')} description="GPL-3.0-or-later">{button('查看许可','View licenses',mock)}</Row>{updates.about}</Paper>
             <Paper className="section-gap"><Expand title={t('高级选项','Advanced options')}><Group>{button('导出诊断','Export diagnostics',mock)}</Group></Expand></Paper>
             {notice&&<Text role="status" mt={16}>{notice==='components'?t('组件已安装，草稿尚未保存。','Components installed. Draft not saved.'):notice==='saved'?t('配置已保存。','Configuration saved.'):notice}</Text>}
           </>}
@@ -134,7 +162,7 @@ function App() {
         {page==='player'&&<footer className="save-bar"><Text className="draft-status" size="xs" c="dimmed">{dirty?t('未保存','Unsaved'):t('已保存','Saved')}</Text>{button('预览配置','Preview configuration',()=>open('preview'),busy)}<Button disabled={busy||(!dirty&&ready&&!conflict)} onClick={()=>open('save')}>{actionLabel}</Button></footer>}
       </PageEntrance></main></AppShell.Main>
     </AppShell>
-    <Modal opened={updateOpen} onClose={()=>setUpdateOpen(false)} title={t('应用更新','Application updates')} size={560} centered radius={8} padding={0} classNames={{content:'update-dialog-content',header:'update-dialog-header',title:'update-dialog-title',body:'update-dialog-body'}}><div className="update-dialog-scroll"><Text fw={500}>0.2.0-alpha.1 → 0.2.0-alpha.2</Text><Text fw={500} size="sm" mt="lg" mb={8}>{t('更新日志','Release notes')}</Text><pre className="update-notes" tabIndex={0}>{t('更新日志示例：修复问题并改进体验。','Sample release notes: fixes and improvements.')}</pre><Text size="sm" c="dimmed" mt="md">{linuxUpdates?t('请使用 AUR 助手（如 yay 或 paru）手动更新 MpvKit，然后重新启动应用。','Update MpvKit manually with your AUR helper, such as yay or paru, then restart the application.'):t('安装更新将退出并重新启动 MpvKit。','Installing the update will close and restart MpvKit.')}</Text></div><Group className="update-dialog-actions" justify="flex-end" gap={8}>{linuxUpdates?<Button component="a" href="https://aur.archlinux.org/packages/mpvkit-bin" target="_blank" rel="noreferrer">{t('在 AUR 查看','View on AUR')}</Button>:button('下载并更新','Download and update',()=>{setUpdateOpen(false);mock();})}<Button variant="default" data-autofocus onClick={()=>setUpdateOpen(false)}>{t('稍后','Later')}</Button></Group></Modal>
+    {updates.dialog}
     <Modal opened={dialog!==null} onClose={()=>setDialog(null)} title={dialog==='uninstall-core'?t('卸载 MPV 核心','Uninstall MPV core'):dialog==='reset'?t('重置配置','Reset configuration'):dialog==='core'?(coreReady?t('更新','Update'):t('安装','Install')):dialog==='components'?(scenario==='update'?t('更新组件','Update components'):scenario==='broken'?t('修复组件','Repair components'):t('仅安装组件','Install components only')):dialog==='uninstall'?t('移除播放增强','Remove enhancements'):t('预览配置','Preview configuration')} size={720} centered radius={8} closeButtonProps={{'aria-label':t('关闭','Close')}} classNames={{body:'dialog-body',title:'dialog-title'}}>
       {dialog==='uninstall-core'?<Text>{t('通过 WinGet 卸载核心，影响所有使用此核心的程序。配置保留。','Uninstall the core through WinGet. All apps using it are affected. Configuration is retained.')}</Text>:dialog==='reset'?<Text>{t('恢复全部默认预设，包括设置、快捷键和脚本选项。覆盖手改内容，不保留历史备份。','Restore all preset settings, keys and script options. Overwrites manual edits without historical backups.')}</Text>:dialog==='core'?<><Text size="sm">{t('使用 WinGet 源中的 shinchiro.mpv，接受源及包协议。系统可能请求管理员授权并添加 MPV 打开方式；不会设为默认播放器。','Use shinchiro.mpv from winget and accept source and package agreements. Windows may request administrator approval and add MPV to Open with; it does not set your default player.')}</Text><Text mt={12}>shinchiro.mpv · winget · 0.41.0</Text><Text className="path">C:/Program Files/MPV Player/mpv.exe</Text><Text className="path">%APPDATA%/mpv</Text></>:dialog==='components'?<><Text size="sm">MPV · uosc · thumbfast · {t('文楷字体','WenKai font')}</Text><Text size="sm" mt={12}>{t('仅安装组件，不写入播放配置。','Install components without writing playback configuration.')}</Text></>:dialog==='uninstall'?<Text size="sm">{t('移除未修改的预设及增强。手改文件、续播和系统核心保留；临时生成项自动清理。','Remove unchanged presets and enhancements. Retain modified files, playback positions and system core; clean temporary files automatically.')}</Text>:<>
         <Text size="sm" mb={16}>{ready?t('保存以下配置。','Save the configuration below.'):t('先安装组件，成功后保存以下配置。','Install components first, then save the configuration below.')}</Text>

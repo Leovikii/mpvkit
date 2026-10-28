@@ -15,6 +15,7 @@
 | [Geometry](https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/geometry) | 常驻控件圆角 4 px、弹层 8 px；相接边不重复圆角。 |
 | [Mica](https://learn.microsoft.com/en-us/windows/apps/design/style/mica) | 材质用于窗口基底；内容层在基底之上。按系统能力、透明效果、节能和高对比策略回退，不能让每张卡片各自模糊。 |
 | [Dialog controls](https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/dialogs-and-flyouts/dialogs) | 标题直接说明任务、内容简短、按钮用明确动词；执行按钮在左，安全关闭在右；局部错误就地展示。 |
+| [Progress controls](https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/progress-controls) | 已知工作总量时显示确定进度，未知时用不确定指示及状态文字；下载完成不代表安装完成，不能伪造百分比。 |
 
 不采用 Windows 7 旧版 UX 指导或 UWP 手机白皮书覆盖上述当前 Windows 页面。Microsoft Learn 页面会更新，后续修改应复核原文。
 

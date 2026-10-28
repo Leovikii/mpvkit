@@ -40,7 +40,6 @@ fn main() {
                 let _ = window.set_focus();
             }
         }));
-    #[cfg(target_os = "windows")]
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
     let builder = builder.manage(commands::PendingCore::default());
     builder
@@ -79,6 +78,7 @@ fn main() {
             commands::license_text,
             updates::check_app_update,
             updates::install_app_update,
+            updates::prepare_app_update,
             commands::open_default_apps,
             #[cfg(target_os = "windows")]
             commands::open_app_installer,

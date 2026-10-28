@@ -63,7 +63,7 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - if: runner.os == 'Linux'
-        run: pacman -Syu --noconfirm --needed base-devel git rustup webkit2gtk-4.1 gtk3 xdg-utils mpv
+        run: pacman -Syu --noconfirm --needed base-devel git rustup webkit2gtk-4.1 gtk3 xdg-utils polkit mpv
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
@@ -88,6 +88,20 @@ jobs:
           if [ "$RUNNER_OS" = Linux ]; then cargo fmt --manifest-path src-tauri/Cargo.toml --check; fi
           cargo clippy --locked --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
           cargo test --locked --manifest-path src-tauri/Cargo.toml
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: runner.os == 'Linux'
+        with:
+          node-version: 24.19.0
+      - name: Arch package and isolated Pacman checks
+        if: runner.os == 'Linux'
+        run: |
+          cargo build --locked --manifest-path src-tauri/Cargo.toml
+          useradd -m builder
+          mkdir -p .local/arch-test
+          chown -R builder:builder .local
+          runuser -u builder -- node scripts/release.mjs arch .local/arch-test src-tauri/target/debug/mpvkit
+          MPVKIT_TEST_PACKAGE="$(realpath .local/arch-test/*.pkg.tar.zst)" cargo test --locked --manifest-path src-tauri/Cargo.toml packaged_metadata_matches_pacman -- --ignored
+          bash scripts/test-arch-package.sh .local/arch-test/*.pkg.tar.zst
   required:
     name: CI
     if: always()

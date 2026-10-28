@@ -5,6 +5,7 @@ use crate::{
 };
 use semver::Version;
 use serde::{Deserialize, Serialize};
+use sha2::{Digest, Sha256};
 use std::{
     io::Read,
     sync::{
@@ -14,9 +15,10 @@ use std::{
     time::{Duration, Instant},
 };
 use tauri::State;
+use tauri_plugin_updater::UpdaterExt;
 
 const PREFIX: &str = "https://github.com/Leovikii/mpvkit/releases/download/";
-const INDEX: &str = "https://github.com/Leovikii/mpvkit/releases/download/updates/channels.json";
+const API: &str = "https://api.github.com/repos/Leovikii/mpvkit/releases";
 fn error(code: &'static str) -> AppError {
     AppError::new(
         code,
@@ -24,24 +26,23 @@ fn error(code: &'static str) -> AppError {
         "update",
     )
 }
-#[derive(Clone, Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
+#[derive(Deserialize)]
 struct Release {
-    version: Version,
-    manifest: String,
-    arch_package: Option<String>,
+    tag_name: String,
+    draft: bool,
+    prerelease: bool,
+    assets: Vec<ReleaseAsset>,
 }
 #[derive(Deserialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-struct Index {
-    schema_version: u32,
-    stable: Option<Release>,
-    preview: Option<Release>,
+struct ReleaseAsset {
+    name: String,
+    browser_download_url: String,
+    digest: Option<String>,
 }
 #[derive(Deserialize)]
 struct Manifest {
     version: Version,
-    notes: String,
+    notes: Option<String>,
     pub_date: Option<String>,
     platforms: std::collections::BTreeMap<String, Asset>,
 }
@@ -51,20 +52,27 @@ struct Asset {
     signature: String,
 }
 #[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Available {
     id: String,
     version: String,
     notes: String,
     date: Option<String>,
     method: &'static str,
-    package: Option<String>,
 }
 #[derive(Serialize)]
-#[serde(rename_all = "camelCase")]
 pub struct Check {
     status: &'static str,
     update: Option<Available>,
+}
+#[derive(Serialize)]
+pub struct Prepared {
+    id: String,
+    changes: Vec<String>,
+}
+#[derive(Clone, Serialize)]
+pub struct Progress {
+    phase: &'static str,
+    percent: Option<u64>,
 }
 struct Candidate {
     public: Available,
@@ -72,7 +80,10 @@ struct Candidate {
     signature: String,
     manifest: String,
     asset: String,
+    digest: String,
     created: Instant,
+    #[cfg(target_os = "linux")]
+    package: Option<platform::app_update::Plan>,
 }
 #[derive(Default)]
 pub struct Pending {
@@ -87,82 +98,168 @@ fn release_url(value: &str, version: Option<&Version>) -> Result<()> {
         || url.as_str() != value
         || url.query().is_some()
         || url.fragment().is_some()
-        || url.username() != ""
+        || !url.username().is_empty()
         || url.password().is_some()
         || url.port().is_some()
         || url
             .path_segments()
-            .is_none_or(|mut parts| parts.any(|p| p == ".." || p.contains('%')))
+            .is_none_or(|mut p| p.any(|v| v == ".." || v.contains('%')))
         || version.is_some_and(|v| !value.starts_with(&format!("{PREFIX}v{v}/")))
     {
         return Err(error("update_metadata"));
     }
     Ok(())
 }
-fn select(index: Index, preview: bool) -> Result<Option<Release>> {
-    if index.schema_version != 1
-        || index
-            .stable
+fn hash(bytes: &[u8]) -> String {
+    format!("{:x}", Sha256::digest(bytes))
+}
+fn digest(asset: &ReleaseAsset) -> Result<&str> {
+    asset
+        .digest
+        .as_deref()
+        .and_then(|d| d.strip_prefix("sha256:"))
+        .filter(|d| {
+            d.len() == 64
+                && d.bytes()
+                    .all(|b| b.is_ascii_digit() || (b'a'..=b'f').contains(&b))
+        })
+        .ok_or_else(|| error("update_metadata"))
+}
+fn files(version: &Version) -> [String; 6] {
+    let v = version.to_string();
+    let pkg = v
+        .replace("-alpha.", "alpha")
+        .replace("-beta.", "beta")
+        .replace("-rc.", "rc");
+    let win = format!("MpvKit_{v}_x64-setup.exe");
+    let linux = format!("mpvkit-bin-{pkg}-1-x86_64.pkg.tar.zst");
+    [
+        format!("{win}.sig"),
+        format!("{linux}.tauri.sig"),
+        win,
+        linux,
+        "SHA256SUMS".into(),
+        "latest.json".into(),
+    ]
+}
+fn select(releases: Vec<Release>, preview: bool) -> Result<Option<(Version, Release)>> {
+    let mut selected: Option<(Version, Release)> = None;
+    for release in releases {
+        if release.draft || (!preview && release.prerelease) {
+            continue;
+        }
+        let Some(version) = release
+            .tag_name
+            .strip_prefix('v')
+            .and_then(|v| Version::parse(v).ok())
+        else {
+            continue;
+        };
+        if release.prerelease == version.pre.is_empty() {
+            return Err(error("update_metadata"));
+        }
+        if !preview && !version.pre.is_empty() {
+            continue;
+        }
+        let names = files(&version);
+        if !names
+            .iter()
+            .all(|name| release.assets.iter().any(|a| &a.name == name))
+        {
+            continue;
+        }
+        for name in &names {
+            let assets: Vec<_> = release.assets.iter().filter(|a| &a.name == name).collect();
+            if assets.len() != 1 {
+                return Err(error("update_metadata"));
+            }
+            if assets[0].browser_download_url != format!("{PREFIX}{}/{name}", release.tag_name) {
+                return Err(error("update_metadata"));
+            }
+            digest(assets[0])?;
+        }
+        if selected
             .as_ref()
-            .is_some_and(|r| !r.version.pre.is_empty())
-    {
-        return Err(error("update_metadata"));
+            .is_none_or(|(v, _)| version.cmp_precedence(v).is_gt())
+        {
+            selected = Some((version, release));
+        }
     }
-    let candidates = [index.stable, if preview { index.preview } else { None }];
-    for release in candidates.iter().flatten() {
-        release_url(&release.manifest, Some(&release.version))?;
-    }
-    Ok(candidates
-        .into_iter()
-        .flatten()
-        .max_by(|a, b| a.version.cmp_precedence(&b.version)))
+    Ok(selected)
 }
 fn fetch(url: &str) -> Result<Vec<u8>> {
-    release_url(url, None)?;
+    let page_prefix = format!("{API}?per_page=30&page=");
+    let page = url.strip_prefix(&page_prefix);
+    if page.is_none() {
+        release_url(url, None)?;
+    }
+    if page.is_some_and(|p| p.parse::<u32>().is_err()) {
+        return Err(error("update_metadata"));
+    }
     #[cfg(debug_assertions)]
     if std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
-        // Fixed isolated files only; a test never contacts the public channel or runs an installer.
-        let name = if url == INDEX {
-            "channels.json".into()
+        let name = if let Some(page) = page {
+            format!("releases-{page}.json")
         } else {
             let relative = url
                 .strip_prefix(PREFIX)
                 .ok_or_else(|| error("update_metadata"))?;
-            format!("{}.json", relative.split('/').next().unwrap_or_default())
+            let (tag, file) = relative
+                .split_once('/')
+                .ok_or_else(|| error("update_metadata"))?;
+            if file == "latest.json" {
+                format!("{tag}.json")
+            } else {
+                format!("{tag}-{file}")
+            }
         };
         let path = platform::default_root()?
             .join("test-tools/updates")
             .join(name);
         platform::validate_local_path(&path)?;
         let bytes = std::fs::read(path).map_err(|_| error("update_network"))?;
-        if bytes.len() > 512 * 1024 {
+        if bytes.len() > 2 * 1024 * 1024 {
             return Err(error("update_metadata"));
         }
         return Ok(bytes);
     }
-    let client = reqwest::blocking::Client::builder()
-        .timeout(Duration::from_secs(8))
+    let response = reqwest::blocking::Client::builder()
+        .timeout(Duration::from_secs(15))
         .user_agent(concat!("MpvKit/", env!("CARGO_PKG_VERSION")))
         .build()
-        .map_err(|_| error("update_network"))?;
-    let response = client
+        .map_err(|_| error("update_network"))?
         .get(url)
+        .header("Accept", "application/vnd.github+json")
         .send()
         .and_then(|r| r.error_for_status())
         .map_err(|_| error("update_network"))?;
     let mut bytes = Vec::new();
     response
-        .take(512 * 1024 + 1)
+        .take(2 * 1024 * 1024 + 1)
         .read_to_end(&mut bytes)
         .map_err(|_| error("update_network"))?;
-    if bytes.len() > 512 * 1024 {
+    if bytes.len() > 2 * 1024 * 1024 {
         return Err(error("update_metadata"));
     }
     Ok(bytes)
 }
+fn releases() -> Result<Vec<Release>> {
+    let mut all = Vec::new();
+    // ponytail: bound discovery to 600 releases; use a server feed if this repository outgrows it.
+    for page in 1..=20 {
+        let batch: Vec<Release> =
+            serde_json::from_slice(&fetch(&format!("{API}?per_page=30&page={page}"))?)
+                .map_err(|_| error("update_metadata"))?;
+        let last = batch.len() < 30;
+        all.extend(batch);
+        if last {
+            return Ok(all);
+        }
+    }
+    Err(error("update_metadata"))
+}
 fn inspect(preview: bool) -> Result<(Check, Option<Candidate>)> {
-    let index = serde_json::from_slice(&fetch(INDEX)?).map_err(|_| error("update_metadata"))?;
-    let Some(release) = select(index, preview)? else {
+    let Some((version, release)) = select(releases()?, preview)? else {
         return Ok((
             Check {
                 status: "noRelease",
@@ -173,7 +270,7 @@ fn inspect(preview: bool) -> Result<(Check, Option<Candidate>)> {
     };
     let current =
         Version::parse(env!("CARGO_PKG_VERSION")).map_err(|_| error("update_metadata"))?;
-    if release.version.cmp_precedence(&current).is_le() {
+    if version.cmp_precedence(&current).is_le() {
         return Ok((
             Check {
                 status: "current",
@@ -182,37 +279,63 @@ fn inspect(preview: bool) -> Result<(Check, Option<Candidate>)> {
             None,
         ));
     }
+    let metadata = release
+        .assets
+        .iter()
+        .find(|a| a.name == "latest.json")
+        .ok_or_else(|| error("update_metadata"))?;
+    let bytes = fetch(&metadata.browser_download_url)?;
+    if hash(&bytes) != digest(metadata)? {
+        return Err(error("update_metadata"));
+    }
+    let sums = release
+        .assets
+        .iter()
+        .find(|a| a.name == "SHA256SUMS")
+        .ok_or_else(|| error("update_metadata"))?;
+    let checksums = fetch(&sums.browser_download_url)?;
+    if hash(&checksums) != digest(sums)? {
+        return Err(error("update_metadata"));
+    }
+    verify_checksums(&checksums, &release)?;
     let manifest: Manifest =
-        serde_json::from_slice(&fetch(&release.manifest)?).map_err(|_| error("update_metadata"))?;
-    if manifest.version != release.version || manifest.notes.len() > 128 * 1024 {
+        serde_json::from_slice(&bytes).map_err(|_| error("update_metadata"))?;
+    let notes = manifest.notes.unwrap_or_default();
+    if manifest.version != version || notes.len() > 128 * 1024 {
         return Err(error("update_metadata"));
     }
-    let package = release.arch_package;
-    if package
-        .as_ref()
-        .is_some_and(|p| !["mpvkit-bin", "mpvkit-preview-bin"].contains(&p.as_str()))
-    {
-        return Err(error("update_metadata"));
-    }
+    let target = if cfg!(target_os = "windows") {
+        "windows-x86_64"
+    } else {
+        "linux-x86_64"
+    };
     let asset = manifest
         .platforms
-        .get("windows-x86_64")
+        .get(target)
         .ok_or_else(|| error("update_metadata"))?;
-    release_url(&asset.url, Some(&release.version))?;
-    if asset.signature.trim().is_empty() || asset.signature.len() > 4096 {
+    release_url(&asset.url, Some(&version))?;
+    let file = release
+        .assets
+        .iter()
+        .find(|a| a.browser_download_url == asset.url)
+        .ok_or_else(|| error("update_metadata"))?;
+    let names = files(&version);
+    if file.name != names[if cfg!(target_os = "windows") { 2 } else { 3 }]
+        || asset.signature.trim().is_empty()
+        || asset.signature.len() > 4096
+    {
         return Err(error("update_metadata"));
     }
     let public = Available {
         id: deploy::operation_id(),
-        version: release.version.to_string(),
-        notes: manifest.notes,
+        version: version.to_string(),
+        notes,
         date: manifest.pub_date,
         method: if cfg!(target_os = "windows") {
             "installer"
         } else {
-            "aur"
+            "pacman"
         },
-        package,
     };
     Ok((
         Check {
@@ -223,11 +346,35 @@ fn inspect(preview: bool) -> Result<(Check, Option<Candidate>)> {
             public,
             preview,
             signature: asset.signature.clone(),
-            manifest: release.manifest,
+            manifest: metadata.browser_download_url.clone(),
             asset: asset.url.clone(),
+            digest: digest(file)?.into(),
             created: Instant::now(),
+            #[cfg(target_os = "linux")]
+            package: None,
         }),
     ))
+}
+fn verify_checksums(bytes: &[u8], release: &Release) -> Result<()> {
+    let text = std::str::from_utf8(bytes).map_err(|_| error("update_metadata"))?;
+    let mut seen = std::collections::BTreeSet::new();
+    for line in text.lines() {
+        let (sum, name) = line
+            .split_once("  ")
+            .ok_or_else(|| error("update_metadata"))?;
+        let asset = release
+            .assets
+            .iter()
+            .find(|a| a.name == name && name != "SHA256SUMS")
+            .ok_or_else(|| error("update_metadata"))?;
+        if !seen.insert(name) || sum != digest(asset)? {
+            return Err(error("update_metadata"));
+        }
+    }
+    if seen.len() != 5 {
+        return Err(error("update_metadata"));
+    }
+    Ok(())
 }
 #[tauri::command]
 pub async fn check_app_update(preview: bool, state: State<'_, Pending>) -> Result<Check> {
@@ -249,26 +396,19 @@ pub async fn check_app_update(preview: bool, state: State<'_, Pending>) -> Resul
     *pending = candidate;
     Ok(result)
 }
-#[tauri::command]
-pub async fn install_app_update(
-    id: String,
-    app: tauri::AppHandle,
-    state: State<'_, Pending>,
-    on_progress: tauri::ipc::Channel<u64>,
-) -> Result<()> {
+fn take(state: &Pending, id: &str) -> Result<Candidate> {
     let candidate = state
         .candidate
         .lock()
         .map_err(|_| error("state_unavailable"))?
         .take()
         .ok_or_else(|| error("stale_preview"))?;
-    if candidate.public.id != id || candidate.created.elapsed() > Duration::from_secs(1800) {
-        return Err(error("stale_preview"));
-    }
-    if crate::app_settings::load(&platform::default_root()?)?
-        .settings
-        .preview_updates
-        != candidate.preview
+    if candidate.public.id != id
+        || candidate.created.elapsed() > Duration::from_secs(1800)
+        || crate::app_settings::load(&platform::default_root()?)?
+            .settings
+            .preview_updates
+            != candidate.preview
     {
         return Err(error("stale_preview"));
     }
@@ -276,152 +416,221 @@ pub async fn install_app_update(
     if std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
         return Err(error("update_test_install_blocked"));
     }
+    Ok(candidate)
+}
+async fn download(
+    candidate: &Candidate,
+    app: &tauri::AppHandle,
+    progress: tauri::ipc::Channel<Progress>,
+) -> Result<(tauri_plugin_updater::Update, Vec<u8>)> {
+    let _ = progress.send(Progress {
+        phase: "download",
+        percent: None,
+    });
+    let update = app
+        .updater_builder()
+        .endpoints(vec![
+            candidate
+                .manifest
+                .parse()
+                .map_err(|_| error("update_metadata"))?,
+        ])
+        .map_err(|_| error("update_metadata"))?
+        .timeout(Duration::from_secs(180))
+        .build()
+        .map_err(|_| error("update_signing_missing"))?
+        .check()
+        .await
+        .map_err(|_| error("update_network"))?
+        .ok_or_else(|| error("stale_preview"))?;
+    if update.version != candidate.public.version
+        || update.download_url.as_str() != candidate.asset
+        || update.signature != candidate.signature
+    {
+        return Err(error("update_metadata"));
+    }
+    let mut received = 0u64;
+    let bytes = update
+        .download(
+            |size, total| {
+                received += size as u64;
+                let _ = progress.send(Progress {
+                    phase: "download",
+                    percent: total
+                        .filter(|v| *v > 0)
+                        .map(|v| (received.saturating_mul(100) / v).min(100)),
+                });
+            },
+            || {
+                let _ = progress.send(Progress {
+                    phase: "verify",
+                    percent: None,
+                });
+            },
+        )
+        .await
+        .map_err(|_| error("update_download"))?;
+    if hash(&bytes) != candidate.digest {
+        return Err(error("update_metadata"));
+    }
+    Ok((update, bytes))
+}
+#[tauri::command]
+pub async fn prepare_app_update(
+    id: String,
+    app: tauri::AppHandle,
+    state: State<'_, Pending>,
+    on_progress: tauri::ipc::Channel<Progress>,
+) -> Result<Prepared> {
+    let candidate = take(&state, &id)?;
+    #[cfg(target_os = "linux")]
+    {
+        let mut candidate = candidate;
+        let generation = state.generation.load(Ordering::SeqCst);
+        let (_, bytes) = download(&candidate, &app, on_progress.clone()).await?;
+        let _ = on_progress.send(Progress {
+            phase: "prepare",
+            percent: None,
+        });
+        let version = candidate.public.version.clone();
+        let digest = candidate.digest.clone();
+        let plan = tauri::async_runtime::spawn_blocking(move || {
+            platform::app_update::prepare(&version, &digest, &bytes)
+        })
+        .await
+        .map_err(|_| error("worker_failed"))??;
+        let prepared = Prepared {
+            id,
+            changes: plan.changes.clone(),
+        };
+        candidate.package = Some(plan);
+        let mut pending = state
+            .candidate
+            .lock()
+            .map_err(|_| error("state_unavailable"))?;
+        if state.generation.load(Ordering::SeqCst) != generation {
+            return Err(error("stale_preview"));
+        }
+        *pending = Some(candidate);
+        Ok(prepared)
+    }
     #[cfg(target_os = "windows")]
     {
-        use tauri_plugin_updater::UpdaterExt;
-        let key = app
-            .config()
-            .plugins
-            .0
-            .get("updater")
-            .and_then(|config| config.get("pubkey"))
-            .and_then(serde_json::Value::as_str)
-            .filter(|key| !key.trim().is_empty())
-            .ok_or_else(|| error("update_signing_missing"))?;
-        let update = app
-            .updater_builder()
-            .pubkey(key)
-            .endpoints(vec![
-                candidate
-                    .manifest
-                    .parse()
-                    .map_err(|_| error("update_metadata"))?,
-            ])
-            .map_err(|_| error("update_metadata"))?
-            .timeout(Duration::from_secs(20))
-            .build()
-            .map_err(|_| error("update_metadata"))?
-            .check()
-            .await
-            .map_err(|_| error("update_network"))?
-            .ok_or_else(|| error("stale_preview"))?;
-        if update.version != candidate.public.version
-            || update.download_url.as_str() != candidate.asset
-            || update.signature != candidate.signature
-        {
-            return Err(error("update_metadata"));
-        }
-        let mut received = 0u64;
-        let bytes = update
-            .download(
-                |size, total| {
-                    received += size as u64;
-                    let _ = on_progress.send(
-                        total
-                            .filter(|v| *v > 0)
-                            .map(|v| received.saturating_mul(100) / v)
-                            .unwrap_or(0)
-                            .min(100),
-                    );
-                },
-                || {},
-            )
-            .await
-            .map_err(|_| error("update_download"))?;
-        // Acquire both roots before handing control to the native installer. This blocks helpers,
-        // other manager instances and package operations until this process exits.
-        let data = platform::default_root()?;
-        let config = platform::app_root()?;
-        let _data_lock = deploy::acquire(&data)?;
-        let _config_lock = if config != data {
-            Some(deploy::acquire(&config)?)
-        } else {
-            None
-        };
-        if deploy::status(&data)?.recovery_required || deploy::status(&config)?.recovery_required {
-            return Err(error("recovery_required"));
-        }
-        update.install(bytes).map_err(|_| error("update_install"))
-    }
-    #[cfg(not(target_os = "windows"))]
-    {
-        let _ = (
-            candidate.signature,
-            candidate.manifest,
-            candidate.asset,
-            app,
-            on_progress,
-        );
-        Err(error("update_package_managed"))
+        let _ = (candidate, app, on_progress);
+        Err(error("update_metadata"))
     }
 }
-
-#[cfg(all(test, target_os = "windows"))]
+#[tauri::command]
+pub async fn install_app_update(
+    id: String,
+    app: tauri::AppHandle,
+    state: State<'_, Pending>,
+    on_progress: tauri::ipc::Channel<Progress>,
+) -> Result<()> {
+    let candidate = take(&state, &id)?;
+    #[cfg(target_os = "windows")]
+    let (update, bytes) = download(&candidate, &app, on_progress.clone()).await?;
+    #[cfg(target_os = "linux")]
+    let _ = app;
+    let data = platform::default_root()?;
+    let config = platform::app_root()?;
+    let _data_lock = deploy::acquire(&data)?;
+    let _config_lock = if config != data {
+        Some(deploy::acquire(&config)?)
+    } else {
+        None
+    };
+    if deploy::status(&data)?.recovery_required || deploy::status(&config)?.recovery_required {
+        return Err(error("recovery_required"));
+    }
+    let _ = on_progress.send(Progress {
+        phase: "install",
+        percent: None,
+    });
+    #[cfg(target_os = "windows")]
+    {
+        update.install(bytes).map_err(|_| error("update_install"))
+    }
+    #[cfg(target_os = "linux")]
+    {
+        let plan = candidate.package.ok_or_else(|| error("stale_preview"))?;
+        tauri::async_runtime::spawn_blocking(move || platform::app_update::install(plan))
+            .await
+            .map_err(|_| error("worker_failed"))?
+    }
+}
+#[cfg(test)]
 mod download_tests;
-
 #[cfg(test)]
 mod tests {
     use super::*;
-    fn release(version: &str) -> Release {
+    fn release(v: &str) -> Release {
+        let version: Version = v.parse().unwrap();
         Release {
-            version: version.parse().unwrap(),
-            manifest: format!("{PREFIX}v{version}/updater.json"),
-            arch_package: Some("mpvkit-bin".into()),
+            tag_name: format!("v{v}"),
+            draft: false,
+            prerelease: !version.pre.is_empty(),
+            assets: files(&version)
+                .into_iter()
+                .map(|name| ReleaseAsset {
+                    browser_download_url: format!("{PREFIX}v{v}/{name}"),
+                    name,
+                    digest: Some(format!("sha256:{}", "a".repeat(64))),
+                })
+                .collect(),
         }
     }
     #[test]
-    fn channels_never_offer_preview_when_disabled_and_compare_semver() {
-        let index = || Index {
-            schema_version: 1,
-            stable: Some(release("0.2.0")),
-            preview: Some(release("0.3.0-alpha.2")),
+    fn releases_filter_previews_and_compare_versions_not_dates() {
+        assert!(
+            select(vec![release("0.2.0-alpha.3")], false)
+                .unwrap()
+                .is_none()
+        );
+        let choice = |preview| {
+            select(
+                vec![
+                    release("0.2.0"),
+                    release("0.3.0-alpha.3"),
+                    release("0.2.0-rc.1"),
+                ],
+                preview,
+            )
+            .unwrap()
+            .unwrap()
+            .0
+            .to_string()
         };
+        assert_eq!(choice(false), "0.2.0");
+        assert_eq!(choice(true), "0.3.0-alpha.3");
         assert_eq!(
-            select(index(), false).unwrap().unwrap().version.to_string(),
+            select(vec![release("0.2.0-rc.1"), release("0.2.0")], true)
+                .unwrap()
+                .unwrap()
+                .0
+                .to_string(),
             "0.2.0"
         );
-        assert_eq!(
-            select(index(), true).unwrap().unwrap().version.to_string(),
-            "0.3.0-alpha.2"
-        );
-        assert!(
-            select(
-                Index {
-                    schema_version: 1,
-                    stable: None,
-                    preview: Some(release("0.2.0-alpha.2"))
-                },
-                false
-            )
-            .unwrap()
-            .is_none()
-        );
-        assert!(
-            select(
-                Index {
-                    schema_version: 1,
-                    stable: Some(release("0.2.0-alpha.1")),
-                    preview: None
-                },
-                false
-            )
-            .is_err()
-        );
-        assert_eq!(
-            select(
-                Index {
-                    schema_version: 1,
-                    stable: Some(release("0.2.0")),
-                    preview: Some(release("0.2.0-rc.1"))
-                },
-                true
-            )
-            .unwrap()
-            .unwrap()
-            .version
-            .to_string(),
-            "0.2.0"
-        );
+        let mut incomplete = release("9.0.0");
+        incomplete.assets.pop();
+        assert!(select(vec![incomplete], true).unwrap().is_none());
+        let mut draft = release("9.0.0");
+        draft.draft = true;
+        assert!(select(vec![draft], true).unwrap().is_none());
+        for kind in ["digest", "url", "duplicate", "channel"] {
+            let mut r = release("0.2.0");
+            match kind {
+                "digest" => r.assets[0].digest = None,
+                "url" => r.assets[0].browser_download_url = "https://evil.invalid/x".into(),
+                "duplicate" => r.assets.push(ReleaseAsset {
+                    name: "latest.json".into(),
+                    browser_download_url: "bad".into(),
+                    digest: None,
+                }),
+                _ => r.prerelease = true,
+            }
+            assert!(select(vec![r], true).is_err(), "{kind}");
+        }
         for bad in [
             "http://github.com/Leovikii/mpvkit/releases/download/v0.2.0/x",
             "https://github.com/other/mpvkit/releases/download/v0.2.0/x",
@@ -429,5 +638,35 @@ mod tests {
         ] {
             assert!(release_url(bad, Some(&"0.2.0".parse().unwrap())).is_err());
         }
+    }
+    #[test]
+    fn checksums_must_cover_every_asset_once_and_match_release_digests() {
+        let release = release("0.2.0");
+        let sums = release
+            .assets
+            .iter()
+            .filter(|a| a.name != "SHA256SUMS")
+            .map(|a| format!("{}  {}\n", digest(a).unwrap(), a.name))
+            .collect::<String>();
+        assert!(verify_checksums(sums.as_bytes(), &release).is_ok());
+        assert!(
+            verify_checksums(
+                sums.replace(&"a".repeat(64), &"b".repeat(64)).as_bytes(),
+                &release
+            )
+            .is_err()
+        );
+        assert!(verify_checksums(format!("{sums}{sums}").as_bytes(), &release).is_err());
+        assert!(
+            verify_checksums(
+                sums.lines()
+                    .skip(1)
+                    .collect::<Vec<_>>()
+                    .join("\n")
+                    .as_bytes(),
+                &release
+            )
+            .is_err()
+        );
     }
 }

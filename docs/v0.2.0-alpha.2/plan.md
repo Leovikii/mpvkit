@@ -37,3 +37,7 @@ Windows CI 曾在 PowerShell 创建测试 junction 时超过 10 秒；错误来�
 ## 未验证边界
 
 本轮未重跑 Windows 原生窗口激活、真实 NSIS 跨版本安装、完整播放矩阵、polkit/物理输入/HDR；基础结果仅见 [alpha.1 交接](../v0.2.0-alpha.1/plan.md) 和[历史证据](../v0.2.0-alpha.1/evidence.md)。Wayland 聚焦受合成器策略约束，跨用户/桌面会话不互锁；WebKit 子进程与播放期 helper 不算重复 GUI。完整许可审阅仍未完成，记录不变。
+
+## 下一任务（2026-10-28）
+
+后续用户已授权完成 [alpha.3](../v0.2.0-alpha.3/plan.md) 实施、双平台可行测试及 dev/main 发布同步；本页仅保留 alpha.2 历史证据。旧 alpha.1 / alpha.2 / updates 的 Release/tag 已撤下，不能把历史发布链接当作当前下载入口。

@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import assert from 'node:assert/strict';
-import { base, versionCheck } from './release.mjs';
+import { base, archVersion, versionCheck, digest } from './release.mjs';
 
 const version = versionCheck();
 const out = process.argv[2];
@@ -13,14 +13,20 @@ if (out === 'gate') {
     }
   }
 } else {
-  const manifest = JSON.parse(fs.readFileSync(path.join(out, 'updater.json'), 'utf8'));
+  const manifest = JSON.parse(fs.readFileSync(path.join(out, 'latest.json'), 'utf8'));
   assert.equal(manifest.version, version);
   assert.equal(manifest.notes, fs.readFileSync(`docs/v${version}/notes.md`, 'utf8'));
-  const asset = manifest.platforms['windows-x86_64'];
-  const file = asset.url.slice(asset.url.lastIndexOf('/') + 1);
-  assert.equal(asset.url, `${base}v${version}/${file}`);
-  assert(file.endsWith('-setup.exe'));
-  assert.equal(asset.signature, fs.readFileSync(path.join(out, file + '.sig'), 'utf8').trim());
-  assert(fs.existsSync(path.join(out, `mpvkit-${version}-linux-x86_64.tar.zst`)));
-  assert(fs.readdirSync(out).some(f => f.endsWith('.pkg.tar.zst')));
+  const packages = {
+    'windows-x86_64': `MpvKit_${version}_x64-setup.exe`,
+    'linux-x86_64': `mpvkit-bin-${archVersion(version)}-1-x86_64.pkg.tar.zst`,
+  };
+  assert.deepEqual(Object.keys(manifest.platforms).sort(), Object.keys(packages).sort());
+  for (const [target, file] of Object.entries(packages)) {
+    assert.equal(manifest.platforms[target].url, `${base}v${version}/${file}`);
+    assert.equal(manifest.platforms[target].signature, fs.readFileSync(path.join(out, file + (target === 'linux-x86_64' ? '.tauri.sig' : '.sig')), 'utf8').trim());
+  }
+  const files = [...Object.entries(packages).flatMap(([target, f]) => [f, f + (target === 'linux-x86_64' ? '.tauri.sig' : '.sig')]), 'latest.json'].sort();
+  const expected = files.map(f => `${digest(fs.readFileSync(path.join(out, f)))}  ${f}`).join('\n') + '\n';
+  assert.equal(fs.readFileSync(path.join(out, 'SHA256SUMS'), 'utf8'), expected);
+  assert.deepEqual(fs.readdirSync(out).filter(f => fs.statSync(path.join(out, f)).isFile()).sort(), [...files, 'SHA256SUMS'].sort());
 }

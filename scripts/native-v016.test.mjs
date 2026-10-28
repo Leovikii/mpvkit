@@ -26,21 +26,27 @@ async function prepareSystemCore(root,{missingCore=false,missingWinget=false}={}
 const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 const exists = async (p) => fs.access(p).then(() => true, () => false);
 
-test("native application updates: startup once, preview preference, logs, retry and channel races", {timeout:180000}, async()=>{
+test("native application updates: startup once, preview preference, logs, progress, retry and preference races", {timeout:180000}, async()=>{
   const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-updates-')),root=path.join(sandbox,'data');
   const fixtures=path.join(root,'test-tools/updates'); await fs.mkdir(fixtures,{recursive:true});
   const prefix='https://github.com/Leovikii/mpvkit/releases/download/';
-  const version='0.2.0-alpha.2',release={version,manifest:`${prefix}v${version}/updater.json`,archPackage:null};
-  const writeIndex=value=>fs.writeFile(path.join(fixtures,'channels.json'),JSON.stringify(value));
-  await writeIndex({schemaVersion:1,stable:null,preview:release});
-  await fs.writeFile(path.join(fixtures,`v${version}.json`),JSON.stringify({version,notes:'更新日志 <script>must stay text</script>\n'+'- Preview fix / 改进更新与配置保存。\n'.repeat(60),pub_date:'2026-10-27T00:00:00Z',platforms:{'windows-x86_64':{url:`${prefix}v${version}/MpvKit-setup.exe`,signature:'isolated-fixture-not-an-installer'}}}));
+  const version='0.2.0-alpha.4';
+  const win='MpvKit_'+version+'_x64-setup.exe',linux='mpvkit-bin-0.2.0alpha4-1-x86_64.pkg.tar.zst';
+  const metadata=JSON.stringify({version,notes:'更新日志 <script>must stay text</script>\n'+'- Preview fix / 改进更新与配置保存。\n'.repeat(60),pub_date:'2026-10-28T00:00:00Z',platforms:{'windows-x86_64':{url:prefix+'v'+version+'/'+win,signature:'isolated-fixture-not-an-installer'}}});
+  const contents={[win]:'fixture',[win+'.sig']:'signature',[linux]:'fixture',[linux+'.tauri.sig']:'signature','latest.json':metadata};
+  contents.SHA256SUMS=Object.entries(contents).map(([name,bytes])=>hash(bytes)+'  '+name).sort().join('\n')+'\n';
+  const release={tag_name:'v'+version,draft:false,prerelease:true,assets:Object.entries(contents).map(([name,bytes])=>({name,browser_download_url:prefix+'v'+version+'/'+name,digest:'sha256:'+hash(bytes)}))};
+  const writeIndex=()=>fs.writeFile(path.join(fixtures,'releases-1.json'),JSON.stringify([release]));
+  await writeIndex();
+  await fs.writeFile(path.join(fixtures,'v'+version+'.json'),metadata);
+  await fs.writeFile(path.join(fixtures,'v'+version+'-SHA256SUMS'),contents.SHA256SUMS);
   let session;
   try {
-    session=await startApp(sandbox,root); const p=session.page; await english(p); await settled(p);
+    session=await startApp(sandbox,root); const p=session.page; p.setDefaultTimeout(15000); await english(p); await settled(p);
     const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
     await p.getByRole('button',{name:'App settings',exact:true}).click();
     const toggle=p.getByRole('switch',{name:'Include preview releases',exact:true});
-    const check=()=>p.getByRole('button',{name:'Check for updates',exact:true});
+    const check=()=>p.locator('.update-check-row').getByRole('button',{name:'Check for updates',exact:true});
     assert(!await toggle.isChecked());
     for(const theme of ['light','dark']){
       await p.getByRole('combobox',{name:'Appearance mode',exact:true}).selectOption(theme);
@@ -60,7 +66,7 @@ test("native application updates: startup once, preview preference, logs, retry 
     }
     await p.setViewportSize({width:1040,height:760});
     await p.getByText('No stable release published yet',{exact:true}).waitFor(); // startup check, no button clicked
-    await fs.writeFile(path.join(fixtures,'channels.json'),'invalid');
+    await fs.writeFile(path.join(fixtures,'releases-1.json'),'invalid');
     await sleep(3800); await p.getByRole('button',{name:'Player settings',exact:true}).click();
     await p.getByRole('button',{name:'App settings',exact:true}).click();
     await p.getByText('No stable release published yet',{exact:true}).waitFor();
@@ -85,7 +91,8 @@ test("native application updates: startup once, preview preference, logs, retry 
     await sleep(500); assert.equal(await modal.count(),0);
     await p.getByRole('button',{name:'View update',exact:true}).click(); await modal.waitFor();
     await modal.getByRole('button',{name:'Download and update',exact:true}).click();
-    await modal.waitFor({state:'hidden'}); await p.getByRole('alert').waitFor();
+    await modal.getByRole('alert').waitFor();
+    await modal.getByRole('button',{name:'Later',exact:true}).click();await modal.waitFor({state:'hidden'});
     assert.equal(session.app.exitCode,null,'test mode never starts an installer');
     // Delay an old preview response after the backend has completed. Switching channels must
     // reenable the button and ignore the response, even if it arrives after the new check.
@@ -112,30 +119,64 @@ test("native application updates: startup once, preview preference, logs, retry 
     assert(await modal.getByRole('button',{name:'Download and update',exact:true}).isDisabled());
     await modal.getByText('Save or reset your draft before installing the update.',{exact:true}).waitFor();
     await modal.getByRole('button',{name:'Later',exact:true}).click();
-    // Exercise the Linux UI response on Windows without running a package manager.
+    // Only UI callbacks are mocked here. The signed download path is tested in Rust;
+    // no installer or package manager may execute in an ordinary debug test.
+    await p.reload();await english(p);await settled(p);await p.getByRole('button',{name:'App settings',exact:true}).click();
     await p.evaluate(()=>{
       const original=window.fetch.bind(window);
       const endpoint=command=>window.__TAURI_INTERNALS__.convertFileSrc(command,'ipc');
-      window.__updatePackage='mpvkit-bin'; window.__installCalls=0;
+      window.__updateMethod='installer';window.__installCalls=0;
       window.fetch=async(input,init)=>{
-        if(input===endpoint('install_app_update')) window.__installCalls++;
+        if(input===endpoint('prepare_app_update')||input===endpoint('install_app_update')) {
+          const args=JSON.parse(init.body),id=Number(args.onProgress.split(':')[1]);let index=0;
+          window.__installCalls++;
+          window.__emitUpdate=message=>window.__TAURI_INTERNALS__.runCallback(id,{index:index++,message});
+          try {
+            const value=await new Promise((resolve,reject)=>{window.__finishUpdate=resolve;window.__failUpdate=reject;});
+            return new Response(JSON.stringify(value??null),{status:200,headers:{'Tauri-Response':'ok','Content-Type':'application/json'}});
+          } catch(cause) {return new Response(JSON.stringify(cause),{status:400,headers:{'Tauri-Response':'error','Content-Type':'application/json'}});}
+          finally {window.__TAURI_INTERNALS__.runCallback(id,{index,end:true});}
+        }
         const response=await original(input,init);
-        if(input!==endpoint('check_app_update')) return response;
-        const result=await response.json();
-        if(result.update) {result.update.method='aur';result.update.package=window.__updatePackage;}
+        if(input!==endpoint('check_app_update'))return response;
+        const result=await response.json();if(result.update)result.update.method=window.__updateMethod;
         return new Response(JSON.stringify(result),{status:response.status,headers:response.headers});
       };
     });
+    const emit=message=>p.evaluate(message=>window.__emitUpdate(message),message);
     await check().click();await modal.waitFor();
-    await modal.getByText('Update MpvKit manually with your AUR helper, such as yay or paru, then restart the application.',{exact:true}).waitFor();
-    assert.equal(await modal.getByRole('link',{name:'View on AUR',exact:true}).getAttribute('href'),'https://aur.archlinux.org/packages/mpvkit-bin');
-    assert.equal(await modal.getByRole('button',{name:'Download and update',exact:true}).count(),0);
+    await modal.getByRole('button',{name:'Download and update',exact:true}).click();
+    assert(await modal.getByRole('button',{name:'Downloading…',exact:true}).isDisabled());
+    assert.equal(await modal.locator('progress').getAttribute('value'),null,'feedback precedes the first byte');
+    await emit({phase:'download',percent:42});
+    await modal.getByRole('button',{name:'Downloading 42%',exact:true}).waitFor();
+    assert.equal(await modal.locator('progress').getAttribute('value'),'42');
+    await p.screenshot({path:path.join(artifacts,'update-download-42.png')});
+    await emit({phase:'verify',percent:null});await modal.getByRole('button',{name:'Verifying update…',exact:true}).waitFor();
+    await emit({phase:'install',percent:null});await modal.getByRole('button',{name:'Installing…',exact:true}).waitFor();
+    await p.evaluate(()=>window.__failUpdate({code:'update_download'}));await modal.getByRole('alert').waitFor();
+    assert.equal(await modal.locator('progress').count(),0);
     await modal.getByRole('button',{name:'Later',exact:true}).click();
-    await p.evaluate(()=>window.__updatePackage=null);await check().click();await modal.waitFor();
-    await modal.getByText('The AUR recipe for this version is not available yet.',{exact:true}).waitFor();
-    assert.equal(await modal.getByRole('link',{name:'View on AUR',exact:true}).count(),0);
-    assert.equal(await p.evaluate(()=>window.__installCalls),0);
-    await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({passed:true,checks:['startup once','default preview off','no stable','offline retry','preview preference','plain text release notes','later/reopen','test install blocked','channel late response','dirty draft protection','Linux manual package update UI only']},null,2));
+    await modal.waitFor({state:'hidden'});await p.evaluate(()=>window.__updateMethod='pacman');await check().click();await modal.waitFor();
+    await modal.getByRole('button',{name:'Download and update',exact:true}).click();
+    await emit({phase:'download',percent:50});await modal.getByRole('button',{name:'Downloading 50%',exact:true}).waitFor();
+    await emit({phase:'prepare',percent:null});await modal.getByRole('button',{name:'Preparing installation preview…',exact:true}).waitFor();
+    await p.evaluate(()=>window.__finishUpdate({id:'prepared',changes:['mpvkit-bin 0.2.0alpha4-1 (x86_64)','dependency 1.0 (any)']}));
+    await modal.getByText('Installation preview',{exact:true}).waitFor();
+    await modal.getByRole('button',{name:'Install update',exact:true}).click();
+    await modal.getByRole('button',{name:'Waiting for authorization and installation…',exact:true}).waitFor();
+    assert(await modal.getByRole('button',{name:'Later',exact:true}).isDisabled());
+    await p.screenshot({path:path.join(artifacts,'update-linux-authorization.png')});
+    await p.evaluate(()=>window.__failUpdate({code:'update_authorization_cancelled'}));
+    await modal.getByText('Authorization cancelled. Check for updates to try again.',{exact:true}).waitFor();
+    await modal.getByRole('button',{name:'Check for updates',exact:true}).click();await modal.waitFor();
+    await modal.getByRole('button',{name:'Download and update',exact:true}).click();
+    await p.evaluate(()=>window.__finishUpdate({id:'prepared',changes:['mpvkit-bin 0.2.0alpha4-1 (x86_64)']}));
+    await modal.getByRole('button',{name:'Install update',exact:true}).click();
+    await p.evaluate(()=>window.__finishUpdate());
+    await modal.getByText('Update installed. Close and reopen MpvKit.',{exact:true}).waitFor();
+    assert.equal(await modal.getByRole('link').count(),0);assert.equal(await p.evaluate(()=>window.__installCalls),5);
+    await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({passed:true,checks:['startup once','default preview off','no stable','offline retry','preview preference','plain text release notes','later/reopen','test install blocked','preference late response','dirty draft protection','Windows progress and failure','Linux progress, preview, authorization cancellation, retry and completion (mocked)']},null,2));
     assert.deepEqual(session.errors,[]);
   } finally {if(session)await session.stop();}
 });

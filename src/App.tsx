@@ -61,7 +61,7 @@ export function App() {
   const compact = useMediaQuery("(max-width: 899px)");
   const theme = createTheme({ ...brandTheme, respectReducedMotion: true, components: { Accordion: Accordion.extend({defaultProps:{transitionDuration:180}}), Modal: Modal.extend({defaultProps:{transitionProps:{transition:"fade",duration:160,exitDuration:120}}}), Tooltip: Tooltip.extend({defaultProps:{transitionProps:{transition:"fade",duration:120,exitDuration:90}}}), Button: Button.extend({defaultProps:{fw:400,size:"sm"}}) }, defaultRadius: 4, fontFamily, headings:{fontFamily,sizes:{h1:{fontSize:"1.65rem"},h2:{fontSize:"1.15rem"},h3:{fontSize:"1rem"}}}});
   const blocked = !desktop || busy || booting;
-  const updates = useAppUpdates({desktop, ready:!booting, previews:appSettings.previewUpdates, saving:appSaving, blocked:busy||!!preview||closing, dirty:JSON.stringify(draft)!==savedDraft, version:info.version, t, save:enabled=>saveApp({...appSettings,previewUpdates:enabled}), install:(id,onProgress)=>run(async()=>{await invoke("install_app_update",{id,onProgress});})});
+  const updates = useAppUpdates({desktop, ready:!booting, previews:appSettings.previewUpdates, saving:appSaving, blocked:busy||!!preview||closing, dirty:JSON.stringify(draft)!==savedDraft, version:info.version, t, save:enabled=>saveApp({...appSettings,previewUpdates:enabled}), operation:updateOperation});
   const managementTab = useRef<HTMLButtonElement>(null);
   // Async preview preparation disables its trigger before Mantine can remember it.
   useEffect(() => {
@@ -114,6 +114,11 @@ export function App() {
     return () => { window.removeEventListener("focus",focus); clearInterval(timer); revision.current++; void listening?.then(unlisten=>unlisten()); };
   }, []);
   useEffect(() => { document.documentElement.lang = locale; }, [locale]);
+  async function updateOperation(action: () => Promise<void>) {
+    if (busyRef.current) throw new Error("Operation in progress");
+    busyRef.current = true; setBusy(true); setError(null);
+    try { await action(); } finally { busyRef.current = false; setBusy(false); }
+  }
   async function run(action: () => Promise<void>) {
     if (busyRef.current) return;
     if (!preview) previewOrigin.current = document.activeElement as HTMLElement;
