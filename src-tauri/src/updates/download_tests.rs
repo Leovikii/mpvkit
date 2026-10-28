@@ -38,9 +38,9 @@ fn plugin_download_verifies_bytes_and_rejects_network_and_signature_failures() {
         listener.set_nonblocking(true).unwrap();
         let origin = format!("http://{}", listener.local_addr().unwrap());
         let manifest = serde_json::to_vec(&serde_json::json!({
-            "version": "0.2.0-alpha.2",
+            "version": "9.0.0",
             "notes": "Download verification only",
-            "platforms": {"windows-x86_64": {
+            "platforms": {(if cfg!(target_os = "windows") { "windows-x86_64" } else { "linux-x86_64" }): {
                 "url": format!("{origin}/payload"),
                 "signature": if case == "bad-signature" { "invalid signature" } else { SIGNATURE.trim() }
             }}
@@ -115,7 +115,7 @@ fn plugin_download_verifies_bytes_and_rejects_network_and_signature_failures() {
                 return;
             }
             let update = checked.unwrap().expect("newer signed fixture");
-            assert_eq!(update.version, "0.2.0-alpha.2");
+            assert_eq!(update.version, "9.0.0");
             // Never call install: this verifies the real plugin's HTTP/signature path only.
             let downloaded = update.download(|_, _| {}, || {}).await;
             match case {

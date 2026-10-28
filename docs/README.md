@@ -1,22 +1,26 @@
 # 开发文档入口
 
-当前源码 **v0.2.0-alpha.2**。当前行为、必要测试和发布状态从下表进入；历史版本仅用于追溯，不沿用旧禁令或把旧结果当作本版验收。
+当前开发版本 **v0.2.0-alpha.3**。行为、验证和发布状态从下表进入；历史版本仅用于追溯，不把旧结果当作本版验收。
+
+[v0.2.0-alpha.3 实施与交接](v0.2.0-alpha.3/plan.md)：GitHub Releases / Tauri 标准更新、Arch 应用内原生包安装及 WinUI 3 进度反馈；当前验证和远端结果见交接。
 
 用户介绍与安装见[主 README](../README.md)，预设取舍见[预设配置设计](presets.md)。AI agent 从 [AGENTS.md](../AGENTS.md) 开始，本页只作为开发与维护入口。
 
 | 当前入口 | 用途 |
 | --- | --- |
-| [v0.2.0-alpha.2 当前交接](v0.2.0-alpha.2/plan.md) | 单实例、Linux 分类、直接公开发布及本版验证 |
+| [v0.2.0-alpha.3 当前交接](v0.2.0-alpha.3/plan.md) | 标准更新、两端进度、Arch 安装、工作流及验证 |
 | [当前行为与目录](current.md) | 产品现状、原生路径、模块职责与安全边界 |
 | [v0.1.9 交接](v0.1.9/plan.md) / [详细证据](v0.1.9/evidence.md) | 已完成、用户实测、未测边界、下一任务与产物 |
 | [本地测试入口](testing.md) | 固定工具、默认检查、Linux/Windows 原生、当前预览、来源校验 |
-| [CI/CD 与分发](ci/README.md) | PR 检查、main 自动建 tag / 构建 / 公开发布与更新索引、失败重试及签名配置 |
+| [CI/CD 与分发](ci/README.md) | PR 检查、main 自动建 tag / 构建 / 公开发布与标准 manifest、失败重试及签名配置 |
 | [界面规范](design/ui-guidelines.md) / [前端与 Mantine](v0.1.0/frontend.md) / [官方快照](vendor/mantine/README.md) | 当前两页、品牌、交互与组件 API 约束 |
 | [组件管理与清理](v0.1.8/maintenance.md) / [uosc 与窗口依据](v0.1.8/uosc-window-review.md) | 当前专项决定；实施前调查不当作待审批或未实现 |
 | [来源政策](v0.1.0/sources.md) / [验收台账](v0.1.0/acceptance.md) | 固定组件、许可证、真实设备和发布审阅缺口 |
 | [当前离线预览](v0.1.6/preview/README.md) | 路径沿用 v0.1.6，持续同步当前两页演示与检查；不能替代原生验证 |
 
 ## 仅按需追溯
+
+- [v0.2.0-alpha.2](v0.2.0-alpha.2/plan.md)：单实例、Linux 分类与直接公开发布；旧 Release/tag 已撤下。
 
 - [v0.2.0-alpha.1](v0.2.0-alpha.1/plan.md)：目录精简、应用更新、首轮双平台包及[原始证据](v0.2.0-alpha.1/evidence.md)。
 

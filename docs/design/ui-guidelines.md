@@ -15,6 +15,7 @@
 | [Geometry](https://learn.microsoft.com/en-us/windows/apps/design/signature-experiences/geometry) | 常驻控件圆角 4 px、弹层 8 px；相接边不重复圆角。 |
 | [Mica](https://learn.microsoft.com/en-us/windows/apps/design/style/mica) | 材质用于窗口基底；内容层在基底之上。按系统能力、透明效果、节能和高对比策略回退，不能让每张卡片各自模糊。 |
 | [Dialog controls](https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/dialogs-and-flyouts/dialogs) | 标题直接说明任务、内容简短、按钮用明确动词；执行按钮在左，安全关闭在右；局部错误就地展示。 |
+| [Progress controls](https://learn.microsoft.com/en-us/windows/apps/develop/ui/controls/progress-controls) | 已知工作总量时显示确定进度，未知时用不确定指示及状态文字；下载完成不代表安装完成，不能伪造百分比。 |
 
 不采用 Windows 7 旧版 UX 指导或 UWP 手机白皮书覆盖上述当前 Windows 页面。Microsoft Learn 页面会更新，后续修改应复核原文。
 
@@ -103,3 +104,5 @@ HDR 默认自动，与画质同组保留自动/强制 HDR/关闭 HDR（SDR）三
 2026-10-22 布局复核：选择框宽度使用 rem 随字号缩放，设置行空间不足时换行；200% 文字检查同时验证选中文本未截断。异步弹窗必须在禁用触发控件前保留回焦目标，关闭且操作结束后恢复；目标已移除时回到可用导航。Mantine 仍负责焦点锁、Esc 和动效，不新增焦点锁实现。
 
 2026-10-26 维护简化：手改覆盖在具体预览显示差异及无历史备份提示，不保留永久“允许备份/替换”勾选。重置预览明确恢复全部默认设置、快捷键和脚本选项；核心卸载说明影响使用同一系统核心的程序并保留配置。详见[维护方案](../v0.1.8/maintenance.md)。
+
+2026-10-28 更新界面：只保留按钮背景进度及短状态，不另加重复横条或段落。运行时保留只读 progressbar 语义，未知总量不显示伪百分比。删除明显的操作指南/副标题，保留安装重启影响、草稿阻断和实际失败原因。

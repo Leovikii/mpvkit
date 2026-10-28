@@ -1,7 +1,5 @@
 export const messages = {
   appUpdate: ["应用更新", "Application updates"],
-  startupUpdateHint: ["每次启动时自动检查一次。", "Checks once each time you open MpvKit."],
-  previewUpdateHint: ["包含 alpha、beta 和 rc 测试版本。", "Includes alpha, beta and rc releases."],
   releaseNotes: ["更新日志", "Release notes"],
   previewUpdates: ["接收预览版更新", "Include preview releases"],
   checkingUpdate: ["正在检查", "Checking"],
@@ -10,13 +8,22 @@ export const messages = {
   noStableRelease: ["尚无稳定版发布", "No stable release published yet"],
   newAppVersion: ["发现新版本 {version}", "Version {version} available"],
   noReleaseNotes: ["此版本未提供更新日志。", "No release notes provided."],
-  updateDraft: ["请先保存配置或重置草稿，再安装更新。", "Save or reset your draft before installing the update."],
-  updateExit: ["安装更新将退出并重新启动 MpvKit。", "Installing the update will close and restart MpvKit."],
+  updateDraft: ["请先保存或重置草稿。", "Save or reset your draft first."],
+  updateExit: ["安装后将重启应用。", "The app will restart after installation."],
   later: ["稍后", "Later"],
-  downloadUpdate: ["下载并更新", "Download and update"],
-  viewAur: ["在 AUR 查看", "View on AUR"],
-  aurNotReady: ["此版本的 AUR 配方尚未发布。", "The AUR recipe for this version is not available yet."],
-  packageUpdateHint: ["请使用 AUR 助手（如 yay 或 paru）手动更新 MpvKit，然后重新启动应用。", "Update MpvKit manually with your AUR helper, such as yay or paru, then restart the application."],
+  downloadUpdate: ["下载更新", "Download"],
+  installationPreview: ["安装预览", "Installation preview"],
+  installUpdate: ["安装", "Install"],
+  downloadingUpdate: ["下载中…", "Downloading…"],
+  downloadingPercent: ["{percent}%", "{percent}%"],
+  verifyingUpdate: ["校验中…", "Verifying…"],
+  preparingUpdate: ["准备中…", "Preparing…"],
+  installingUpdate: ["安装中…", "Installing…"],
+  authorizingUpdate: ["安装中…", "Installing…"],
+  updateComplete: ["已更新，请重新打开应用。", "Updated. Close and reopen the app."],
+  updateCancelled: ["授权已取消，未安装。", "Authorization cancelled. Nothing installed."],
+  updatePackageFailure: ["安装失败，请检查系统授权及包管理器。", "Installation failed. Check authorization and the package manager."],
+  updatePackageUnmanaged: ["请先通过 Pacman 安装 MpvKit。", "Install MpvKit through Pacman first."],
   getWinget: ["获取应用安装程序", "Get App Installer"],
   installCore: ["安装", "Install"],
   upgradeCore: ["更新", "Update"],
@@ -185,6 +192,9 @@ export function translator(locale: Locale) {
 export function errorKey(error: unknown): Key {
   const code = (error as {code?: string})?.code ?? "";
   if (code === "winget_missing") return "wingetMissing";
+  if (code === "update_authorization_cancelled") return "updateCancelled";
+  if (code === "update_package_unmanaged") return "updatePackageUnmanaged";
+  if (code.startsWith("update_package_") || code === "update_authorization_failed") return "updatePackageFailure";
   if (code.startsWith("winget_") || code === "mpv_install_incomplete") return "wingetFailure";
   if (code === "cancelled") return "downloadCancelled";
   if (code.includes("stale") || code.includes("changed")) return "stale";

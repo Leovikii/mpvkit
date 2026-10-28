@@ -1,0 +1,16 @@
+# CI packages the locally built and verified stage/usr tree.
+pkgname=mpvkit-bin
+pkgver=0.2.0alpha3
+pkgrel=1
+pkgdesc='MPV installation and configuration manager'
+arch=('x86_64')
+url='https://github.com/Leovikii/mpvkit'
+license=('GPL-3.0-or-later')
+depends=('webkit2gtk-4.1' 'gtk3' 'xdg-utils' 'polkit')
+optdepends=('mpv: playback core')
+provides=('mpvkit')
+conflicts=('mpvkit')
+options=('!strip' '!debug')
+package() {
+  cp -a "$startdir/stage/usr" "$pkgdir/"
+}

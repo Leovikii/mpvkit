@@ -162,6 +162,13 @@
       "retrievedOn": "2026-10-22",
       "size": 1444,
       "sha256": "5ca7d16e24fc11659fae50dbca4be04af4c5598d5a3b72db24d6f5a4eff9e554"
+    },
+    {
+      "file": "core-loader.md",
+      "url": "https://mantine.dev/llms/core-loader.md",
+      "retrievedOn": "2026-10-28",
+      "size": 5156,
+      "sha256": "6103a2bce259f52517e92ae94c598d8a0fbe9cd38731572fa12f204dd9d030bf"
     }
   ]
 }

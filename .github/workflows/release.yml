@@ -5,7 +5,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: Existing trusted version tag (v0.2.0-alpha.1)
+        description: Existing trusted version tag (v0.2.0-alpha.3)
         required: true
       operation:
         type: choice
@@ -14,11 +14,6 @@ on:
       build_run:
         description: Optional run ID containing publish-assets for a publish retry
         required: false
-      arch_package:
-        description: Select only after the recipe is available on AUR
-        type: choice
-        options: [none, mpvkit-bin, mpvkit-preview-bin]
-        default: none
 permissions:
   contents: read
 concurrency:
@@ -67,7 +62,7 @@ jobs:
     container: ${{ matrix.container }}
     steps:
       - if: runner.os == 'Linux'
-        run: pacman -Syu --noconfirm --needed base-devel git rustup nodejs npm webkit2gtk-4.1 gtk3 xdg-utils mpv zstd desktop-file-utils namcap
+        run: pacman -Syu --noconfirm --needed base-devel git rustup nodejs npm webkit2gtk-4.1 gtk3 xdg-utils polkit mpv zstd desktop-file-utils namcap
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: refs/tags/${{ needs.prepare.outputs.tag }}
@@ -123,14 +118,23 @@ jobs:
           $version = (Get-Content package.json | ConvertFrom-Json).version
           $installer = "src-tauri/target/release/bundle/nsis/MpvKit_${version}_x64-setup.exe"
           Copy-Item -LiteralPath $installer, "$installer.sig" -Destination .local/release/
-      - name: Arch native binary, archive and makepkg
+      - name: Arch native package and updater signature
         if: runner.os == 'Linux'
+        env:
+          MPVKIT_UPDATER_PUBLIC_KEY: ${{ vars.MPVKIT_UPDATER_PUBLIC_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         run: |
-          pnpm tauri build --no-bundle --config '{"build":{"beforeBuildCommand":""}}'
+          node -e 'const fs=require("fs"),key=process.env.MPVKIT_UPDATER_PUBLIC_KEY; if(!key)throw Error("Missing signing key");fs.mkdirSync(".local",{recursive:true});fs.writeFileSync(".local/linux-updater.conf.json",JSON.stringify({build:{beforeBuildCommand:""},plugins:{updater:{pubkey:key}}}))'
+          pnpm tauri build --no-bundle --config .local/linux-updater.conf.json
           useradd -m builder
           mkdir -p .local/release
           chown -R builder:builder .local
           runuser -u builder -- node scripts/release.mjs arch .local/release
+          MPVKIT_TEST_PACKAGE="$(realpath .local/release/*.pkg.tar.zst)" cargo test --locked --manifest-path src-tauri/Cargo.toml packaged_metadata_matches_pacman -- --ignored
+          bash scripts/test-arch-package.sh .local/release/*.pkg.tar.zst
+          pnpm tauri signer sign .local/release/*.pkg.tar.zst
+          for file in .local/release/*.pkg.tar.zst; do mv "$file.sig" "$file.tauri.sig"; done
           cp arch-system.txt .local/release/
           desktop-file-validate packaging/io.github.mpvkit.desktop
           readelf -d src-tauri/target/release/mpvkit > .local/release/elf-dependencies.txt
@@ -142,8 +146,6 @@ jobs:
           name: release-${{ runner.os }}
           path: |
             .local/release/*.*
-            .local/release/aur/PKGBUILD
-            .local/release/aur/.SRCINFO
           include-hidden-files: true
           if-no-files-found: error
           retention-days: 14
@@ -164,7 +166,8 @@ jobs:
           path: .local/release
           merge-multiple: true
       - run: |
-          tar -czf .local/release/aur-recipe.tar.gz -C .local/release/aur PKGBUILD .SRCINFO
+          mkdir -p .local/diagnostics
+          mv .local/release/*.txt .local/diagnostics/
           node scripts/release.mjs manifest .local/release
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -226,11 +229,10 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
         run: gh release download "$RELEASE_TAG" --dir .local/release
-      - name: Verify and publish release and update channels
+      - name: Verify and publish release
         env:
           GH_TOKEN: ${{ github.token }}
           RELEASE_TAG: ${{ needs.prepare.outputs.tag }}
-          ARCH_PACKAGE: ${{ inputs.arch_package || 'none' }}
           PUBLIC_KEY: ${{ vars.MPVKIT_UPDATER_PUBLIC_KEY }}
         run: |
           cd .local/release
@@ -238,8 +240,10 @@ jobs:
           cd ../..
           sudo apt-get update -qq && sudo apt-get install -y minisign
           printf '%s' "$PUBLIC_KEY" | base64 --decode > .local/updater.pub
-          for file in .local/release/*-setup.exe; do
-            base64 --decode "$file.sig" > .local/installer.minisig
+          for file in .local/release/*-setup.exe .local/release/*.pkg.tar.zst; do
+            signature="$file.sig"
+            case "$file" in *.pkg.tar.zst) signature="$file.tauri.sig" ;; esac
+            base64 --decode "$signature" > .local/installer.minisig
             minisign -Vm "$file" -x .local/installer.minisig -p .local/updater.pub
           done
           node scripts/verify-release.mjs .local/release

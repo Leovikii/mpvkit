@@ -14,6 +14,10 @@ mod linux;
 #[cfg(target_os = "linux")]
 pub use linux::*;
 
+#[cfg(target_os = "linux")]
+#[path = "linux_app_update.rs"]
+pub mod app_update;
+
 #[cfg(target_os = "windows")]
 pub mod appearance;
 #[cfg(target_os = "linux")]

@@ -2214,7 +2214,7 @@ dependencies = [
 
 [[package]]
 name = "mpvkit"
-version = "0.2.0-alpha.2"
+version = "0.2.0-alpha.3"
 dependencies = [
  "gtk",
  "libc",
@@ -2227,6 +2227,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-single-instance",
  "tauri-plugin-updater",
+ "tempfile",
  "windows-sys 0.61.2",
  "zip",
 ]

@@ -115,9 +115,29 @@ try {
   await page.goto(linuxPreview.href);await button('应用设置').click();
   await page.getByRole('switch',{name:'接收预览版更新',exact:true}).focus();await page.keyboard.press('Space');
   await button('检查更新').click();await dialog.waitFor();
-  await dialog.getByText('请使用 AUR 助手（如 yay 或 paru）手动更新 MpvKit，然后重新启动应用。',{exact:true}).waitFor();
-  assert.equal(await dialog.getByRole('link',{name:'在 AUR 查看',exact:true}).getAttribute('href'),'https://aur.archlinux.org/packages/mpvkit-bin');
-  assert.equal(await dialog.getByRole('button',{name:'下载并更新',exact:true}).count(),0);
+  await dialog.getByRole('button',{name:'下载更新',exact:true}).click();
+  await dialog.getByRole('progressbar',{name:'下载中…',exact:true}).waitFor();
+  assert.equal(await dialog.getByRole('progressbar').getAttribute('aria-valuenow'),null);
+  assert.equal(await dialog.locator('progress').count(),0);
+  await dialog.getByRole('progressbar',{name:'42%',exact:true}).waitFor();
+  await screenshot('linux-update-progress');
+  await dialog.getByText('安装预览',{exact:true}).waitFor();
+  await dialog.getByRole('button',{name:'安装',exact:true}).click();
+  await dialog.getByRole('progressbar',{name:'安装中…',exact:true}).waitFor();
+  assert(await dialog.getByRole('button',{name:'稍后',exact:true}).isDisabled());
+  await dialog.getByText('已更新，请重新打开应用。',{exact:true}).waitFor();
+  assert.equal(await dialog.getByRole('link').count(),0);
+  await screenshot('linux-update-complete');
+  for(const [failure,message] of [['download','下载失败或网络不可用，请检查网络后重试。'],['cancel','授权已取消，未安装。']]) {
+    linuxPreview.searchParams.set('updateFailure',failure);
+    await page.goto(linuxPreview.href);await button('应用设置').click();
+    await page.getByRole('switch',{name:'接收预览版更新',exact:true}).focus();await page.keyboard.press('Space');
+    await button('检查更新').click();await dialog.waitFor();
+    await dialog.getByRole('button',{name:'下载更新',exact:true}).click();
+    if(failure==='cancel') {await dialog.getByText('安装预览',{exact:true}).waitFor();await dialog.getByRole('button',{name:'安装',exact:true}).click();await dialog.getByText(message,{exact:true}).waitFor();}
+    else await dialog.getByRole('alert').waitFor();
+    assert(await dialog.getByRole('button',{name:'检查更新',exact:true}).isEnabled());
+  }
   assert.deepEqual(errors,[]);assert.deepEqual(requests,[]);
   console.log('PASS: editable drafts, both install paths, configuration previews, failures/retry, draft retention, conflict blocking, focus/Esc, two-page layouts, fixed footer, 200% text, themes/languages and motion; no runtime errors or network requests.');
 } finally {await browser.close();}
