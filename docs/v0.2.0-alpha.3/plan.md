@@ -180,4 +180,12 @@ alpha.3 不为旧 alpha 留兼容桥。旧 alpha.1、alpha.2、updates 的 Relea
 
 当前主机没有 Linux 发行版/图形会话，Linux Rust、makepkg、Pacman 事务和隔离根载荷检查由 PR/Release 的 Arch 容器执行。隔离包测试 -dd/--noscriptlet 只验证文件及包数据库，不代表首次依赖拉取、Polkit/KDE Wayland 或跨版本重启；Windows 真实 NSIS 跨版本安装也未在隔离用户/VM 实测。不重跑与本版无关的完整播放/HDR 矩阵。
 
-远端状态：旧 Release/tag 均为空已复核；初次实现已提交 f8a0bd7 并推送 dev，[PR #8](https://github.com/Leovikii/mpvkit/pull/8) 检查中。用户随后要求仅保留按钮进度、精简按钮及修正图标错位，已同步产品/预览。最终 Windows 原生更新专项通过（17073ms），检查加载图标与文字中心差小于 1px、42% 时无残留 Loader/独立进度条；最终截图已目视复核。最终 CI、公开 alpha.3 及 dev/main 同步结果待补充。
+最终界面：仅保留按钮进度、短按钮及标准 Loader 对齐，产品/预览同步。Windows 原生更新专项通过（17073ms），检查加载图标与文字中心差小于 1px、42% 时无残留 Loader/独立进度条；最终截图已目视复核。
+
+远端验证：[PR #8](https://github.com/Leovikii/mpvkit/pull/8) 在[最新 CI 全部通过](https://github.com/Leovikii/mpvkit/actions/runs/40625660729)后合并，合并提交为 f8fd53e。Windows 45 通过 / 4 忽略；Arch 50 通过 / 5 忽略，额外真实包元数据测试 1 项通过；makepkg、隔离安装/重装/资源检查/卸载全部通过。前轮隔离脚本的依赖跳过及查询参数错误已修复，产品安装保留完整依赖检查。
+
+Arch 正式构建也通过相同包检查，以及 desktop-file-validate、readelf、vercmp。namcap 无错误；保留 !strip 导致未剥离符号警告，ELF loader 的 unused 警告不表示可删除运行时加载器；glibc、dbus、libsoup3、hicolor-icon-theme、gdk-pixbuf2、glib2、cairo、libgcc 由已声明依赖传递满足。xdg-utils/polkit 通过外部命令调用，不能用“未检测到链接”删除。完整输出保留在 Release workflow 的 release-Linux 诊断产物。
+
+发布：[Release workflow 全部通过](https://github.com/Leovikii/mpvkit/actions/runs/40626291588)，[v0.2.0-alpha.3](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-alpha.3) 从创建起 draft=false / prerelease=true，tag 固定 f8fd53e。六项资产均已匿名下载、核对 GitHub digest/SHA256SUMS 与 manifest 契约；发布日志确认两个正式 Minisign 签名均通过。Windows 包 SHA-256 为 54c297af397f2053bb9932c06db3ba07352c9f16d3fc0aac9ae01e107a3f67be，Arch 包为 477f0322ab17726e583a2099189c00f212ec03486b88d58e86887e6c3864d54e。当前仅保留 alpha.3 的 Release/tag；历史证据未删除。
+
+本批代码与发布已完成，收尾只合并这份验证记录并同步 dev/main。下一任务是隔离 Windows 用户/VM 的真实 NSIS 跨版本安装，以及 Arch/CachyOS KDE Wayland 的 Polkit 授权、首次依赖获取和跨版本重启；不把本轮包载荷/回环/IPC mock 验证当成这些实测。

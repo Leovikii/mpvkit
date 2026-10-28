@@ -6,7 +6,7 @@
 
 Checks 监听目标 main 的 PR 和 merge_group。纯文档可跳过构建；工作流、预览代码、许可材料和未知文件仍检查。汇总 **CI** 必须成功，取消或意外跳过不能通过。前端构建一次，dist 供 Windows/Arch Rust fmt、clippy、test 共用；PR 不使用正式签名密钥。
 
-Arch 容器额外构建 debug 程序、makepkg、真实 Pacman 只读事务检查及隔离系统根安装/重装/卸载。隔离安装使用 --nodeps/--noscriptlet，只验证包载荷与文件归属，不代表真实桌面、依赖首次拉取或 Polkit 验收。系统 mpv 为测试依赖，分发包中仍为可选依赖。
+Arch 容器额外构建 debug 程序、makepkg、真实 Pacman 只读事务检查及隔离系统根安装/重装/卸载。隔离安装使用 -dd/--noscriptlet，只验证包载荷与文件归属，不代表真实桌面、依赖首次拉取或 Polkit 验收。查询只传查询适用的路径参数；产品安装不使用 -dd。系统 mpv 为测试依赖，分发包中仍为可选依赖。
 
 ## 自动发布与重试
 
