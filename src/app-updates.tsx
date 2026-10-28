@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Modal, Switch, Text } from "@mantine/core";
+import { Alert, Button, Group, Loader, Modal, Switch, Text } from "@mantine/core";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { errorKey, translator } from "./i18n";
@@ -87,7 +87,7 @@ export function useAppUpdates(props: {
         {completed && <Alert color="green" mt="md" role="status">{t("updateComplete")}</Alert>}
       </div>
       <Group className="update-dialog-actions" justify="flex-end" gap={8}>
-        {!completed && (problem != null ? <Button type="button" onClick={() => void check()}>{t("checkUpdates")}</Button> : running ? <Button component="div" role="progressbar" tabIndex={0} aria-label={phaseText} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent ?? undefined} aria-valuetext={phaseText} aria-live={progress.percent === null ? "polite" : "off"} data-disabled className="update-progress-button" classNames={{label:"update-action-label"}} style={{ "--update-percent": `${progress.percent ?? 0}%` } as CSSProperties} loading={progress.percent === null} styles={{inner:{opacity:1,transform:"none"},label:{opacity:1,paddingInlineStart:progress.percent === null ? 18 : 0},loader:{left:12}}}>{phaseText}</Button> : <Button type="button" classNames={{label:"update-action-label"}} disabled={props.dirty || props.blocked || running || props.saving} onClick={() => void install()}>{t(prepared ? "installUpdate" : "downloadUpdate")}</Button>)}
+        {!completed && (problem != null ? <Button type="button" onClick={() => void check()}>{t("checkUpdates")}</Button> : running ? <Button component="div" role="progressbar" tabIndex={0} aria-label={phaseText} aria-valuemin={0} aria-valuemax={100} aria-valuenow={progress.percent ?? undefined} aria-valuetext={phaseText} aria-live={progress.percent === null ? "polite" : "off"} data-disabled className="update-progress-button" classNames={{label:"update-action-label"}} style={{ "--update-percent": `${progress.percent ?? 0}%` } as CSSProperties} leftSection={progress.percent === null ? <Loader size={14} color="currentColor" aria-hidden /> : undefined}>{phaseText}</Button> : <Button type="button" classNames={{label:"update-action-label"}} disabled={props.dirty || props.blocked || running || props.saving} onClick={() => void install()}>{t(prepared ? "installUpdate" : "downloadUpdate")}</Button>)}
         <Button type="button" variant="default" data-autofocus disabled={running} onClick={dismiss}>{t(completed ? "close" : "later")}</Button>
       </Group>
     </>}

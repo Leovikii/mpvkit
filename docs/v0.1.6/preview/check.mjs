@@ -115,15 +115,15 @@ try {
   await page.goto(linuxPreview.href);await button('应用设置').click();
   await page.getByRole('switch',{name:'接收预览版更新',exact:true}).focus();await page.keyboard.press('Space');
   await button('检查更新').click();await dialog.waitFor();
-  await dialog.getByRole('button',{name:'下载并更新',exact:true}).click();
-  await dialog.getByRole('progressbar',{name:'正在下载…',exact:true}).waitFor();
+  await dialog.getByRole('button',{name:'下载更新',exact:true}).click();
+  await dialog.getByRole('progressbar',{name:'下载中…',exact:true}).waitFor();
   assert.equal(await dialog.getByRole('progressbar').getAttribute('aria-valuenow'),null);
   assert.equal(await dialog.locator('progress').count(),0);
-  await dialog.getByRole('progressbar',{name:'正在下载 42%',exact:true}).waitFor();
+  await dialog.getByRole('progressbar',{name:'42%',exact:true}).waitFor();
   await screenshot('linux-update-progress');
   await dialog.getByText('安装预览',{exact:true}).waitFor();
-  await dialog.getByRole('button',{name:'安装更新',exact:true}).click();
-  await dialog.getByRole('progressbar',{name:'授权并安装…',exact:true}).waitFor();
+  await dialog.getByRole('button',{name:'安装',exact:true}).click();
+  await dialog.getByRole('progressbar',{name:'安装中…',exact:true}).waitFor();
   assert(await dialog.getByRole('button',{name:'稍后',exact:true}).isDisabled());
   await dialog.getByText('已更新，请重新打开应用。',{exact:true}).waitFor();
   assert.equal(await dialog.getByRole('link').count(),0);
@@ -133,8 +133,8 @@ try {
     await page.goto(linuxPreview.href);await button('应用设置').click();
     await page.getByRole('switch',{name:'接收预览版更新',exact:true}).focus();await page.keyboard.press('Space');
     await button('检查更新').click();await dialog.waitFor();
-    await dialog.getByRole('button',{name:'下载并更新',exact:true}).click();
-    if(failure==='cancel') {await dialog.getByText('安装预览',{exact:true}).waitFor();await dialog.getByRole('button',{name:'安装更新',exact:true}).click();await dialog.getByText(message,{exact:true}).waitFor();}
+    await dialog.getByRole('button',{name:'下载更新',exact:true}).click();
+    if(failure==='cancel') {await dialog.getByText('安装预览',{exact:true}).waitFor();await dialog.getByRole('button',{name:'安装',exact:true}).click();await dialog.getByText(message,{exact:true}).waitFor();}
     else await dialog.getByRole('alert').waitFor();
     assert(await dialog.getByRole('button',{name:'检查更新',exact:true}).isEnabled());
   }
