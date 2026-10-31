@@ -176,6 +176,13 @@
       "retrievedOn": "2026-10-28",
       "size": 6695,
       "sha256": "5f1c63587bf0df7946894e925dcd31126fbcf189c8270da1a90ba88bc51ec09d"
+    },
+    {
+      "file": "core-menu.md",
+      "url": "https://mantine.dev/llms/core-menu.md",
+      "retrievedOn": "2026-10-31",
+      "size": 44835,
+      "sha256": "73e3eb06eafe9da288d993b1d640d6ef437a6ce5cc60979f9c2978bb08643f34"
     }
   ]
 }

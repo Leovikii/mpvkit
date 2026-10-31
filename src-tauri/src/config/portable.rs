@@ -206,6 +206,9 @@ fn bounds(s: &str) -> Result<(usize, usize)> {
 pub fn generate(root: &Path, player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
     generate_inner(root, player, settings, false, false)
 }
+pub fn installation_files(root: &Path, settings: &Settings) -> Result<Vec<Payload>> {
+    generate_inner(root, &player_path(root)?, settings, true, false)
+}
 fn generate_inner(
     root: &Path,
     player: &Path,

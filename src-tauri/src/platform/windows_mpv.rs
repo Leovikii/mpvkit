@@ -1,13 +1,8 @@
 use super::{validate_local_path, windows::known_folder};
-use crate::{
-    error::{AppError, Result},
-    mpv,
-};
-use serde::Serialize;
+use crate::error::{AppError, Result};
 use std::{
     ffi::OsString,
     path::{Path, PathBuf},
-    time::{Duration, Instant},
 };
 use windows_sys::Win32::System::Registry::*;
 use windows_sys::Win32::UI::Shell::FOLDERID_LocalAppData;
@@ -200,227 +195,47 @@ fn winget_path() -> Result<PathBuf> {
     Ok(path)
 }
 
-pub struct CorePlan {
-    pub preview: CorePreview,
-    winget: PathBuf,
-    player: PathBuf,
-    stamp: Option<mpv::FileStamp>,
-    created: Instant,
-}
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CorePreview {
-    pub id: String,
-    pub action: String,
-    pub package: &'static str,
-    pub source: &'static str,
-    pub executable: PathBuf,
-    pub config_directory: PathBuf,
-    pub details: String,
-}
-fn args(action: &str) -> Vec<&str> {
-    let mut args = vec![
+fn args(action: &str) -> Result<Vec<&str>> {
+    if !matches!(action, "install" | "upgrade" | "uninstall") {
+        return Err(error("invalid_action", "不支持此核心操作。"));
+    }
+    Ok(vec![
         action,
         "--id",
         PACKAGE,
         "--exact",
         "--source",
         "winget",
-        "--disable-interactivity",
-        "--accept-source-agreements",
-        "--silent",
-    ];
-    if action != "uninstall" {
-        args.push("--accept-package-agreements");
-    }
-    args
-}
-fn run(
-    winget: &Path,
-    args: &[&str],
-    timeout: Duration,
-) -> Result<(std::process::ExitStatus, String)> {
-    let mut command = super::command(winget);
-    command.args(args);
-    mpv::capture_status(command, timeout).map_err(|e| {
-        if e.code == "probe_timeout" {
-            error(
-                "winget_timeout",
-                "WinGet 超时。安装程序可能仍在运行，请检查系统安装状态后重试；配置未修改。",
-            )
-        } else {
-            error(
-                "winget_failed",
-                "WinGet 无法运行，请检查应用安装程序、源和网络后重试。",
-            )
-        }
-    })
-}
-pub fn prepare(action: &str) -> Result<CorePlan> {
-    if !matches!(action, "install" | "upgrade" | "uninstall") {
-        return Err(error("invalid_action", "不支持此核心操作。"));
-    }
-    let root = super::app_root()?;
-    let player = player_path(&root)?;
-    let stamp = if player.exists() {
-        Some(mpv::file_stamp(&player)?)
-    } else {
-        None
-    };
-    if action == "install" && stamp.is_some() {
-        return Err(error(
-            "core_already_installed",
-            "MPV 核心已安装，请检查更新。",
-        ));
-    }
-    if action == "uninstall" && stamp.is_none() {
-        return Err(error("not_installed", "MPV 核心未安装。"));
-    }
-    let winget = winget_path()?;
-    let (status, details) = run(
-        &winget,
-        &[
-            if action == "uninstall" {
-                "list"
-            } else {
-                "show"
-            },
-            "--id",
-            PACKAGE,
-            "--exact",
-            "--source",
-            "winget",
-            "--disable-interactivity",
-            "--accept-source-agreements",
-        ],
-        Duration::from_secs(45),
-    )?;
-    if !status.success() {
-        return Err(error(
-            "winget_source",
-            "WinGet 未能查询 shinchiro.mpv，请检查 winget 源和网络后重试。",
-        ));
-    }
-    Ok(CorePlan {
-        preview: CorePreview {
-            id: crate::deploy::operation_id(),
-            action: action.into(),
-            package: PACKAGE,
-            source: "winget",
-            executable: player.clone(),
-            config_directory: root,
-            details,
-        },
-        winget,
-        player,
-        stamp,
-        created: Instant::now(),
-    })
-}
-pub fn check_update() -> Result<bool> {
-    let player = player_path(&super::app_root()?)?;
-    if !player.is_file() {
-        return Err(error("not_installed", "MPV 核心未安装。"));
-    }
-    let (status, output) = run(
-        &winget_path()?,
-        &[
-            "list",
-            "--id",
-            PACKAGE,
-            "--exact",
-            "--source",
-            "winget",
-            "--upgrade-available",
-            "--disable-interactivity",
-            "--accept-source-agreements",
-        ],
-        Duration::from_secs(45),
-    )?;
-    query_update(status.code().map(|code| code as u32), &output)
-}
-fn query_update(code: Option<u32>, output: &str) -> Result<bool> {
-    match code {
-        Some(0) => Ok(output
-            .lines()
-            .any(|line| line.split_whitespace().any(|field| field == PACKAGE))),
-        Some(0x8A150014) => Ok(false), // Exact package has no matching upgrade row.
-        _ => Err(error(
-            "winget_source",
-            "WinGet 未能检查 MPV 更新，请检查源和网络后重试。",
-        )),
-    }
-}
-fn check_exit(code: u32) -> Result<()> {
-    match code {
-        0 | 0x8A15002B => Ok(()), // APPINSTALLER_CLI_ERROR_UPDATE_NOT_APPLICABLE
-        0x800704C7 | 0x8A150005 => {
-            Err(error("winget_cancelled", "WinGet 安装已取消，配置未修改。"))
-        }
-        0x8A150019 => Err(error(
-            "winget_elevation",
-            "安装需要管理员授权，请允许系统授权提示后重试。",
-        )),
-        _ => Err(error(
-            "winget_failed",
-            "WinGet 安装或更新失败，请检查系统授权、源和网络后重试；已安装的核心会保留。",
-        )),
-    }
-}
-pub fn execute(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
-    let _lock = crate::deploy::acquire(&super::default_root()?)?;
-    execute_locked(plan)
+        "--interactive",
+    ])
 }
 
-pub(crate) fn execute_locked(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
-    let root = super::app_root()?;
-    let player = player_path(&root)?;
-    let stamp = if player.exists() {
-        Some(mpv::file_stamp(&player)?)
-    } else {
-        None
-    };
-    if plan.created.elapsed() > Duration::from_secs(300)
-        || root != plan.preview.config_directory
-        || player != plan.player
-        || stamp != plan.stamp
-        || winget_path()? != plan.winget
-    {
-        return Err(error("stale_preview", "核心或配置位置已改变，请重新预览。"));
-    }
-    let (status, _) = run(
-        &plan.winget,
-        &args(&plan.preview.action),
-        Duration::from_secs(900),
-    )?;
-    if plan.preview.action == "uninstall" && !status.success() {
-        return Err(error(
-            "winget_failed",
-            "WinGet 卸载未完成，请检查系统授权或包状态；配置未清除。",
-        ));
-    }
-    check_exit(status.code().unwrap_or(-1) as u32)?;
-    let root = super::app_root()?;
-    let player = player_path(&root)?;
-    if plan.preview.action == "uninstall" {
-        if player.exists() {
-            return Err(error(
-                "mpv_uninstall_incomplete",
-                "WinGet 已结束，但 MPV 核心仍存在，请检查包状态。",
-            ));
-        }
-        return Ok(None);
-    }
-    let info = mpv::inspect(&player).map_err(|_| {
-        error(
-            "mpv_install_incomplete",
-            "WinGet 已结束，但未检测到可用 MPV；请检查系统安装状态后重试。",
-        )
-    })?;
-    mpv::ensure_managed_options(&player)?;
-    Ok(Some(info))
+pub fn check(action: &str) -> Result<()> {
+    args(action)?;
+    winget_path()?;
+    Ok(())
 }
-
+pub fn terminal(executable: &Path, action: &str, id: &str) -> std::process::Command {
+    use std::os::windows::process::CommandExt;
+    let mut command = std::process::Command::new(executable);
+    command
+        .args(["--core-command", action, id])
+        .creation_flags(0x0000_0010);
+    command
+}
+pub fn launch(action: &str) -> Result<crate::native_core::Outcome> {
+    // The helper owns this console; WinGet keeps its prompts and a real console input handle.
+    unsafe {
+        windows_sys::Win32::System::Console::AllocConsole();
+    }
+    let input =
+        std::fs::File::open("CONIN$").map_err(|_| error("winget_failed", "无法打开终端输入。"))?;
+    crate::native_core::wait_command(
+        std::process::Command::new(winget_path()?)
+            .args(args(action)?)
+            .stdin(input),
+    )
+}
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -497,33 +312,22 @@ mod tests {
         std::fs::remove_dir_all(base).unwrap();
     }
     #[test]
-    fn exact_package_arguments_and_exit_codes() {
-        assert!(query_update(Some(0), "mpv shinchiro.mpv 0.40 0.41 winget").unwrap());
-        assert!(!query_update(Some(0), "No installed package found.").unwrap());
-        assert!(!query_update(Some(0x8A150014), "").unwrap());
-        assert!(query_update(Some(1), "").is_err());
-        assert_eq!(
-            args("install")[..7],
-            [
-                "install",
-                "--id",
-                PACKAGE,
-                "--exact",
-                "--source",
-                "winget",
-                "--disable-interactivity"
-            ]
-        );
-        assert!(!args("upgrade").contains(&"--include-unknown"));
-        assert!(!args("uninstall").contains(&"--accept-package-agreements"));
-        assert!(args("uninstall").contains(&"--silent"));
-        assert!(!args("uninstall").contains(&"--purge"));
-        for code in [0, 0x8A15002B] {
-            check_exit(code).unwrap();
+    fn exact_package_arguments_preserve_native_interaction() {
+        for action in ["install", "upgrade", "uninstall"] {
+            assert_eq!(
+                args(action).unwrap(),
+                [
+                    action,
+                    "--id",
+                    PACKAGE,
+                    "--exact",
+                    "--source",
+                    "winget",
+                    "--interactive"
+                ]
+            );
         }
-        for code in [1, 0x800704C7, 0x8A150005, 0x8A150019] {
-            assert!(check_exit(code).is_err());
-        }
+        assert!(args("uninstall --purge").is_err());
         assert!(select_player(vec![PathBuf::from("relative/mpv.exe")], PathBuf::new()).is_err());
     }
 }

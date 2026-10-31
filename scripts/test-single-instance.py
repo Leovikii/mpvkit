@@ -66,7 +66,9 @@ for attempt in range(2):
             assert owner_pid() == f"(uint32 {primary.pid},)"
             helper = subprocess.run([str(app), "--save-playback"], env=env, capture_output=True, text=True, timeout=5)
             assert helper.returncode == 1 and "helper_arguments" in helper.stdout + helper.stderr
-            rounds.append({"primaryPid": primary.pid, "duplicateExitCodes": codes, "helperNotIntercepted": True})
+            core_helper = subprocess.run([str(app), "--core-command"], env=env, capture_output=True, text=True, timeout=5)
+            assert core_helper.returncode == 1 and '.set_app_id(' not in core_helper.stderr
+            rounds.append({"primaryPid": primary.pid, "duplicateExitCodes": codes, "helperNotIntercepted": True, "coreHelperNotIntercepted": True})
         finally:
             stop(primary)
 

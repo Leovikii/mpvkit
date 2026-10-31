@@ -34,6 +34,15 @@ fn main() {
         println!("Fixture only: shinchiro.mpv 0.41.0\nSource: winget\nNo system changes");
         return;
     }
+    #[cfg(windows)]
+    if mode == "console" {
+        #[link(name="kernel32")]
+        unsafe extern "system" { fn GetStdHandle(kind: u32) -> *mut std::ffi::c_void; fn GetConsoleMode(handle: *mut std::ffi::c_void, mode: *mut u32) -> i32; }
+        let mut console_mode=0;
+        let interactive=unsafe { GetConsoleMode(GetStdHandle(-10i32 as u32), &mut console_mode) != 0 };
+        fs::write(tools.join("console-input.txt"),interactive.to_string()).unwrap();
+        return;
+    }
     match mode.as_str() {
         "cancel" => process::exit(0x800704C7u32 as i32),
         "failed" => process::exit(1),

@@ -11,20 +11,27 @@ mod commands;
 pub mod components;
 mod config;
 pub mod deploy;
-mod diagnostics;
 mod error;
 #[cfg(all(test, target_os = "linux"))]
 mod linux_tests;
+mod logging;
 mod mpv;
+mod native_core;
 mod platform;
 mod preferences;
+mod removal;
 mod setup;
+mod tasks;
 mod updates;
 
 use tauri::Manager;
 
 fn main() {
     let args: Vec<String> = std::env::args().collect();
+    if args.get(1).is_some_and(|a| a == "--core-command") {
+        std::process::exit(native_core::helper(&args));
+    }
+    logging::initialize();
     if args.get(1).is_some_and(|a| a == "--save-playback") {
         std::process::exit(preferences::helper(&args));
     }
@@ -41,7 +48,6 @@ fn main() {
             }
         }));
     let builder = builder.plugin(tauri_plugin_updater::Builder::new().build());
-    let builder = builder.manage(commands::PendingCore::default());
     builder
         .setup(|app| {
             if let Some(window) = app.get_webview_window("main") {
@@ -63,21 +69,21 @@ fn main() {
         })
         .manage(commands::PendingDeployment::default())
         .manage(commands::ComponentJob::default())
-        .manage(commands::PendingExport::default())
         .manage(updates::Pending::default())
         .invoke_handler(tauri::generate_handler![
             commands::setup_status,
             commands::preview_core,
-            commands::check_core_update,
-            commands::apply_core,
+            commands::preview_removal,
+            commands::open_logs_directory,
+            commands::log_problem,
+            commands::logs_available,
             commands::read_app_settings,
             commands::save_app_settings,
             commands::desktop_environment,
             commands::apply_appearance,
             commands::open_config_directory,
-            commands::open_player_directory,
+            commands::open_repository,
             commands::app_information,
-            commands::license_text,
             updates::check_app_update,
             updates::install_app_update,
             updates::prepare_app_update,
@@ -85,8 +91,6 @@ fn main() {
             commands::open_default_apps,
             #[cfg(target_os = "windows")]
             commands::open_app_installer,
-            commands::preview_diagnostics,
-            commands::export_diagnostics,
             commands::read_settings,
             commands::preview_settings,
             commands::preview_configuration,

@@ -1,6 +1,6 @@
 # 本地开发与测试入口
 
-当前源码 v0.2.0-alpha.5，2026-10-28。先读 [AGENTS](../AGENTS.md)、[alpha.5 交接](v0.2.0-alpha.5/plan.md) 与 [目录边界](current.md#当前目录)。用户已确认界面验证通过，并授权本版提交/推送/PR 合并、分支同步和发布。当前环境为 CachyOS KDE Wayland，Windows 原生结果不能用历史测试代替。
+当前源码 v0.2.0-beta.1，2026-10-31。用户已授权本地实现、测试、可运行测试版及提交/推送 dev；Windows 自动化已完成，待用户交互验收，已获本轮合并及发布授权，结果见本版交接。先读 [AGENTS](../AGENTS.md)、[beta.1 交接](v0.2.0-beta.1/plan.md) 与 [目录边界](current.md#当前目录)。本版 Linux 与 Windows 结果分别记录在交接，不用历史版本结果代替。
 
 ## 工具与最小检查
 
@@ -71,19 +71,21 @@ arch_wayland_extended_window_and_render_matrix -- --ignored --nocapture
 
 扩展覆盖五档宽度、1080p/4K/竖屏/超宽、自定义 autofit、音频切视频、最大化/全屏启动及完整九组合。两个图形入口分别运行，不用 `--ignored` 一次启用所有在线/设备验收。失败保留根和日志，修复后只重跑受影响入口。
 
-Linux GUI 短验收使用当前 debug 程序、新隔离数据根和固定更新 JSON：三页基本操作、语言/深浅色、启动仅检查一次、预览默认关闭与切换后重查、错误重试、纯文本长日志、下载/包事务预览/授权取消及完成待重开；不再验收已删除的 AUR 提示。IPC mock 不执行真实 Pacman。Windows 原生 Node 套件使用 WebView2 和 WinGet 夹具，不在 Linux 强行移植整套。alpha.1 历史短验收见[原始证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)，alpha.3 的历史环境及未测范围见[交接](v0.2.0-alpha.3/plan.md)。alpha.5 当前结果及限制见本版交接。
+Linux GUI 短验收使用当前 debug 程序、新隔离数据根和固定更新 JSON：两页基本操作、语言/深浅色、启动仅检查一次、预览默认关闭与切换后重查、错误重试、纯文本长日志、下载/包事务预览/授权取消及完成待自动重启；不再验收已删除的 AUR 提示。IPC mock 不执行真实 Pacman。Windows 原生 Node 套件使用 WebView2 和 WinGet 夹具，不在 Linux 强行移植整套。alpha.1 历史短验收见[原始证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)，alpha.3 的历史环境及未测范围见[交接](v0.2.0-alpha.3/plan.md)。alpha.5 当前结果及限制见本版交接。
 
 Linux 图标历史取证见 [v0.1.8 证据](v0.1.8/manager-icon-evidence.json)，不证明 v0.2.0 的包入口已通过。当前不再由管理器生成用户 applications 或刷新旧入口；常规验证不得修改真实桌面/默认应用，Arch 包入口需在隔离系统安装后另验。
 
-原生 GTK/WebKit UI：先构建上述独立 debug ELF，再运行 `node scripts/test-linux-ui.mjs`；固定资产默认取本机 `.local/linux-v018/assets`，可由 MPVKIT_TEST_ASSETS 指定，MPVKIT_TEST_EXECUTABLE 可指定最终测试 ELF。测试创建私有根，覆盖独立组件/取消/一键补齐/解锁/配置安装、深浅主题、原生窗口截图及标题栏/外壳颜色和 alpha 一致。需要 Node、Python Pillow、Spectacle、qdbus6 和当前 KDE 会话；测试用按 PID 限定的临时 KWin 脚本激活自己的窗口，随即卸载，不修改合成器设置。请串行运行图形测试，保留测试窗口前台；焦点丢失应判测试失败，不能使用其他窗口的截图。`GTK_THEME=HighContrast node scripts/test-linux-ui.mjs` 复验无模糊实色路径。截图不能证明多屏 DPI 或物理拖动已通过。
+原生 GTK/WebKit UI：先构建上述独立 debug ELF，再运行 `node scripts/test-linux-ui.mjs`；固定资产默认取本机 `.local/linux-v018/assets`，可由 MPVKIT_TEST_ASSETS 指定，MPVKIT_TEST_EXECUTABLE 可指定最终测试 ELF。测试创建私有根，记录调整前首启尺寸，并覆盖窄窗、系统偏好、草稿/取消/统一安装/独立保存/核心失败仍完整删除配置、深浅主题、主页/设置页原生窗口截图及 KWin 服务端装饰协商。需要 Node、Spectacle、qdbus6 和当前 KDE 会话；测试用按 PID 限定的临时 KWin 脚本激活自己的窗口，随即卸载，不修改合成器设置。请串行运行图形测试，保留测试窗口前台；焦点丢失应判测试失败，不能使用其他窗口的截图。`GTK_THEME=HighContrast node scripts/test-linux-ui.mjs` 复验无模糊实色路径。截图不能证明多屏 DPI 或物理拖动已通过。若宿主窗口恢复插件覆盖默认尺寸，可显式设置 `MPVKIT_TEST_RESIZE_WINDOW=1`，仅调整本测试 PID；结果会标记 layoutExplicitlyResized，此时只能证明调整后的布局，不能当作无干预首启通过。最终测试包未启用该变量的结果见 beta.1 交接。
 
 ## Windows 原生回归
 
-在 Windows x64 上构建单 EXE，运行 `pnpm test:e2e`；快速侧栏检查为 `pnpm test:e2e:smoke`。脚本虽名 native-v016.test.mjs，仍是当前持续维护的原生套件，不是废弃文件。
+在 Windows x64 上构建单 EXE，运行 `pnpm test:e2e`；快速两页检查为 `pnpm test:e2e:smoke`。脚本虽名 native-v016.test.mjs，仍是当前持续维护的原生套件，不是废弃文件。
+
+beta.1 已在 Windows x64 上执行构建及隔离回归，包含原生560×760首启、192 DPI、单实例唤回、helper分派及固定MPV播放。命令、首轮失败和定向复验见[Windows证据](v0.2.0-beta.1/evidence.md#windows-自动化续验2026-10-31)。当前本机隔离测试入口 `.local/beta1-windows/app/run.cmd` 不执行真实WinGet或NSIS安装；不能用它替代VM中的包管理器问答和真实更新重启。
 
 完整套件须显式提供 MPVKIT_TEST_ASSETS、MPVKIT_CORE_SOURCE（已经核验并提取的 WinGet MPV 包目录）与 MPVKIT_FFMPEG（固定摘要的研究用生成器）；可用 MPVKIT_TEST_EXECUTABLE 选择当前 EXE。脚本创建私有临时根，以本地 Rust fixture 模拟 WinGet，绝不执行真实安装器。缺少这些资源应记录未测，不能替换为任意系统工具绕过校验。来源、包版本/实际提交差异及边界见 [WinGet 证据](v0.1.8/evidence.md#winget-核心与控制台2026-10-26当前批)。
 
-本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。历史完整原生结果见 [alpha.1 交接](v0.2.0-alpha.1/plan.md)，本版未完成的 Windows 原生项目见 [alpha.5 交接](v0.2.0-alpha.5/plan.md)。
+本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。历史完整原生结果见 [alpha.1 交接](v0.2.0-alpha.1/plan.md)，本版未完成的 Windows 原生项目及接手顺序见 [beta.1 Windows 交接](v0.2.0-beta.1/plan.md#windows-测试交接)。
 
 当前 Windows NSIS 已采用可见一键安装，默认位置固定、无向导；构建命令和来源见[安装器说明](../packaging/windows/README.md)。本地脱离系统写入的页面探针不是正式安装验收，不得直接在开发者真实环境执行正式安装器来代替隔离 VM/用户验证。
 
@@ -91,7 +93,7 @@ scripts/test-process.ps1、test-media-preferences.mjs、make-media-fixtures.mjs 
 
 ## 当前离线 UI 预览
 
-源码位于 docs/v0.1.6/preview，渲染当前实际三页 App 并模拟状态；旧样机已删除。它不调用真实包管理器，不代替原生测试。
+源码位于 docs/v0.1.6/preview，渲染当前实际两页 App 并模拟状态；旧样机已删除。它不调用真实包管理器，不代替原生测试。
 
 ```sh
 node docs/v0.1.6/preview/build.mjs
@@ -110,13 +112,13 @@ node docs/v0.1.6/preview/check.mjs
 - scripts/verify-uosc-sources.py：固定本地源码归档；verify-uosc-icons.mjs：固定字体映射；verify-scroll-bar-license.py、collect-go-notices.py：对应来源/许可。先读参数及原证据，不把这些脚本删成“无人调用”。
 - scripts/rebuild-uosc-helper.py、inspect-uosc-buildinfo.mjs、compare-uosc-links.go：固定 helper 的构建/核验链；用途和未完成发布审阅在 [验收台账](v0.1.0/acceptance.md)。
 
-最新一次通过范围统一记在 [当前交接](v0.2.0-alpha.5/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
+最新一次通过范围统一记在 [当前交接](v0.2.0-beta.1/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
 
 ## 更新与分发专项
 
 Windows 原生套件覆盖启动一次、预览偏好、无稳定版、失败重试、版本发现竞态、日志纯文本、草稿保护和测试安装阻断。隔离根 test-tools/updates 使用 releases-N.json、v<version>.json 及 v<version>-SHA256SUMS，包含六项资产名/真实摘要。Windows 与 Arch 的进度、预览、授权取消/失败/完成由原生 WebView 中的 IPC mock 演示，不运行真实安装器或 Pacman；官方插件下载验签在两端 Rust 回环测试实际执行。
 
-布局专项覆盖 WinUI 3 对齐、640/1040 宽、200% 字号、深浅色、长日志滚动/固定操作区与焦点锁，截图只留 .local。独立预览同步当前界面，不能代替系统包或实际更新安装验收。
+布局专项覆盖 WinUI 3 对齐、480/560/720 宽、200% 字号、深浅色、长日志滚动/固定操作区与焦点锁，截图只留 .local。独立预览同步当前界面，不能代替系统包或实际更新安装验收。
 
 分发脚本命令与工作流见 [CI/CD 审阅说明](ci/README.md)。前轮 Windows 环境只运行 release.test.mjs 的资源/配方契约与 Rust 包参数测试，不能作为 Arch 实测。历史 alpha.1 在 CachyOS/KDE Wayland 完成的编译、makepkg、原生 GUI/播放和隔离 pacman 验收见[当前证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)。
 

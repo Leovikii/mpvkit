@@ -439,10 +439,23 @@ pub fn prepare_selected(
             "components",
         ));
     }
-    let mut payloads = Vec::new();
-    let mut versions = std::collections::BTreeMap::new();
     let player = crate::config::player_path(root)?;
     let player_hash = deploy::file_hash(&player)?;
+    let (payloads, versions) = selected_payloads(ids, cancel, progress)?;
+    let mut plan = deploy::prepare_update(root, payloads, replace_existing, versions)?;
+    if player_hash.is_some() {
+        plan.guard(player, player_hash);
+    }
+    Ok(plan)
+}
+
+pub fn selected_payloads(
+    ids: &[String],
+    cancel: &AtomicBool,
+    progress: &mut impl FnMut(Progress),
+) -> Result<(Vec<Payload>, std::collections::BTreeMap<String, String>)> {
+    let mut payloads = Vec::new();
+    let mut versions = std::collections::BTreeMap::new();
     for asset in ASSETS
         .iter()
         .filter(|asset| ids.iter().any(|id| id == asset.id))
@@ -465,11 +478,7 @@ pub fn prepare_selected(
             "components",
         ));
     }
-    let mut plan = deploy::prepare_update(root, payloads, replace_existing, versions)?;
-    if player_hash.is_some() {
-        plan.guard(player, player_hash);
-    }
-    Ok(plan)
+    Ok((payloads, versions))
 }
 
 fn acquire(

@@ -215,6 +215,20 @@ pub fn hdr_config(hdr: crate::config::Hdr) -> &'static str {
     }
 }
 
+pub fn open_repository() -> Result<()> {
+    if cfg!(debug_assertions) && std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
+        return Ok(());
+    }
+    command(Path::new("/usr/bin/xdg-open"))
+        .arg("https://github.com/Leovikii/mpvkit")
+        .stdin(std::process::Stdio::null())
+        .stdout(std::process::Stdio::null())
+        .stderr(std::process::Stdio::null())
+        .spawn()
+        .map_err(|_| AppError::new("repository_open", "无法打开浏览器。", "repository"))?;
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

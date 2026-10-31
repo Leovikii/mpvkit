@@ -11,32 +11,26 @@ thread_local! {
 
 pub fn initialize(window: &tauri::WebviewWindow) -> tauri::Result<()> {
     let native = window.gtk_window()?;
-    let header = gtk::HeaderBar::new();
-    header.set_title(Some("MpvKit"));
-    header.set_show_close_button(true);
-    if let Some(icon) = window.app_handle().default_window_icon() {
-        let pixbuf = gtk::gdk_pixbuf::Pixbuf::from_bytes(
-            &glib::Bytes::from(icon.rgba()),
-            gtk::gdk_pixbuf::Colorspace::Rgb,
-            true,
-            8,
-            icon.width() as i32,
-            icon.height() as i32,
-            icon.width() as i32 * 4,
-        );
-        let image = gtk::Image::from_pixbuf(
-            pixbuf
-                .scale_simple(20, 20, gtk::gdk_pixbuf::InterpType::Bilinear)
-                .as_ref(),
-        );
-        image.set_margin_start(4);
-        image.set_margin_end(4);
-        header.pack_start(&image);
-    }
-    header.style_context().add_class("mpvkit-titlebar");
+    // Let KWin provide the user's window decoration, buttons and shadow.
+    native.set_titlebar(None::<&gtk::Widget>);
+    native.set_decorated(true);
     native.style_context().add_class("mpvkit-window");
-    native.set_titlebar(Some(&header));
-    header.show_all();
+    if let (Some(content), Some(config)) = (
+        native.child(),
+        window
+            .app_handle()
+            .config()
+            .app
+            .windows
+            .iter()
+            .find(|c| c.label == window.label()),
+    ) {
+        // Keep the content minimum independent of compositor decoration dimensions.
+        content.set_size_request(
+            config.min_width.map_or(-1, |v| v as i32),
+            config.min_height.map_or(-1, |v| v as i32),
+        );
+    }
     let handle = window.clone();
     native.connect_realize(move |native| {
         BLUR.with(|state| *state.borrow_mut() = blur::Blur::new(native));
@@ -83,25 +77,13 @@ pub fn apply(window: &tauri::WebviewWindow) -> bool {
             .as_mut()
             .is_some_and(|blur| blur.apply(!environment.high_contrast))
     });
-    let (rgb, text) = if dark {
-        ("32,32,32", "#ffffff")
-    } else {
-        ("243,243,243", "#000000")
-    };
+    let rgb = if dark { "32,32,32" } else { "243,243,243" };
     let background = format!("rgba({rgb},{})", if material { "0.82" } else { "1" });
-    let css = format!(
-        "window.mpvkit-window {{ background-color: {background}; }}
-         window.mpvkit-window .mpvkit-titlebar {{ background: {background}; color: {text}; border: 0; box-shadow: none; min-height: 32px; padding: 0 8px; }}
-         window.mpvkit-window .mpvkit-titlebar label,
-         window.mpvkit-window .mpvkit-titlebar button {{ color: {text}; }}"
-    );
+    let css = format!("window.mpvkit-window {{ background-color: {background}; }}");
     if let Ok(native) = window.gtk_window() {
         let provider = gtk::CssProvider::new();
         if provider.load_from_data(css.as_bytes()).is_ok() {
             replace_provider(&native.style_context(), &provider);
-            if let Some(header) = native.titlebar() {
-                replace_provider(&header.style_context(), &provider);
-            }
         }
         if let Some(surface) = native.window() {
             surface.set_opaque_region(None);

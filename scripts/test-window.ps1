@@ -11,6 +11,7 @@ public class MpvKitWindowProbe {
  [DllImport("user32.dll",EntryPoint="GetWindowThreadProcessId")] public static extern uint WindowOwner(IntPtr h,out uint pid);
  [DllImport("user32.dll")] public static extern bool AttachThreadInput(uint a,uint b,bool attach);
  [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr h,int command);
+ [DllImport("user32.dll")] public static extern bool IsIconic(IntPtr h);
  [DllImport("user32.dll")] public static extern IntPtr SetThreadDpiAwarenessContext(IntPtr context);
  [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr h);
  [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
@@ -50,4 +51,4 @@ if ($Screenshot -and [MpvKitWindowProbe]::GetForegroundWindow() -eq $handle) {
  $bitmap.Save($Screenshot,[Drawing.Imaging.ImageFormat]::Png)
  $graphics.Dispose();$bitmap.Dispose()
 }
-@{handle=$handle.ToInt64();foreground=([MpvKitWindowProbe]::GetForegroundWindow() -eq $handle);dpi=[MpvKitWindowProbe]::GetDpiForWindow($handle);backdrop=$backdrop;dwmResult=$result;width=($rect.Right-$rect.Left);height=($rect.Bottom-$rect.Top);os=[Environment]::OSVersion.VersionString} | ConvertTo-Json -Compress
+@{handle=$handle.ToInt64();minimized=[MpvKitWindowProbe]::IsIconic($handle);foreground=([MpvKitWindowProbe]::GetForegroundWindow() -eq $handle);dpi=[MpvKitWindowProbe]::GetDpiForWindow($handle);backdrop=$backdrop;dwmResult=$result;width=($rect.Right-$rect.Left);height=($rect.Bottom-$rect.Top);os=[Environment]::OSVersion.VersionString} | ConvertTo-Json -Compress

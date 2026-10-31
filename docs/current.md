@@ -1,27 +1,30 @@
-# 当前开发基线：v0.2.0-alpha.5
+# 当前开发基线：v0.2.0-beta.1
 
-更新：2026-10-28。源码及公开预发布为第五个 alpha，用户界面验收、双端 CI、PR 合并和匿名发布核验已完成；本版结果及未测边界见 [alpha.5 交接](v0.2.0-alpha.5/plan.md)。本轮本机旧管理器及归属明确的残留已清理，系统 MPV 保留。
-
-构建和发布流程见 [CI/CD](ci/README.md)，必要验证见 [测试入口](testing.md)。历史测试和公开发布结果不替代本版验收。Windows 路径去重及更新契约沿用 alpha.4。
+更新：2026-10-31。当前为 beta.1 开发测试版，用户已授权实现、测试、构建及提交/推送 dev；Windows 自动化构建和隔离回归已完成，待用户交互验收，已获本轮合并及发布授权，结果见本版交接。公开版仍为 alpha.5，历史结果见 [alpha.5 交接](v0.2.0-alpha.5/plan.md)；本版结果与限制见 [beta.1 交接](v0.2.0-beta.1/plan.md)。构建入口见 [测试文档](testing.md)。
 
 GUI 使用官方单实例插件，同一用户桌面会话重复启动唤回现有窗口；`--save-playback` helper 在 GUI 初始化前独立处理，不受单实例拦截。Linux 依赖有效会话总线，缺失时明确启动失败；desktop 仅声明 AudioVideo，升级软件包后生效。单实例不限制 MPV、WebKit 子进程或其他用户会话。
 
 ## 当前界面与操作
 
-- 核心、增强、配置保存分别由用户明确发起，不隐式安装并保存。准备、执行、错误与完成留在同一弹窗；任务错误不在主页面重复。退出确认采用标题、短后果正文及普通按钮，页面 Paper 样式不影响弹窗。准备阶段提供可聚焦正文，避免所有按钮禁用时焦点留在弹窗外。
-- 三页：**播放器管理 / 配置管理 / 应用设置**。核心和必需组件完整健康才解锁配置导航；依赖失效时当前配置表单及保存也禁用。草稿切页、刷新或失败保留，关闭提示放弃。
-- 播放器管理集中 MPV、uosc、thumbfast、字体，保留独立安装/修复/检查更新。底部一键补齐或修复，健康项跳过，不隐式升级；完成同窗提供“前往配置”。缺核心时合并原生核心事务与组件预览，应用只确认一次。
-- 播放器安装只部署选中的组件及许可，保留未选组件的原始归属摘要，不生成配置/helper。配置页独立安装/保存结构化设置、四个预设及运行桥接，保留手改差异和 fingerprint 复核。主区为画质、HDR、自动连播、全部播放结束后；固定底部一个“安装配置/保存配置”直接进入具体预览。显示 mpv.conf 实际 mtime，未变文件不重写。
-- 低频路径/来源放在各页高级项，默认应用按钮位于 MPV 行。
-- 应用设置保留双语、系统/浅色/深色、关于/许可/诊断，固定品牌紫色 #A84BD6。Windows 保留 DWM Mica；Linux GTK HeaderBar 与外壳共用染色与透明度，通过 ext_background_effect_v1 使用合成器模糊；无能力或高对比时一起实色。只让 WebView 透明，避免清空 GTK 基底。见 [界面规范](design/ui-guidelines.md)。
+- 默认播放配置页，右上角进入设置；设置页左上返回，无侧栏。初始 560×760，最小 480×600，保留 fade-up 切页与现有 Modal/Accordion/Tooltip 动效及减少动态效果。配置草稿切页、失败后保留，关闭时提示放弃。
+- 配置和增强统一安装：预览只读，核心缺失时一次应用确认，先运行原生包管理器，再复核核心并部署配置。健康组件跳过。配置页可在安装前编辑；保存配置不重装健康组件。
+- 底部未安装为一键安装，已安装为一键卸载；草稿或管理区手改时显示保存，缺损可统一修复。画质、HDR、自动连播及结束行为保留，路径/组件版本/来源收入高级项。
+- 设置包括语言/主题、紧凑 MPV 管理菜单、MpvKit 更新、打开日志文件夹及 GitHub 图标 + Leovikii 仓库按钮。无页面刷新、独立关于、版权许可证行或手动诊断导出；许可材料仍随包分发。
+- 两页设置行共用布局：说明/状态在左、控件在右，换行后仍右对齐；主页主操作位于动作组最右，页内及设置页工具操作成组靠右。
+- 页面铺满客户区，删除外层留白、描边和圆角底板；设置分组保留轻边框，底部操作区共用页面背景。
+- Windows 使用 DWM Mica；Linux 使用 KWin 系统装饰，标题栏、按钮、边框和阴影遵循用户 KDE 设置；内容区保留模糊，高对比或无能力时实色。语言和主题默认跟随系统，测试入口不强制中文/浅色。完整规范见 [界面规范](design/ui-guidelines.md)。
 
 ## 核心与维护
 
-Windows 用 WinGet 固定 `shinchiro.mpv` / winget 源；缺少 WinGet 给出 App Installer 入口。Linux 使用系统 `/usr/bin/mpv`，固定 pacman 包 mpv，经 pkexec 原生授权。操作先预览再执行并复核实际版本/能力；不自下载每日核心或后台更新。Linux 用 Pacman print 事务预览实际包、依赖和摘要，执行前再次核对；查询 `pacman -Qu mpv`，安装/更新使用 `-S --needed mpv`，卸载 `-R mpv`，不单独刷新数据库或递归卸载依赖。查询错误不能当无更新；查询/下载保留超时，Pacman 提交阶段等待实际结束，不沿用探测超时强杀。WinGet 包标签不能证明内部精确稳定提交。
+Windows 固定 WinGet `shinchiro.mpv` / winget 源，Linux 固定 `/usr/bin/mpv` / Pacman `mpv`。安装/更新为 `-S --needed -- mpv`，卸载为 `-R -- mpv`。在原生终端中等待实际命令退出，不代答询问，不强制接受协议、递归卸载依赖、刷新数据库或整机升级；不从包管理器输出猜进度。
 
-核心安装状态独立于增强清单，核心卸载保留配置，增强移除保留系统核心。重置恢复默认结构化设置及四个完整预设文件；普通保存只改 GUI 管理区域，保留默认区手改。移除增强按归属/摘要删未改的自有文件、设置/安装记录，保留未知/手改、续播和应用偏好。
+薄层 `--core-command` helper 在 GUI/单实例之前执行，仅接受固定动作及当前私有任务请求。Linux 用 Konsole 和 pkexec，Windows 使用真实控制台输入；helper 返回包管理器实际退出码和最多 16 KiB 输出尾部，同窗可查看，不持久记录原始输出。终端自身退出码不代表包管理器结果。命令结果与检测状态分别显示；独立核心卸载保留配置。
 
-无历史备份、撤销、回退、手动缓存清理。当前操作 staging/recovery 只供失败恢复，成功或恢复后自动清理；完成清理中断可重试。卸载仅清理未改动的自有文件、未用记录与空目录；owner.json/operation.lock 保留，不能删除正在持有的锁。不递归删除根或清空 WinGet/pacman 共享缓存。完整决定见 [maintenance](v0.1.8/maintenance.md)。
+用户确认的一键卸载删除整个已展示的 MPV 配置根，包括手改、其他脚本及续播；“同时卸载 MPV”默认关闭。核心卸载失败或取消仍继续配置删除，分别报告，可仅重试失败阶段。危险根、链接/重解析点、过期预览、根身份和内容变化继续阻断或报告；仅删除已审核内容，新出现内容不扫除。开发测试不处理宿主真实目录。
+
+正常安装/保存保留归属、摘要、互斥、手改保护及当前事务失败恢复。无历史备份/撤销/回退/手动缓存清理。稳定锁位于配置根的同级、按绝对路径摘要命名，完整卸载不会删除持有中的锁；安装、删除与播放期保存使用同一把锁。
+
+日志放在应用数据根 `logs/`，与 MPV 配置分离。只记录白名单任务字段/错误代码，不保存媒体路径、原始配置、密码或终端全文。每条上限 8 KiB、单文件 1 MiB、当前加三份轮转共 4 MiB，启动/写入时清理超过 7 天的固定命名日志；不扫描其他文件。工作线程写入，检测问题去重，日志失败不阻止业务。无上传、导出路径输入或后台清理服务。
 
 ## 播放器默认与交互
 
@@ -48,17 +51,17 @@ Windows 使用用户级 NSIS：启动即显示进度并自动安装到 `%LOCALAP
 
 只检查已知本地位置。相对路径、符号链接、Windows 重解析点/多处核心或多个实际配置目录歧义均阻断，不合并、不迁移。Windows 无 MPV_HOME/portable_config 时，相邻实际配置与用户目录并存也阻断（包自带 fonts.conf 例外）。Linux 不部署 DLL、Windows helper 或 fonts.conf；普通系统 MPV 启动直接读取原生配置，不重设 MPV_HOME 到日志目录。
 
-配置根 `.mpvkit/` 保存 settings.json、owner.json/install.json、operation.lock、当前 pending.json、staging/recovery；不生成 cache/sessions、launcher 或管理器许可副本；watch_later 为 MPV 按需生成的续播数据。不强制创建空目录。
+配置根 `.mpvkit/` 保存 settings.json、owner.json/install.json、当前 pending.json、staging/recovery；不生成 cache/sessions、launcher 或管理器许可副本；watch_later 为 MPV 按需生成的续播数据。不强制创建空目录。
 
-媒体打开方式由系统 MPV 包维护；不再生成或管理 MpvKit 媒体登记、意图字段或登记恢复记录。Windows 包在安装后按系统 audio/video 分类登记扩展名，Linux 包自带 mpv.desktop。默认应用由用户在系统设置选择；“设置默认应用”按钮放在顶部 MPV 核心操作行，核心未安装时禁用，不参与草稿/保存。见 [来源核验与限制](v0.1.9/evidence.md#windows-软件包的媒体登记核验)。
+媒体打开方式由系统 MPV 包维护；不再生成或管理 MpvKit 媒体登记、意图字段或登记恢复记录。Windows 包在安装后按系统 audio/video 分类登记扩展名，Linux 包自带 mpv.desktop。默认应用由用户在系统设置选择；“设置默认应用”收入设置页 MPV 管理菜单，核心未安装时禁用，不参与草稿/保存。见 [来源核验与限制](v0.1.9/evidence.md#windows-软件包的媒体登记核验)。
 
 Linux 管理器入口由 Arch 包维护 packaging/io.github.mpvkit.desktop 与系统图标；Exec=mpvkit，无媒体 MIME、--open 或用户 applications 链接。GTK app_id 为 io.github.mpvkit。移除增强不会删除系统包入口。
 
-应用设置 → 关于：GUI 就绪 3 秒后检查一次，提前手动检查则合并，无周期检查。接收预览版默认 false；切换废弃旧结果，迟到响应无效。固定 GitHub Releases API 按 SemVer 发现完整版本，排除草稿及不符合预览偏好的版本；每版 latest.json 包含双平台标准项，不再有渠道索引或 AUR。API 分页/超时/限流错误不能当成无更新。
+设置 → 应用更新：GUI 就绪 3 秒后检查一次，提前手动检查则合并，无周期检查。接收预览版默认 false；切换废弃旧结果，迟到响应无效。固定 GitHub Releases API 按 SemVer 发现完整版本，排除草稿及不符合预览偏好的版本；每版 latest.json 包含双平台标准项，不再有渠道索引或 AUR。API 分页/超时/限流错误不能当成无更新。
 
 更新对话框显示纯文本日志、版本和日期，下载、校验、预览、安装及结果保留在同一个 Modal。已知总量用独立 Mantine Progress 和真实百分比，未知阶段用 Loader 与短状态；按钮保持正常内边距，不承载进度。两端先下载验签，呈现具体预览后只确认一次安装；取消已准备的更新释放候选及载荷。两端复用官方 updater 下载/验签、GitHub digest 与 SHA256SUMS 核对。Windows 确认后将已验签内存载荷交官方 NSIS 安装；Arch 先下载到私有临时目录，核对包名/版本/架构及 Pacman 事务，再由用户确认并通过 pkexec 执行固定 Pacman 参数。安装前核对候选/包/事务状态，持有应用及配置锁；草稿或当前事务阻断安装。无 shell、签名降级、数据库刷新、常驻提权服务或 Pacman 强杀。Linux 仅支持 /usr/bin/mpvkit 且归属 mpvkit-bin 的系统安装，开发/解压程序明确拒绝应用内系统升级。
 
-Arch 成功后查询已装版本和文件归属，显示退出后重新打开；运行进程仍是原版本。授权取消/失败就地反馈，重新检查后重试。关于区遵守 WinUI 3 设置行，对话框操作区固定，未知进度不伪造百分比。Arch Minisign 文件使用 .tauri.sig，避免被 Pacman 当作 OpenPGP 的 .sig；继承系统 LocalFileSigLevel。首次安装仍从 GitHub 下载后 pacman -U 本地包，不通过 AUR。
+Arch 成功后核对版本/归属，释放锁后请求自动重启；Windows 显式启用官方 updater 的安装后重启。双端真实跨版本重启仍待对应原生环境验收。授权取消/失败就地反馈，重新检查后重试。更新区遵守 WinUI 3 设置行，对话框操作区固定，未知进度不伪造百分比。Arch Minisign 文件使用 .tauri.sig，避免被 Pacman 当作 OpenPGP 的 .sig；继承系统 LocalFileSigLevel。首次安装仍从 GitHub 下载后 pacman -U 本地包，不通过 AUR。
 
 Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写根；配置位于其 config/mpv；更新元数据只读其 test-tools/updates，禁止测试安装器。Release 忽略测试覆写。Windows 隔离核心/WinGet 仅来自 system-mpv/test-tools；不得回退调用本机包管理器。
 
@@ -67,11 +70,11 @@ Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写�
 | 修改对象 | 首先阅读 |
 | --- | --- |
 | UI/动作/双语/品牌 | src/App.tsx、types.ts、i18n.ts、brand.ts；当前演示仍在 docs/v0.1.6/preview |
-| 命令与操作编排 | src-tauri/src/commands.rs（薄层）、setup.rs |
+| 命令与操作编排 | src-tauri/src/commands.rs（薄层）、tasks.rs、setup.rs、removal.rs |
 | 配置与播放偏好 | config.rs、config/portable.rs、preferences.rs；resources/ 中共享预设/Lua |
 | 组件与安全文件事务 | components.rs、deploy.rs；下载/解压有界、摘要/锁/过期保护/当前恢复 |
 | 平台路径/核心/桌面 | platform/ 下 windows_mpv/linux_core、windows/linux、desktop/linux_desktop、appearance/linux_appearance |
 | 系统默认应用快捷入口 / 管理器桌面 | platform/windows.rs、linux.rs 只打开系统设置；系统包入口在 packaging/ |
-| 更新/诊断/核心进程 | updates.rs、app-updates.tsx、mpv.rs、diagnostics.rs |
+| 更新/日志/核心进程 | updates.rs、app-updates.tsx、logging.rs、native_core.rs、mpv.rs |
 
-业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。本版验证见 [交接](v0.2.0-alpha.5/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。
+业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。本版验证见 [交接](v0.2.0-beta.1/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。
