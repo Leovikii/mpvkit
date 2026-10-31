@@ -2,11 +2,9 @@
 
 更新：2026-10-31。
 
-Windows 续验：已核对远程 dev `ecd534d`，完成本版 Windows 自动化构建、隔离原生及布局验证；结果和交互验收安排见[Windows 自动化续验](#windows-自动化续验2026-10-31)及 [evidence](evidence.md#windows-自动化续验2026-10-31)。下文“待 Windows 测试”为此前 Linux 交接时状态。真实 WinGet 问答、系统交互及 NSIS 跨版本重启交由用户验收。用户随后明确授权清理、推送 dev、合并 main、将 dev 同步到 main 并发布 beta.1；本轮按此最新授权执行，未测项如实保留。
+**当前公开预发布为 0.2.0-beta.1**，双端 CI、正式签名及匿名核验见[发布记录](#清理与发布2026-10-31)。最新任务为 [MPV 启动回缩修复](#mpv-启动回缩单项修复2026-10-31)：已完成本机修复与验证，版本号不变；用户授权整理文档、提交推送 dev，暂不合并或发布。
 
-用户已明确收敛为**默认配置页 + 设置页**的窄窗程序，设置入口位于右上角；MPV 核心管理放入设置，增强与配置合为一套安装内容。本文按用户最新决定重写，覆盖此前三页导航、独立增强安装及核心与配置不能组合操作的建议。现有 WinUI 3 / Mantine 切页动效保持。
-
-本版 **0.2.0-beta.1** 已公开预发布，双端CI、正式签名与匿名发布核验通过。用户已同意本方案，明确授权**开始实现、自行测试并构建可运行测试版**；本轮实现和本机可行验收已完成，已构建隔离测试版。此前仅提交 dev 的限制已被本轮明确的合并/发布授权覆盖；beta.1 保持 Pre-release、latest=false，沿用正式签名和公开发布流程。
+本文保留已实施的窄窗两页方案。Linux/Windows 自动化结果分别记录，真实交互边界见[用户验收](#交给用户的实际交互验收)；历史发布授权不扩展到最新修复。
 
 ## 1. 窗口和两页结构
 
@@ -156,16 +154,7 @@ Windows 续验：已核对远程 dev `ecd534d`，完成本版 Windows 自动化�
 
 ### alpha.5 基线测试程序
 
-入口 `.local/beta1-baseline-test/run.sh`，基于 `dev` 提交 `4d43d64`；它是优化前的 alpha.5，不是本文两页方案。无需 Vite 或安装系统包，测试状态在旁边 `session/`。固定组件从 assets 校验读取；隔离模式阻止真实核心和应用更新安装，默认应用入口不改宿主。
-
-| 验证 | 基线结果 |
-| --- | --- |
-| 前端 | pnpm build 和前端测试通过 |
-| 原生构建 | Tauri debug no-bundle 通过 |
-| KDE Wayland UI | 旧三页的独立组件/取消/补齐/配置解锁与安装、浅深主题、标题栏图标、app_id、材质和布局通过；不能算本文新流程通过 |
-| 文档与入口 | bash -n、当轮文档本地链接和 diff 检查通过 |
-
-基线原生证据 `/tmp/mpvkit-alpha5-ui-MeYXJQ`，耐久副本 `.local/beta1-baseline-test/evidence/`；ELF SHA-256 `44a54337fc25be3aecbefc00793785f3e445ff7fc0cfd49484a328f4420aa5d8`。首次运行被沙箱回环端口限制，获准运行后首轮截图失焦未计通过，重跑全流程成功。语言与任务栏图标的后续用户反馈见第 7 节，早期视觉验证不能替代这些边界。
+优化前入口 `.local/beta1-baseline-test/run.sh`，基于 `4d43d64`，只代表 alpha.5 三页基线。原始证据 `/tmp/mpvkit-alpha5-ui-MeYXJQ`、耐久副本 `.local/beta1-baseline-test/evidence/` 保留；当前两页验证见下节，旧基线结果不算本版通过。
 
 ### beta.1 实现与本地验收
 
@@ -177,23 +166,7 @@ Windows 显式启用官方 updater 安装后重启，Linux 成功核验后释放
 
 ELF SHA-256：`1cbb0e97527e29ccf5bb0ccd581323c7a703e61fee8eb874fd03a8162c794eb3`。最终 stripped ELF 已用自带资产实际执行原生验收，无开发服务器依赖。
 
-| 本轮验证 | 结果与边界 |
-| --- | --- |
-| Rust | fmt、59 tests 通过、5 项设备/在线测试忽略；clippy all-targets / -D warnings 通过 |
-| 前端与构建 | TypeScript、Vite、前端测试、Tauri debug no-bundle 通过；Vite 提示约 532 kB chunk 大于默认 500 kB 阈值 |
-| 离线实际 App 预览 | 两页、草稿、统一安装、核心失败不部署、核心失败仍清理、分阶段重试、双语/深浅/高对比/减少动态效果、480/560/720 宽及 200% 文字通过；不代表原生辅助技术或真实 DPI |
-| 最终 ELF 原生 GTK/WebKit | 不启用测试窗口调整，初始内容实测 560×760，最小内容 480×600；语言默认 system 并解析当前 zh-CN；统一安装/取消/草稿/独立保存/健康组件不重装/未知内容和续播完整删除/核心失败仍清理通过；深浅截图、KWin 系统装饰协商、app_id、内容材质通过 |
-| 单实例 | 两轮各 6 次并发重复启动均正常退出，没有创建第二个 Wayland 窗口；原窗口保留，退出后可重开；播放 helper 和核心命令 helper 不被 GUI 单实例拦截 |
-| 分发契约与材料 | 17 项 mock API 契约测试、双端依赖声明 check 通过；没有发布远端 Release |
-
-最新原生证据源 `/tmp/mpvkit-beta1-ui-kRlqYc`，单实例复验源 `/tmp/mpvkit-single-instance-2ljor1q5`；截图、JSON、构建及测试日志耐久副本在 `.local/beta1-test/evidence/`。具体执行与未测项见 [验收证据](evidence.md)。
-
-本机 KDE Remember Window Positions 插件在前几次运行曾把窗口恢复到旧的 1027 宽；最终这次无调整运行保持 560 宽。程序与 Linux 配置均请求 560，不修改宿主插件或全局规则，也不持续争抢窗口尺寸。此前开启 `MPVKIT_TEST_RESIZE_WINDOW=1` 的测试只算调整后的布局验证，宽窗或失焦截图不算窄窗通过。
-
-**未验证**：Windows 编译与原生 WebView/控制台/WinGet、真实 Polkit/Pacman 安装交互、两端跨版本更新自动重启、正式包 Wayland 任务栏/切换器图标、多屏 DPI 与原生辅助技术。本轮不继承旧版本设备结论。双端重启代码已接通，但静态审阅不等于实际更新后重开通过。
-
-此前 Linux 交接的下一步为 Windows x64 续验，已在下节完成自动化验证并记录环境、源码 SHA、日志及截图；真实交互与 Linux 未测边界继续保留。当时暂不合并、不建 tag、不发布的限制已被下文用户发布授权覆盖。
-
+Linux Rust 59通过/5忽略，fmt/clippy、前端/构建、发布契约与依赖声明通过；离线两页布局、GTK/WebKit任务流程及单实例通过。真实 Polkit/Pacman、两端跨版本重启、正式包 Wayland 图标、多屏与辅助技术边界保留。详细命令、截图、窗口记忆干扰及未测项统一见 [Linux 证据](evidence.md#自动检查)；Windows 自动化已随后完成，见下节。
 
 ## Windows 测试交接
 
@@ -201,13 +174,7 @@ Windows 自动化已完成，命令与固定工具见[测试入口](../testing.m
 
 ## Windows 自动化续验（2026-10-31）
 
-用户要求对齐远程最新源码，完成 Windows 首个 beta 的脚本自动化验证，需要实际交互的测试交给用户，必要时构建测试版。`git fetch origin` 后本地 dev 与 origin/dev 均为 `ecd534ddcb527a59fe10a93989f66c231c3e5421`，初始工作区干净；本轮在其上保留 Windows 验证修正。公开版仍为 alpha.5。
-
-已完成 Windows TypeScript/Vite、前端与发布契约、Rust fmt/test/clippy、依赖声明及 Tauri debug no-bundle 构建。Rust 为 **51 通过、5 忽略**。原生首次 8/9 通过；配置用例因旧选择器匹配两个 Before 文本而失败，继续复验又发现重开后需要展开高级选项才能点击重置。两处调用方已修正，配置用例完整复验通过。新增单实例检查通过：六次重复启动退出0、最小化后原窗口恢复并获得前台、两个 helper 在活动 GUI 外独立拒绝无效参数、退出后可重开。现有9个原生用例与新增1个用例由全套及定向复验共同覆盖，不将失败首轮写成全套一次通过。
-
-Edge 离线矩阵发现测试把折叠隐藏行计入对齐计算；已只检查可见行，完整双语/深浅色、480/560/720、200%文字、高对比及动效矩阵复验通过。产品布局未改。Windows 编译测试带入 Linux 合约模块的两个未使用函数已用平台条件编译收窄，保留合约覆盖，clippy all-targets / -D warnings 通过。
-
-Windows 实测首启内容 **560×760**、devicePixelRatio=2、原生 **192 DPI**，偏好初值 language/system、theme/system；WebView2 **156.0.4314.50**，Windows x64 build **26200**。DWM backdrop=2、HRESULT=0，说明系统已接受 Mica 属性；不能代替真实多屏或材质观感验收。原生屏幕截图探针在本轮被前台焦点限制，未计视觉通过；最终两页截图为 WebView 内容截图，透明区域不包含 DWM 背景和系统标题栏，实际视觉交给用户验收。
+在 `ecd534d` 上完成 Windows 前端/构建、Rust 51通过/5忽略、fmt/clippy、发布契约及隔离原生回归。修正测试选择器、折叠区操作与隐藏行几何检查，新增单实例/helper验证；首轮失败及定向复验如实记录在 [Windows 证据](evidence.md#windows-自动化续验2026-10-31)。首启内容560×760、192 DPI、Mica属性调用通过；原生装饰/材质观感交由用户，WebView截图不能代替。
 
 ### Windows 隔离测试版
 
@@ -228,3 +195,15 @@ Windows 实测首启内容 **560×760**、devicePixelRatio=2、原生 **192 DPI*
 用户明确授权清理无用文件，提交/推送 dev、PR 合并 main、将 dev 快进到 main，并发布本版。删除旧 v0.1.5 预览跳转文档，历史计划直接指向维护中的预览与本版证据；合并重复 Windows 交接，更新 README 为 beta.1 两页及原生核心/完整卸载流程。清理本轮三个一次性布局诊断脚本，保留固定工具、来源/许可、测试日志和可运行测试版。
 
 发布使用现有 Checks/Release 工作流，双端检查通过后合并；正式签名仅由 CI Secrets 使用，beta.1 自创建起公开并标为 Pre-release、latest=false。已完成 [PR #14](https://github.com/Leovikii/mpvkit/pull/14)、[双端CI](https://github.com/Leovikii/mpvkit/actions/runs/41195367594)与[Release](https://github.com/Leovikii/mpvkit/actions/runs/41195918873)。发布标签固定于 `82d9be46c8cca0da235b0b56c7ba06b8da736b52`，不随后续文档提交移动。匿名六项资产、SHA256SUMS和双平台manifest均已核验，见[evidence](evidence.md#公开发布核验2026-10-31)。
+
+## MPV 启动回缩单项修复（2026-10-31）
+
+用户明确授权只修复 MPV 启动窗口先放大再缩小，自行测试，暂不更新版本号。本批基于 `4adc6b9`，保持 `0.2.0-beta.1`。用户随后授权整理文档并提交推送 dev；不合并 main、不建 tag、不发布。
+
+已修复 `mpvkit.lua` 首次落屏立即重算的时序：改为相关窗口属性稳定 0.5 秒后重新检查状态，再仅重算一次；等待期间尺寸干预、切集、跨输出或显式窗口选项取消，结束后清理定时器及观察。保持 75% 参数和切集不调窗，不禁用 KWin 插件。这里的稳定期替代旧的立即重算，不增加持续争抢窗口尺寸的逻辑。
+
+无窗口策略测试、Rust 59通过/5忽略、fmt/clippy和本地构建通过；实际完整脚本启动、扩展比例/视频矩阵，以及修正前改尺寸/切集取消用例通过。细节和已知边界见 [本次证据](evidence.md#mpv-启动回缩单项修复2026-10-31)。隔离播放入口 `.local/window-fix-test/play.sh`，无参数播放合成样本，也可传媒体绝对路径。测试使用独立配置和唯一 app_id，避开宿主窗口历史；正常安装的 MPV 配置未覆盖。
+
+下一步：用户实际验证本次窗口修复。Windows 未重跑，平台判断维持 Linux Wayland 限定；极慢合成器、更多混合 DPI/物理拖动边界仍保留。没有修改版本号、KWin 脚本或持久插件设置。
+
+推送前整理：压缩 AGENTS、文档入口及本计划中的重复发布/验收叙述，详细结果统一指向 evidence；测试文档补充实际 Lua 策略的无窗口入口。清理本轮五个一次性探针，保留可运行播放入口、固定资产和原始证据。文档链接、格式、版本不变检查及该测试入口复验通过；业务代码沿用上节已完成的验证。

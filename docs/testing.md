@@ -37,6 +37,15 @@ desktop-file-validate packaging/io.github.mpvkit.desktop
 
 ## Linux 原生隔离回归
 
+只验证启动窗口策略时，在仓库根运行以下无窗口测试；它使用实际 Lua 策略和确定性时钟，不读取用户配置：
+
+```sh
+mpv --no-config --load-scripts=no --vo=null --ao=null --idle=yes \
+  --script=src-tauri/src/linux_tests/window-policy.lua
+```
+
+真实窗口回缩仍须运行下面的扩展入口，比较稳定后的尺寸与正确落屏的原生参考；无窗口测试不能证明合成器时序。
+
 仅本机支持范围 Arch/CachyOS x86_64、KDE Wayland、系统 /usr/bin/mpv 0.41.0 与可用 Vulkan 驱动。此套件需要图形会话/会话总线、ffmpeg、desktop-file-validate、固定增强资产和本机合成视频，先构建当前 ELF。
 
 ```sh

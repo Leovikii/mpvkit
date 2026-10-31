@@ -41,7 +41,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         std::thread::sleep(Duration::from_millis(60));
         get("user-data/mpvkit-test")
     };
-    let launch = |name: &str, extra: &[&str], source: &Path| {
+    let spawn_player = |name: &str, extra: &[&str], source: &Path| {
         let _ = fs::remove_file(&socket);
         let child = platform::command(Path::new("/usr/bin/mpv"))
             .env("MPV_HOME", &config)
@@ -53,6 +53,10 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
                 "--save-position-on-quit=no",
             ])
             .arg(format!("--config-dir={}", config.display()))
+            .arg(format!(
+                "--wayland-app-id=mpvkit-window-test-{}-{name}",
+                deploy::operation_id()
+            ))
             .arg(format!("--input-ipc-server={}", socket.display()))
             .arg(format!(
                 "--log-file={}",
@@ -70,7 +74,12 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
                 .is_some_and(|n| n > 0)
         });
         wait(|| get("user-data/mpvkit-playback-mode") == "sequential");
-        std::thread::sleep(Duration::from_millis(400));
+        child
+    };
+    let launch = |name: &str, extra: &[&str], source: &Path| {
+        let child = spawn_player(name, extra, source);
+        // Observe the settled window, including configure replies after the first output enters.
+        std::thread::sleep(Duration::from_millis(1200));
         child
     };
     let click = |e: &serde_json::Value| {
@@ -104,6 +113,18 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     let _guard = PlaybackGuard(socket.clone());
     let mut child = launch("startup", &[], media);
     let startup_size = get("osd-dimensions");
+    for _ in 0..10 {
+        std::thread::sleep(Duration::from_millis(100));
+        let size = get("osd-dimensions");
+        assert_eq!(
+            size["w"], startup_size["w"],
+            "startup width must stay stable"
+        );
+        assert_eq!(
+            size["h"], startup_size["h"],
+            "startup height must stay stable"
+        );
+    }
     let startup_outputs = get("display-names");
     let actual_output = startup_outputs[0].as_str().unwrap().to_owned();
     let startup_log = fs::read_to_string(output.join("startup.log")).unwrap();
@@ -302,6 +323,40 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         assert!(child.wait().unwrap().success());
     }
     if extended {
+        for name in ["early-geometry", "early-next-file"] {
+            child = spawn_player(name, &[], media);
+            wait(|| get("osd-dimensions")["w"].as_u64().is_some_and(|w| w > 0));
+            std::thread::sleep(Duration::from_millis(100));
+            let log = output.join(format!("{name}.log"));
+            assert!(
+                !fs::read_to_string(&log)
+                    .unwrap()
+                    .contains("Reapplied startup autofit"),
+                "intervene before the correction, not after it"
+            );
+            if name == "early-geometry" {
+                request(&socket, json!(["set_property", "geometry", "900x506"]));
+                wait(|| get("osd-dimensions")["w"] == 900);
+            } else {
+                let loaded = get("user-data")["mpvkit-test-loaded"].as_u64().unwrap();
+                request(&socket, json!(["loadfile", media, "replace"]));
+                wait(|| {
+                    get("user-data")["mpvkit-test-loaded"]
+                        .as_u64()
+                        .is_some_and(|n| n > loaded)
+                });
+            }
+            let before = get("osd-dimensions");
+            std::thread::sleep(Duration::from_millis(1200));
+            assert_eq!(get("osd-dimensions")["w"], before["w"]);
+            assert!(
+                !fs::read_to_string(log)
+                    .unwrap()
+                    .contains("Reapplied startup autofit")
+            );
+            request(&socket, json!(["quit"]));
+            assert!(child.wait().unwrap().success());
+        }
         child = launch("custom-fit", &["--autofit=60%x60%"], media);
         let custom = get("osd-dimensions");
         let custom_outputs = get("display-names");
