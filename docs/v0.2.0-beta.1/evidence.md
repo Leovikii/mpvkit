@@ -134,3 +134,28 @@ Rust最初在沙箱内为24通过、27失败、5忽略，失败涉及Windows替�
 - `.local/e2e-artifacts/mpvkit-updates-7f8IJD/`、`mpvkit-v018-window-ol80gF/`、`mpvkit-v018-vw9lMC/`、`mpvkit-v018-autoplay-vesFkU/`：首轮通过的更新UI、窗口、uosc和连播/字幕记录；媒体及临时配置仍在日志所示私有临时根。
 
 本轮原生屏幕截图探针未能始终取得前台，失败日志保留；没有把非本程序前台或透明WebView截图算作系统装饰视觉验收。实际标题栏、Mica观感、阴影、物理键盘和跨屏DPI交由用户；原生最小尺寸尚未以物理拖动验收。真实WinGet问答/UAC、NSIS跨版本升级重启、原生辅助技术、系统高对比/动画开关映射与磁盘满仍未实测。Rust中的无效存储/锁冲突不等于真实磁盘满通过。用户步骤见[交接](plan.md#交给用户的实际交互验收)。Linux原有未测边界继续保留。
+
+## 公开发布核验（2026-10-31）
+
+用户明确授权清理无用文档/文件、推送dev、合并main、dev同步main并发布beta.1，覆盖前文当时的不合并/不发布限制。
+
+- 发布源码：`c7fda9289f0a0dfaf2b6293d10b9bce21882102a`；[PR #14](https://github.com/Leovikii/mpvkit/pull/14)合并提交及固定标签 `v0.2.0-beta.1`：`82d9be46c8cca0da235b0b56c7ba06b8da736b52`。
+- [Checks](https://github.com/Leovikii/mpvkit/actions/runs/41195367594)成功：前端、Windows及Arch的fmt/clippy/test通过，Windows51通过/5忽略、Arch59通过/5忽略；Arch包与隔离Pacman检查通过；CI汇总成功后才合并。
+- [Release](https://github.com/Leovikii/mpvkit/actions/runs/41195918873)成功：双端测试/正式构建、NSIS及Arch包签名、minisign验签、六项资产契约、公开上传和匿名manifest核验全部通过。正式Secrets由CI使用，未落本地或入库。
+- [公开预发布](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-beta.1)：draft=false、prerelease=true，创建时make_latest=false；标签与发布源码一致，不移动已有tag。
+- 本机未携带认证头并发下载全部六项公开资产，长度及GitHub资产digest逐项匹配；scripts/verify-release.mjs核对SHA256SUMS、签名字段、双平台URL、版本与日志通过。证据副本 `.local/beta1-release/public-verification.json`、`public-verification.log`，下载位于同目录public/。
+
+| 资产 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| latest.json | 1741 | `3dac06aa937333ab9145caf09700c4ee7019f6ac369ae446f21f60b9f6da6ede` |
+| mpvkit-bin-0.2.0beta1-1-x86_64.pkg.tar.zst | 6976935 | `78a730ccd91663e15d76226e7d7ac0472e01f74566e11c029c0b431a989a73ee` |
+| mpvkit-bin-0.2.0beta1-1-x86_64.pkg.tar.zst.tauri.sig | 436 | `94f1c82e2cc07ae9bad68bb3db2b9ee1a0f74e079d972ec5cc7caf4e706b326a` |
+| MpvKit_0.2.0-beta.1_x64-setup.exe | 4134905 | `3e3c2f5d4ba2cea6ce3997932cb78d96edabc6dc4dd8ff057b67d480c67f4111` |
+| MpvKit_0.2.0-beta.1_x64-setup.exe.sig | 452 | `13d1a0ccd7d24c57ff726b52c5178fc12ff0dde5e3e646c494d5478039f76d8d` |
+| SHA256SUMS | 510 | `fe57a11e590aaf0ea85a0f7395eb05add7d6ef08a42ff4bf1a0535753420537e` |
+
+Arch产物诊断已从release-Linux归档只读提取到 `.local/beta1-release/namcap.txt`、`elf-dependencies.txt` 和 `arch-system.txt`。namcap无E项：unstripped来自现有!strip原样打包；unused ld-linux为ELF解释器的分析提示；glibc、gdk-pixbuf2、dbus、cairo、hicolor-icon-theme、libsoup3、glib2、libgcc均被现有依赖链或系统基础包满足；xdg-utils、polkit和konsole通过运行时外部命令使用，不能以ELF未链接为由删除。隔离根无仓库数据库及同版重装警告是刻意不刷新数据库的载荷验收边界，不代表真实依赖首次拉取或Polkit通过。Actions运行时保留Buffer()弃用警告，不影响本次退出状态。
+
+清理旧v0.1.5预览跳转文档及本轮三个一次性诊断脚本，合并重复Windows交接并更新README为beta.1流程；保留来源、许可、历史验收与本机固定工具、日志和测试版。所有仓库Markdown的本地文件链接及git diff检查通过。
+
+实际WinGet问答/UAC、真实Polkit/Pacman、NSIS跨版本更新自动重启、完整原生视觉/物理多屏DPI及辅助技术仍未实测；发布成功不将这些边界改写为通过。发布后记录以文档补交合并，dev/main再次快进同步；发布tag继续固定在上述源码。
