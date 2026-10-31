@@ -1,8 +1,7 @@
 //! Pacman owns all prompts and dependency decisions; the caller supplies a real terminal.
-use crate::{
-    error::{AppError, Result},
-    native_core::Outcome,
-};
+use crate::error::{AppError, Result};
+#[cfg(target_os = "linux")]
+use crate::native_core::Outcome;
 use std::{path::Path, process::Command};
 fn error(message: &'static str) -> AppError {
     AppError::new("package_failed", message, "system-mpv")
@@ -14,6 +13,7 @@ fn arguments(action: &str) -> Result<Vec<&'static str>> {
         _ => Err(error("不支持此核心操作。")),
     }
 }
+#[cfg(target_os = "linux")]
 pub fn check(action: &str) -> Result<()> {
     arguments(action)?;
     if cfg!(debug_assertions) && std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
@@ -42,6 +42,7 @@ pub fn terminal(executable: &Path, action: &str, id: &str) -> Command {
         .args(["--core-command", action, id]);
     command
 }
+#[cfg(target_os = "linux")]
 pub fn launch(action: &str) -> Result<Outcome> {
     check(action)?;
     crate::native_core::wait_command(

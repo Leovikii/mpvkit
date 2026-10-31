@@ -15,7 +15,7 @@ try {
  const scenario=async value=>{await page.getByLabel('预览场景 / Scenario').selectOption(value);await page.locator('main[aria-busy=false]').waitFor();};
  const confirm=async name=>{await dialog.locator('.task-footer').getByRole('button',{name,exact:true}).click();};
  const close=async()=>{await confirm('关闭');await dialog.waitFor({state:'hidden'});};
- const alignedControls=async()=>assert(await page.locator('.setting-row').evaluateAll(rows=>rows.every(row=>{
+ const alignedControls=async()=>assert(await page.locator('.setting-row:visible').evaluateAll(rows=>rows.length>0&&rows.every(row=>{
   const control=row.querySelector('.row-control');if(!control)return true;
   const style=getComputedStyle(row),edge=row.getBoundingClientRect().right-parseFloat(style.paddingRight)-parseFloat(style.borderRightWidth);
   return Math.abs(control.getBoundingClientRect().right-edge)<2;

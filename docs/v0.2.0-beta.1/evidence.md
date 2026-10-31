@@ -1,5 +1,7 @@
 # beta.1 本地验收证据
 
+2026-10-31 Windows 续验已完成自动化部分，见[本轮记录](#windows-自动化续验2026-10-31)。以下 Linux 记录和当时的 Windows 待测状态按历史保留。
+
 日期：2026-10-31。环境：CachyOS x86_64、KDE Wayland、GTK/WebKit；固定 Node 24.19.0、pnpm 11.25.0、Rust 1.98.1。用户本轮授权提交/推送 dev，暂不合并，待 Windows 测试，不发布。
 
 ## 最终程序
@@ -79,3 +81,56 @@ Windows 编译、WebView2、控制台及 WinGet 原生交互；实际 Polkit/Pac
 没有修改真实 MPV 配置、默认应用、宿主桌面注册或系统软件包。下一步为 Windows x64 接手当前 dev 提交，执行交接中的编译、隔离原生及独立VM验证，补齐上述边界。见[方案与交接](plan.md)。
 
 提交交接前已同步 Windows 测试的更新区旧选择器及窄窗矩阵，fixture 编译入口改为 PATH 中 rustc。Node 语法检查通过；这些更改不构成 Windows 实际运行通过。Windows 接手顺序及本轮不合并约束见 [Windows 测试交接](plan.md#windows-测试交接)。
+
+## Windows 自动化续验（2026-10-31）
+
+### 源码、工具与安全边界
+
+`git fetch origin` 后本地 dev 和 origin/dev 均为 `ecd534ddcb527a59fe10a93989f66c231c3e5421`，初始无未提交改动。本轮增加 Windows 验证修正，未合并 main、建 tag 或发布。Windows x64 build 26200、原生192 DPI、WebView2 156.0.4314.50；Node24.19.0、pnpm11.25.0、Rust1.98.1 MSVC目标，沿用已有固定工具，不升级依赖。
+
+MPV 来自此前核验的 WinGet 提取目录，执行前重新校验 mpv.exe SHA-256 `1645e57569c0af58a70c61257f3716f2ee6eb31bb170edc51f3f25a0b8d0d99c`，实际 v0.41.0-244-gaf9c81fa1。FFmpeg SHA-256 `7491af2d1d44f695d7c169db5f12b51d61667d585619dea75d3a0fc96215a5f1`。增强资产由本版清单逐项验证。每个原生用例创建新临时根，并在写入前通过 setup_status 确认配置根；WinGet仅为本地Rust夹具。未运行真实安装器、修改宿主配置、默认播放器或注册表登记。
+
+### 命令与结果
+
+本机先将 `.local/bin/node-v24.19.0`、`.local/bin` 和用户 `.cargo/bin` 加入当前进程PATH；通过 `.local/beta1-windows/env.ps1` 选择固定资产。下表日志均在 `.local/beta1-windows/`。
+
+| 命令/入口 | 结果与范围 | 日志 |
+| --- | --- | --- |
+| pnpm install --frozen-lockfile --offline | 通过，锁文件未变 | install.log |
+| pnpm build | TypeScript/Vite通过，约532kB chunk警告保留 | frontend-build.log |
+| node --test scripts/frontend.test.mjs scripts/release.test.mjs | 19通过，未实际发布 | js-tests.log |
+| node scripts/collect-app-notices.mjs --check | 331包、587材料，无缺项 | notices.log |
+| cargo fmt --manifest-path src-tauri/Cargo.toml -- --check | 通过 | fmt-final.log |
+| cargo test --manifest-path src-tauri/Cargo.toml --locked --offline | 51通过、5忽略 | rust-tests-native.log |
+| cargo clippy --manifest-path src-tauri/Cargo.toml --locked --offline --all-targets -- -D warnings | 通过 | clippy.log |
+| pnpm tauri build --debug --no-bundle --config .local/beta1-windows/build.conf.json | 通过；配置文件只清空已运行的beforeBuildCommand，避免PowerShell原生命令的JSON引号丢失 | native-build-final.log |
+| pnpm test:e2e:smoke | 初次原生两页通过 | smoke.log |
+| pnpm test:e2e | 初轮9项中8通过；配置用例旧选择器失败，随后修复并定向复验 | native-full.log |
+| node --test --test-concurrency=1 --test-name-pattern='native v016 install, manual' scripts/native-v016.test.mjs | 修复后通过，含52项真实MPV音轨/字幕优先级检查、手改保护、重置、GUI关闭后的helper保存 | configuration-final.log |
+| 最终交付目录EXE/自带资产：native single instance 与 native combined install | 两项通过；期间前台截图探针失败不计视觉通过，随后改回WebView截图单独复验 | test-app-final.log |
+| 最终交付目录EXE/自带资产：pnpm test:e2e:smoke | 最终两页/浅深/草稿/日志状态/署名通过，等待偏好保存结束后取WebView截图 | test-app-smoke-final.log |
+| node docs/v0.1.6/preview/build.mjs；node docs/v0.1.6/preview/check.mjs | Edge无头完整两页流程及双语/浅深/480/560/720/200%/高对比/动效矩阵通过 | preview-build.log、preview-final.log |
+
+Rust最初在沙箱内为24通过、27失败、5忽略，失败涉及Windows替换文件、junction、日志轮转和回环绑定权限；获得受控执行授权后在新隔离根重跑，51项通过。原始失败日志保留为 rust-tests.log，不计产品失败或通过。最终debug构建保留增量缓存不能硬链接而回退复制、MSVC本地化linker stdout两项非致命警告，构建退出0；clippy检查退出0。
+
+原生首次通过范围包括：更新启动/偏好/竞态/纯文本日志、mock下载/进度/失败/取消/重试；控制台stdin句柄、固定WinGet参数、实际退出码/取消/失败/假成功、核心与配置独立；五种媒体尺寸和缩放/切集保持；uosc真实布局/播放模式/stats；自然连播/字幕发现；真实播放快捷键/字体/仅位置续播；安装取消、健康组件不重装、过期预览、手改与续播完整删除、核心卸载失败仍清理及日志保留。更新mock不执行安装；官方updater实际下载/验签失败路径由Rust回环测试覆盖。
+
+### 发现与修正
+
+- Windows测试导入Linux包参数合约时，check/launch成为未使用函数；以target_os限定仅Linux实际调用的函数和Outcome导入，不忽略整个模块或丢失参数合约。
+- 配置预览同时显示Before文本与Before折叠按钮。旧getByText严格匹配失败，改为定位具名region中的pre。GUI重开后高级区恢复折叠，重置前显式展开；完整配置用例复验通过。
+- 离线布局对隐藏的高级设置行计算右边缘，零宽边界导致误报。改为只比较可见行并要求至少存在一行；全部布局矩阵通过，没有为通过测试修改产品CSS。
+- 新增Windows单实例/首启尺寸/默认系统偏好/helper分派用例，以及原生窗口探针的minimized字段；最终交付EXE复验通过。
+
+### 本机产物和证据
+
+隔离入口 `.local/beta1-windows/app/run.cmd`，脚本将全部运行数据限制到旁边session/，复制的MPV、固定增强资产随目录提供。EXE大小25,256,448字节，SHA-256 `5fd253a46f9d126aa33bbc51935c1bb2ea252bf580a9721d4f39fe3aa0924e12`。版本0.2.0-beta.1，基于ecd534d及本轮平台条件编译修正；debug no-bundle，无Vite依赖。真实WinGet缺失时明确失败，不退回宿主包管理器；应用更新安装受测试模式阻止。单程序及增强部署许可材料保留，不是正式NSIS分发。
+
+最终交付目录EXE/自带资产的证据：
+
+- `.local/e2e-artifacts/mpvkit-beta1-instance-x7O5r5/result.json`：首启内容560×760、dpr2、偏好system/system、192 DPI、Mica属性backdrop2/HRESULT0；六次重复启动退出0，最小化后同句柄恢复且foreground=true，两个helper独立返回1，退出后可重开。
+- `.local/e2e-artifacts/mpvkit-beta1-ui-fahG3U/`：两页浅深WebView内容截图；透明区不包含DWM背景/标题栏，不能作为完整原生视觉通过。
+- `.local/e2e-artifacts/mpvkit-v016-zbrPtG/`：完整配置用例定向复验、result.json、配置diff及播放日志。
+- `.local/e2e-artifacts/mpvkit-updates-7f8IJD/`、`mpvkit-v018-window-ol80gF/`、`mpvkit-v018-vw9lMC/`、`mpvkit-v018-autoplay-vesFkU/`：首轮通过的更新UI、窗口、uosc和连播/字幕记录；媒体及临时配置仍在日志所示私有临时根。
+
+本轮原生屏幕截图探针未能始终取得前台，失败日志保留；没有把非本程序前台或透明WebView截图算作系统装饰视觉验收。实际标题栏、Mica观感、阴影、物理键盘和跨屏DPI交由用户；原生最小尺寸尚未以物理拖动验收。真实WinGet问答/UAC、NSIS跨版本升级重启、原生辅助技术、系统高对比/动画开关映射与磁盘满仍未实测。Rust中的无效存储/锁冲突不等于真实磁盘满通过。用户步骤见[交接](plan.md#交给用户的实际交互验收)。Linux原有未测边界继续保留。

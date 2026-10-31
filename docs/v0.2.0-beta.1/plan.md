@@ -2,9 +2,11 @@
 
 更新：2026-10-31。
 
+Windows 续验：已核对远程 dev `ecd534d`，完成本版 Windows 自动化构建、隔离原生及布局验证；结果和交互验收安排见[Windows 自动化续验](#windows-自动化续验2026-10-31)及 [evidence](evidence.md#windows-自动化续验2026-10-31)。下文“待 Windows 测试”为此前 Linux 交接时状态。真实 WinGet 问答、系统交互及 NSIS 跨版本重启交由用户验收。用户随后明确授权清理、推送 dev、合并 main、将 dev 同步到 main 并发布 beta.1；本轮按此最新授权执行，未测项如实保留。
+
 用户已明确收敛为**默认配置页 + 设置页**的窄窗程序，设置入口位于右上角；MPV 核心管理放入设置，增强与配置合为一套安装内容。本文按用户最新决定重写，覆盖此前三页导航、独立增强安装及核心与配置不能组合操作的建议。现有 WinUI 3 / Mantine 切页动效保持。
 
-公开版仍为 **0.2.0-alpha.5**，工作区开发版本已改为 **0.2.0-beta.1**。用户已同意本方案，明确授权**开始实现、自行测试并构建可运行测试版**；本轮实现和本机可行验收已完成，已构建隔离测试版。用户最新明确授权**提交并推送 dev，暂不合并，更新交接待 Windows 测试**。本轮不合并 main、不建 tag、不发布，不继承 alpha.5 的发布授权。
+公开版仍为 **0.2.0-alpha.5**，工作区开发版本已改为 **0.2.0-beta.1**。用户已同意本方案，明确授权**开始实现、自行测试并构建可运行测试版**；本轮实现和本机可行验收已完成，已构建隔离测试版。此前仅提交 dev 的限制已被本轮明确的合并/发布授权覆盖；beta.1 保持 Pre-release、latest=false，沿用正式签名和公开发布流程。
 
 ## 1. 窗口和两页结构
 
@@ -195,44 +197,34 @@ ELF SHA-256：`1cbb0e97527e29ccf5bb0ccd581323c7a703e61fee8eb874fd03a8162c794eb3`
 
 ## Windows 测试交接
 
-交接日期：2026-10-31。来源为 dev 本次 beta.1 实现提交；接手先记录 `git rev-parse HEAD`，不要用 alpha.5 或本机 Linux ELF 代替本版 Windows 产物。所有 Linux 证据见 [evidence](evidence.md)，本机 `.local/beta1-test/`、工具链和资产不会随 Git 推送。
+Windows 自动化已完成，命令与固定工具见[测试入口](../testing.md#windows-原生回归)，结果、测试版和用户交互项目见下节及[evidence](evidence.md#windows-自动化续验2026-10-31)。删除重复的旧接手命令及已失效待测清单，保留原始验证证据。
 
-当前工作流 `Checks` 仅在面向 main 的 PR / merge queue 运行，单独推送 dev 不触发双端 CI。此次只推 dev，Windows 本地编译/原生验证均仍为待测；不把推送成功当作 CI 或 Windows 通过。未创建或合并 PR，不触发 main 的 Release 工作流。
+## Windows 自动化续验（2026-10-31）
 
-### 接手准备和命令
+用户要求对齐远程最新源码，完成 Windows 首个 beta 的脚本自动化验证，需要实际交互的测试交给用户，必要时构建测试版。`git fetch origin` 后本地 dev 与 origin/dev 均为 `ecd534ddcb527a59fe10a93989f66c231c3e5421`，初始工作区干净；本轮在其上保留 Windows 验证修正。公开版仍为 alpha.5。
 
-在 Windows x64 的干净工作区同步 dev；已有未提交改动时先保留，不覆盖。固定 Node 24.19.0、pnpm 11.25.0、Rust 1.98.1、MSVC 和 WebView2。按 [测试入口](../testing.md#windows-原生回归)准备已校验的 MPV 包目录、增强资产和固定 ffmpeg，缺少夹具时记录缺项，不能让普通测试退回真实 WinGet。
+已完成 Windows TypeScript/Vite、前端与发布契约、Rust fmt/test/clippy、依赖声明及 Tauri debug no-bundle 构建。Rust 为 **51 通过、5 忽略**。原生首次 8/9 通过；配置用例因旧选择器匹配两个 Before 文本而失败，继续复验又发现重开后需要展开高级选项才能点击重置。两处调用方已修正，配置用例完整复验通过。新增单实例检查通过：六次重复启动退出0、最小化后原窗口恢复并获得前台、两个 helper 在活动 GUI 外独立拒绝无效参数、退出后可重开。现有9个原生用例与新增1个用例由全套及定向复验共同覆盖，不将失败首轮写成全套一次通过。
 
-```powershell
-git fetch origin
-git switch dev
-git pull --ff-only origin dev
-git rev-parse HEAD
-pnpm install --frozen-lockfile
-pnpm tauri build --debug --no-bundle
-pnpm test:frontend
-node --test scripts/release.test.mjs
-cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
-cargo test --manifest-path src-tauri/Cargo.toml --locked
-cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
-node scripts/collect-app-notices.mjs --check
-```
+Edge 离线矩阵发现测试把折叠隐藏行计入对齐计算；已只检查可见行，完整双语/深浅色、480/560/720、200%文字、高对比及动效矩阵复验通过。产品布局未改。Windows 编译测试带入 Linux 合约模块的两个未使用函数已用平台条件编译收窄，保留合约覆盖，clippy all-targets / -D warnings 通过。
 
-构建输出 `src-tauri/target/debug/mpvkit.exe`。为当前 PowerShell 会话指定 `MPVKIT_TEST_ASSETS`、`MPVKIT_CORE_SOURCE`、`MPVKIT_FFMPEG` 的本机已校验绝对路径；需要选择其他当前构建时再指定 `MPVKIT_TEST_EXECUTABLE`。随后先运行 `pnpm test:e2e:smoke`，再运行 `pnpm test:e2e`。脚本自行创建新隔离根，图形套件串行执行。
+Windows 实测首启内容 **560×760**、devicePixelRatio=2、原生 **192 DPI**，偏好初值 language/system、theme/system；WebView2 **156.0.4314.50**，Windows x64 build **26200**。DWM backdrop=2、HRESULT=0，说明系统已接受 Mica 属性；不能代替真实多屏或材质观感验收。原生屏幕截图探针在本轮被前台焦点限制，未计视觉通过；最终两页截图为 WebView 内容截图，透明区域不包含 DWM 背景和系统标题栏，实际视觉交给用户验收。
 
-交接时已将 Windows 更新测试的旧样式选择器替换为语义按钮/共享设置行，管理器布局矩阵同步为480/560/720；WinGet fixture 编译改用 PATH 中固定工具链的 rustc 并创建输出目录，不再依赖旧电脑用户名路径。仅在 Linux 上做 Node 语法和调用方检查，Windows 编译与实际运行仍未完成。
+### Windows 隔离测试版
 
-### 待验重点
+入口 `.local/beta1-windows/app/run.cmd`，EXE 为同目录 `mpvkit.exe`，SHA-256 `5fd253a46f9d126aa33bbc51935c1bb2ea252bf580a9721d4f39fe3aa0924e12`。这是 debug 单程序测试版，不是 NSIS 安装包。无需 Vite，自带固定增强资产与已验证 MPV 副本，语言/主题默认跟随系统；配置、偏好、日志及 WebView 数据仅位于同目录 `session/`。通过 **run.cmd** 启动隔离模式，不直接双击 EXE 代替隔离入口。目录没有 WinGet fixture，核心操作报告 WinGet 不可用，不会退回真实 WinGet；真实应用更新安装也被阻止。
 
-| 项目 | 本版 Windows 需要确认 |
-| --- | --- |
-| 两页及窗口 | 默认配置页、560×760/最小480×600；系统语言/主题、DWM 标题栏/Mica、双语及200%文字；主页与设置页控件右边缘一致，长按钮换行后可达；记录真实DPI，不能用浏览器viewport代替原生尺寸 |
-| 单实例与 helper | 重复启动仅唤回原窗口，最小化后可恢复，退出后可重开；`--save-playback` 和 `--core-command` 不被GUI单实例吞掉 |
-| 原生核心交互 | 固定 shinchiro.mpv / winget 源；控制台 stdin 真正可交互，不自动接受协议/确认；等待真实退出码；取消、失败、假成功与最终状态分别报告，输出有界；先用fixture，真实WinGet只在独立VM执行 |
-| 统一安装/卸载 | 缺核心一次应用确认且核心失败不写配置；保存不重装健康组件；完整删除含手改/未知文件/续播；核心卸载失败仍清理配置，部分结果和重试只处理失败阶段；覆盖NTFS重解析点、路径身份变化、文件占用及锁 |
-| 本地日志 | 打开目录、错误码和阶段、8KiB/1MiB/4MiB/7天边界、隐私字段不落盘、权限/磁盘错误降级；删除配置后日志保留 |
-| 应用更新 | mock套件的任务状态不等于实际安装；在独立VM用真实NSIS跨版本更新确认自动重启至新版本、只保留一个窗口、失败/取消不重启，草稿和活动任务阻断更新 |
+自动化已实际使用上述最终 EXE 和自带资产复验单实例、两页及完整安装/卸载。日志位于 `.local/beta1-windows/`，JSON/截图位于 `.local/e2e-artifacts/`，具体目录见 evidence。本轮未操作真实 MPV 配置、默认播放器、注册表登记或系统软件包。
 
-真实安装/卸载、NSIS升级及完整配置删除仅使用新隔离测试环境或VM；不操作开发者真实配置、默认播放器或注册表。Linux Polkit/Pacman 交互、正式包 Wayland 图标、多屏DPI等原有未测项继续保留。
+### 交给用户的实际交互验收
 
-将 Windows 结果补回本节和 evidence：至少包括源码SHA、工具/系统版本、实际运行命令、通过/失败/跳过范围、日志/截图位置及问题的复现步骤。发现失败先修复对应调用方并复验；本轮暂不合并，测试完成也不自动触发合并或发布。
+1. 在隔离测试版查看两页、浅深主题、系统标题栏和阴影、最小尺寸、键盘焦点、真实 DPI/跨屏拖动；点击日志文件夹和 GitHub 链接确认系统接管行为。浏览器200%文字和原生192 DPI的通过不等于多屏DPI或辅助技术通过。
+2. **仅在可丢弃 Windows VM**，以普通模式运行本版程序，测试真实 WinGet 安装/更新/卸载：手动回答协议/确认、取消/UAC/失败，核对等待真实结果、一次应用确认、缺核心失败不写配置，以及可选核心卸载失败仍继续已确认配置删除。开发主机不执行这些写操作；夹具/阻断结果不证明真实包管理器问答通过。
+3. **在独立 VM、有可验签后继 NSIS 候选时**，从旧版进行真实应用更新，确认成功自动重启为新版本且只有一个窗口，失败/取消不重启，草稿/活动任务阻断安装。本轮未生成或发布签名 NSIS 候选，当前测试 EXE 不用于此项验收。
+
+磁盘满、原生辅助技术与真实系统高对比/动画开关映射仍未实测；日志配额/轮转/保留期/锁冲突/无效存储和配置占用/重解析点等已有自动化通过。Linux 原有 Polkit/Pacman、正式包 Wayland 图标、多屏边界继续保留。下一步等待用户交互反馈，不自动合并或发布。
+
+## 清理与发布（2026-10-31）
+
+用户明确授权清理无用文件，提交/推送 dev、PR 合并 main、将 dev 快进到 main，并发布本版。删除旧 v0.1.5 预览跳转文档，历史计划直接指向维护中的预览与本版证据；合并重复 Windows 交接，更新 README 为 beta.1 两页及原生核心/完整卸载流程。清理本轮三个一次性布局诊断脚本，保留固定工具、来源/许可、测试日志和可运行测试版。
+
+发布使用现有 Checks/Release 工作流，双端检查通过后合并；正式签名仅由 CI Secrets 使用，beta.1 自创建起公开并标为 Pre-release、latest=false。实际 PR、源码 SHA、工作流与匿名 manifest/资产核验结果完成后补入 evidence，不将计划写成发布成功。

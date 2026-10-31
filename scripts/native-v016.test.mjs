@@ -621,7 +621,7 @@ test("native v016 install, manual configuration, native profiles and unified sav
   await p.getByLabel('Quality',{exact:true}).selectOption('power-saving');
   assert.equal(await p.getByLabel('Replace manual edits to managed settings',{exact:true}).count(),0);await p.getByRole('button',{name:/^Save configuration$/,exact:true}).click();
   await p.getByRole('dialog').getByRole('button',{name:'Before',exact:true}).click();
-  await p.getByRole('dialog').getByText('Before',{exact:true}).waitFor();await p.screenshot({animations:"disabled",path:path.join(artifacts,'configuration-diff.png')});
+  await p.getByRole('dialog').getByRole('region',{name:'Before',exact:true}).locator('pre').waitFor();await p.screenshot({animations:"disabled",path:path.join(artifacts,'configuration-diff.png')});
   await p.getByRole('dialog').getByRole('button',{name:'Cancel',exact:true}).click();assert((await fs.readFile(confPath,'utf8')).includes('target-trc=pq'));
   const approved=await ipc(p,'preview_settings',{settings,replaceManual:true});await ipc(p,'apply_deployment',{previewId:approved.id});
   // Real system core: read the isolated native MPV_HOME without --config-dir.
@@ -655,7 +655,7 @@ test("native v016 install, manual configuration, native profiles and unified sav
   await assert.rejects(ipc(q,'preview_maintenance',{action:'restore'}));
   assert.equal((await ipc(q,'read_settings')).profile,'balanced');
   await q.evaluate(()=>window.dispatchEvent(new Event('focus')));await settled(q);
-  await q.getByRole('button',{name:'Reset configuration',exact:true}).click();
+  await advanced(q);await q.getByRole('button',{name:'Reset configuration',exact:true}).click();
   await q.getByRole('dialog').getByText(/without backup/).waitFor();
   assert.match(await q.getByRole('dialog').innerText(),/without backup/);
   await confirm(q);await settled(q);await q.getByRole('dialog').waitFor({state:'hidden'});
@@ -667,8 +667,34 @@ test("native v016 install, manual configuration, native profiles and unified sav
 });
 
 
+test("native single instance restores its window and dispatches helpers before GUI",{timeout:90000},async()=>{
+ const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-beta1-instance-')),root=path.join(sandbox,'data');let session;
+ const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
+ const env={...process.env,MPVKIT_TEST_MODE:'1',MPVKIT_TEST_ROOT:root};
+ const probe=(...args)=>JSON.parse(run('powershell.exe',['-NoProfile','-NonInteractive','-ExecutionPolicy','Bypass','-File',path.join(repository,'scripts/test-window.ps1'),'-ProcessId',String(session.app.pid),'-ExpectedExecutable',executable,...args]));
+ try {
+  session=await startApp(sandbox,root);const p=session.page;
+  const initial=await p.evaluate(()=>({width:innerWidth,height:innerHeight,dpr:devicePixelRatio}));
+  assert.deepEqual({width:initial.width,height:initial.height},{width:560,height:760});
+  const preferences=await ipc(p,'read_app_settings');assert.equal(preferences.language,'system');assert.equal(preferences.theme,'system');
+  const before=probe('-Minimize');assert(before.minimized);
+  for(let i=0;i<6;i++)run(executable,[],{env});
+  await sleep(400);const after=probe();assert(!after.minimized);assert.equal(after.handle,before.handle);
+  for(const helper of ['--save-playback','--core-command']) {
+   const result=spawnSync(executable,[helper],{env,windowsHide:true,timeout:10000});
+   assert.ifError(result.error);assert.equal(result.status,1,helper+' must reject invalid arguments independently of the active GUI');
+  }
+  assert.equal(session.app.exitCode,null);assert((await ipc(p,'setup_status')).root);
+  await session.stop();session=null;
+  session=await startApp(sandbox,root);assert.equal(session.app.exitCode,null);
+  const environment=await ipc(session.page,'desktop_environment');
+  await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({passed:true,initial,preferences,environment,webview:await session.browser.version(),before,after,repeatedStarts:6,reopened:true},null,2));
+ }finally{await session?.stop();console.log('Single-instance evidence: '+artifacts);}
+});
+
 test("native two pages, language, theme, logs and GitHub attribution",{timeout:90000},async()=>{
  const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-beta1-ui-')),global=path.join(sandbox,'data');let session;
+ const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
  try {
   session=await startApp(sandbox,global);const p=session.page;await english(p);
   assert.equal(await p.locator('.sidebar').count(),0);
@@ -681,13 +707,16 @@ test("native two pages, language, theme, logs and GitHub attribution",{timeout:9
   assert.equal(await ipc(p,'logs_available'),true);
   for(const theme of ['light','dark']) {
    await p.getByLabel('Appearance mode',{exact:true}).selectOption(theme);await settled(p);
+   await p.waitForFunction(()=>!document.querySelector('select[aria-label="Appearance mode"]')?.disabled);
    assert.equal(await p.locator('html').getAttribute('data-mantine-color-scheme'),theme);
+   await p.screenshot({animations:'disabled',path:path.join(artifacts,`settings-${theme}.png`)});
+   await configuration(p);await p.screenshot({animations:'disabled',path:path.join(artifacts,`configuration-${theme}.png`)});await settings(p);
   }
   await configuration(p);assert.equal(await p.getByLabel('Quality',{exact:true}).inputValue(),'high-quality');
   await p.emulateMedia({reducedMotion:'reduce'});await settings(p);
   assert.equal(await p.locator('.page-content').evaluate(e=>getComputedStyle(e).transitionDuration),'0s');
   assert.deepEqual(session.errors,[]);
- } finally {await session?.stop();}
+ } finally {await session?.stop();console.log('Two-page evidence: '+artifacts);}
 });
 
 test("native v016 real playback: keys, menu, position-only resume and font", {timeout:600000}, async()=>{

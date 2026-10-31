@@ -1,6 +1,6 @@
 # 本地开发与测试入口
 
-当前源码 v0.2.0-beta.1，2026-10-31。用户已授权本地实现、测试、可运行测试版及提交/推送 dev；暂不合并，待 Windows 测试，不发布。先读 [AGENTS](../AGENTS.md)、[beta.1 交接](v0.2.0-beta.1/plan.md) 与 [目录边界](current.md#当前目录)。当前 CachyOS KDE Wayland，Windows 原生测试不能用历史结果代替。
+当前源码 v0.2.0-beta.1，2026-10-31。用户已授权本地实现、测试、可运行测试版及提交/推送 dev；Windows 自动化已完成，待用户交互验收，已获本轮合并及发布授权，结果见本版交接。先读 [AGENTS](../AGENTS.md)、[beta.1 交接](v0.2.0-beta.1/plan.md) 与 [目录边界](current.md#当前目录)。本版 Linux 与 Windows 结果分别记录在交接，不用历史版本结果代替。
 
 ## 工具与最小检查
 
@@ -80,6 +80,8 @@ Linux 图标历史取证见 [v0.1.8 证据](v0.1.8/manager-icon-evidence.json)�
 ## Windows 原生回归
 
 在 Windows x64 上构建单 EXE，运行 `pnpm test:e2e`；快速两页检查为 `pnpm test:e2e:smoke`。脚本虽名 native-v016.test.mjs，仍是当前持续维护的原生套件，不是废弃文件。
+
+beta.1 已在 Windows x64 上执行构建及隔离回归，包含原生560×760首启、192 DPI、单实例唤回、helper分派及固定MPV播放。命令、首轮失败和定向复验见[Windows证据](v0.2.0-beta.1/evidence.md#windows-自动化续验2026-10-31)。当前本机隔离测试入口 `.local/beta1-windows/app/run.cmd` 不执行真实WinGet或NSIS安装；不能用它替代VM中的包管理器问答和真实更新重启。
 
 完整套件须显式提供 MPVKIT_TEST_ASSETS、MPVKIT_CORE_SOURCE（已经核验并提取的 WinGet MPV 包目录）与 MPVKIT_FFMPEG（固定摘要的研究用生成器）；可用 MPVKIT_TEST_EXECUTABLE 选择当前 EXE。脚本创建私有临时根，以本地 Rust fixture 模拟 WinGet，绝不执行真实安装器。缺少这些资源应记录未测，不能替换为任意系统工具绕过校验。来源、包版本/实际提交差异及边界见 [WinGet 证据](v0.1.8/evidence.md#winget-核心与控制台2026-10-26当前批)。
 
