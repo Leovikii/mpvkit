@@ -113,23 +113,9 @@ fn arch_wayland_install_playback_and_uninstall() {
     );
     assert!(initial.player_ready && !initial.components_ready && initial.generation.is_none());
     assert!(initial.player_installed);
-    println!(
-        "system MPV update available: {}",
-        platform::core::check_update().unwrap()
-    );
-    assert!(platform::core::prepare("install").is_err());
-    for action in ["upgrade", "uninstall"] {
-        let plan = match platform::core::prepare(action) {
-            Ok(plan) => plan,
-            Err(error) => {
-                assert_eq!(error.code, "package_failed");
-                continue;
-            }
-        };
-        assert_eq!(plan.preview.package, "mpv");
-        assert_eq!(plan.preview.config_directory, root);
+    for action in ["install", "upgrade", "uninstall"] {
         assert_eq!(
-            platform::core::execute(plan).err().unwrap().code,
+            platform::core::launch(action).unwrap_err().code,
             "package_failed"
         );
     }

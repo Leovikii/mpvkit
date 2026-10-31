@@ -160,6 +160,7 @@ pub struct Change {
     pub backup: Option<String>,
 }
 
+#[derive(Clone)]
 pub struct Payload {
     pub path: String,
     pub bytes: Vec<u8>,
@@ -572,7 +573,7 @@ pub fn prepare_uninstall(root: &Path) -> Result<DeploymentPlan> {
     Ok(plan)
 }
 
-fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
+pub(crate) fn write_new(path: &Path, bytes: &[u8]) -> Result<()> {
     platform::validate_local_path(path)?;
     let parent = path
         .parent()
@@ -637,6 +638,7 @@ impl Drop for TargetLock {
 }
 
 pub(crate) fn acquire(root: &Path) -> Result<TargetLock> {
+    let lock = lock_target(root)?;
     check_owner(root)?;
     fs::create_dir_all(root).map_err(|_| error("write_failed", "无法创建安装目标。"))?;
     let directory = root.join(CONTROL);
@@ -654,14 +656,31 @@ pub(crate) fn acquire(root: &Path) -> Result<TargetLock> {
         Err(e) if e.kind() == std::io::ErrorKind::AlreadyExists => check_owner(root)?,
         Err(_) => return Err(error("write_failed", "无法创建操作目录。")),
     }
-    let lock_path = control(root, "operation.lock")?;
-    let file = OpenOptions::new()
-        .read(true)
-        .write(true)
-        .create(true)
-        .truncate(false)
+    Ok(lock)
+}
+
+// The lock survives complete removal of the target and is shared with playback helpers.
+pub(crate) fn lock_target(root: &Path) -> Result<TargetLock> {
+    platform::validate_local_path(root)?;
+    let parent = root
+        .parent()
+        .ok_or_else(|| error("unsafe_target_root", "目标目录无效。"))?;
+    fs::create_dir_all(parent).map_err(|_| error("write_failed", "无法创建操作锁目录。"))?;
+    let key = root.to_string_lossy();
+    #[cfg(target_os = "windows")]
+    let key = key.to_lowercase();
+    let lock_path = parent.join(format!(".mpvkit-{}.lock", hash_bytes(key.as_bytes())));
+    platform::validate_local_path(&lock_path)?;
+    let mut options = OpenOptions::new();
+    options.read(true).write(true).create(true).truncate(false);
+    #[cfg(target_os = "linux")]
+    {
+        use std::os::unix::fs::OpenOptionsExt;
+        options.mode(0o600).custom_flags(libc::O_NOFOLLOW);
+    }
+    let file = options
         .open(lock_path)
-        .map_err(|_| error("target_locked", "无法打开安装目标的操作锁。"))?;
+        .map_err(|_| error("target_lock_io", "无法打开安装目标的操作锁。"))?;
     file.try_lock()
         .map_err(|_| error("target_locked", "另一个进程正在操作此安装目标。"))?;
     Ok(TargetLock(file))
@@ -757,6 +776,7 @@ impl DeploymentPlan {
     pub(crate) fn validate(&self) -> Result<()> {
         validate_plan(self)
     }
+    #[cfg(test)]
     pub(crate) fn for_uninstall(mut self) -> Self {
         self.journal.new_manifest = None;
         self.preview.no_changes = self.journal.old_manifest.is_none();

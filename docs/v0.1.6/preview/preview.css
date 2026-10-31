@@ -1,8 +1,8 @@
-/* Only the preview toolbar is separate; all product UI and styles are reused. */
-.preview-tools { position:fixed; z-index:250; top:0; inset-inline:0; height:44px; padding:0 12px; background:var(--mantine-color-body); border-bottom:1px solid var(--mantine-color-default-border); }
-.preview-tools .mantine-NativeSelect-root { width:13rem; margin-inline-start:auto; }
-.app-shell { margin-top:44px; min-height:calc(100dvh - 44px); }
-.app-shell .mantine-AppShell-header { top:44px; }
-.app-shell .mantine-AppShell-navbar { top:calc(44px + var(--app-shell-header-height)); height:calc(100dvh - 44px - var(--app-shell-header-height)); }
-.app-shell .page-surface { height:calc(100dvh - 44px - var(--app-shell-header-height) - 8px); }
-@media (max-width:700px) { .preview-tools .mantine-Text-root { max-width:10rem; } }
+/* Only the scenario toolbar is separate; product UI and styles are reused. */
+.preview-tools { position:fixed; z-index:250; top:0; inset-inline:0; height:56px; box-sizing:border-box; padding:4px 12px; flex-wrap:nowrap; background:var(--mantine-color-body); border-bottom:1px solid var(--mantine-color-default-border); }
+.preview-tools .mantine-NativeSelect-root { width:208px; max-width:55%; flex-shrink:0; font-size:12px; margin-inline-start:auto; }
+.app-shell { padding-top:56px; min-height:100dvh; }
+.app-shell .page-surface { height:calc(100dvh - 56px); }
+.preview-tools .mantine-Text-root { min-width:0; font-size:12px !important; }
+
+.preview-tools .mantine-NativeSelect-input { font-size:12px !important; height:32px; min-height:32px; }

@@ -8,14 +8,14 @@ use tauri::State;
 enum PendingOperation {
     Deployment(Box<crate::setup::ChangePlan>),
     Recovery(Box<crate::deploy::RecoveryPlan>),
-    Installation(Box<crate::setup::InstallationPlan>),
+    Task(Box<crate::tasks::Plan>),
 }
 
 impl PendingOperation {
     fn preview(&self) -> crate::setup::ChangePreview {
         match self {
             Self::Deployment(plan) => plan.preview(),
-            Self::Installation(plan) => plan.preview().files,
+            Self::Task(plan) => plan.preview().files,
             Self::Recovery(plan) => crate::setup::ChangePreview {
                 files: plan.preview.clone(),
                 retained: vec![],
@@ -46,9 +46,6 @@ pub async fn preview_maintenance(
             .map(crate::setup::files_only)
             .map(Box::new)
             .map(PendingOperation::Deployment),
-        "uninstall" => crate::setup::prepare_uninstall(&root)
-            .map(Box::new)
-            .map(PendingOperation::Deployment),
         "recover" => crate::deploy::prepare_recovery(&root)
             .map(Box::new)
             .map(PendingOperation::Recovery),
@@ -75,9 +72,10 @@ pub async fn preview_maintenance(
 pub async fn apply_deployment(
     preview_id: String,
     on_progress: Option<tauri::ipc::JavaScriptChannelId>,
+    remove_core: Option<bool>,
     webview: tauri::Webview,
     state: State<'_, PendingDeployment>,
-) -> Result<crate::deploy::DeploymentStatus> {
+) -> Result<crate::tasks::Outcome> {
     let operation = {
         let mut pending = state.0.lock().map_err(|_| {
             AppError::new(
@@ -100,16 +98,44 @@ pub async fn apply_deployment(
     };
     let on_progress =
         on_progress.map(|id| id.channel_on::<_, crate::components::Progress>(webview));
-    tauri::async_runtime::spawn_blocking(move || match operation {
-        PendingOperation::Deployment(plan) => crate::setup::execute(*plan),
-        PendingOperation::Recovery(plan) => crate::deploy::recover(*plan),
-        PendingOperation::Installation(plan) => {
-            crate::setup::execute_installation(*plan, &mut |progress| {
-                if let Some(channel) = &on_progress {
-                    let _ = channel.send(progress);
-                }
-            })
-        }
+    tauri::async_runtime::spawn_blocking(move || {
+        let kind = match &operation {
+            PendingOperation::Deployment(_) => "save",
+            PendingOperation::Recovery(_) => "recover",
+            PendingOperation::Task(_) => "task",
+        };
+        let started = std::time::Instant::now();
+        crate::logging::record(&preview_id, kind, "apply", "started", None, None, 0);
+        let result = match operation {
+            PendingOperation::Deployment(plan) => {
+                crate::setup::execute(*plan).map(|_| crate::tasks::Outcome { stages: vec![] })
+            }
+            PendingOperation::Recovery(plan) => {
+                crate::deploy::recover(*plan).map(|_| crate::tasks::Outcome { stages: vec![] })
+            }
+            PendingOperation::Task(plan) => {
+                crate::tasks::execute(*plan, remove_core.unwrap_or(false), &mut |progress| {
+                    if let Some(channel) = &on_progress {
+                        let _ = channel.send(progress);
+                    }
+                })
+            }
+        };
+        let status = match &result {
+            Ok(outcome) if outcome.stages.iter().all(|s| s.success) => "success",
+            Ok(_) => "partial",
+            Err(_) => "failed",
+        };
+        crate::logging::record(
+            &preview_id,
+            kind,
+            "apply",
+            status,
+            result.as_ref().err().map(|e| e.code),
+            None,
+            started.elapsed().as_millis() as u64,
+        );
+        result
     })
     .await
     .map_err(|_| {
@@ -143,11 +169,11 @@ pub fn cancel_component_download(state: State<'_, ComponentJob>) -> Result<()> {
 
 #[tauri::command]
 pub async fn preview_install(
-    component: Option<String>,
+    settings: crate::config::Settings,
     on_progress: tauri::ipc::Channel<crate::components::Progress>,
     job: State<'_, ComponentJob>,
     state: State<'_, PendingDeployment>,
-) -> Result<crate::setup::InstallationPreview> {
+) -> Result<crate::tasks::Preview> {
     let root = platform::app_root()?;
     let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     {
@@ -165,7 +191,7 @@ pub async fn preview_install(
         *current = Some(cancel.clone());
     }
     let result = tauri::async_runtime::spawn_blocking(move || {
-        crate::setup::prepare_installation(&root, component.as_deref(), &cancel, &mut |progress| {
+        crate::tasks::prepare_install(&root, settings, &cancel, &mut |progress| {
             let _ = on_progress.send(progress);
         })
     })
@@ -186,7 +212,7 @@ pub async fn preview_install(
         .0
         .lock()
         .map_err(|_| AppError::new("state_unavailable", "部署状态不可用。", "components"))? =
-        Some(PendingOperation::Installation(Box::new(plan)));
+        Some(PendingOperation::Task(Box::new(plan)));
     Ok(preview)
 }
 
@@ -241,49 +267,50 @@ pub async fn preview_settings(
     Ok(preview)
 }
 
-#[derive(Default)]
-pub struct PendingExport(Mutex<Option<crate::diagnostics::ExportPlan>>);
 #[tauri::command]
-pub async fn preview_diagnostics(
-    destination: String,
-    state: State<'_, PendingExport>,
-) -> Result<crate::diagnostics::ExportPreview> {
+pub async fn preview_removal(state: State<'_, PendingDeployment>) -> Result<crate::tasks::Preview> {
     let root = platform::app_root()?;
-    let plan = tauri::async_runtime::spawn_blocking(move || {
-        crate::diagnostics::prepare(&root, std::path::Path::new(&destination))
-    })
-    .await
-    .map_err(|_| AppError::new("worker_failed", "诊断检查异常结束。", "diagnostics"))??;
+    let plan = tauri::async_runtime::spawn_blocking(move || crate::tasks::prepare_remove(&root))
+        .await
+        .map_err(|_| AppError::new("worker_failed", "无法准备卸载。", "remove"))??;
     let preview = plan.preview();
     *state
         .0
         .lock()
-        .map_err(|_| AppError::new("state_unavailable", "诊断状态不可用。", "diagnostics"))? =
-        Some(plan);
+        .map_err(|_| AppError::new("state_unavailable", "操作状态不可用。", "remove"))? =
+        Some(PendingOperation::Task(Box::new(plan)));
     Ok(preview)
 }
 #[tauri::command]
-pub async fn export_diagnostics(
-    preview_id: String,
-    state: State<'_, PendingExport>,
-) -> Result<std::path::PathBuf> {
-    let plan = {
-        let mut pending = state
-            .0
-            .lock()
-            .map_err(|_| AppError::new("state_unavailable", "诊断状态不可用。", "diagnostics"))?;
-        if pending.as_ref().is_none_or(|p| p.id != preview_id) {
-            return Err(AppError::new(
-                "stale_preview",
-                "诊断预览不匹配，请重新生成。",
-                "diagnostics",
-            ));
-        }
-        pending.take().expect("matched export")
-    };
-    tauri::async_runtime::spawn_blocking(move || crate::diagnostics::execute(plan))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "诊断导出异常结束。", "diagnostics"))?
+pub async fn preview_core(
+    action: String,
+    state: State<'_, PendingDeployment>,
+) -> Result<crate::tasks::Preview> {
+    let plan = crate::tasks::prepare_core(&platform::app_root()?, action)?;
+    let preview = plan.preview();
+    *state
+        .0
+        .lock()
+        .map_err(|_| AppError::new("state_unavailable", "操作状态不可用。", "system-mpv"))? =
+        Some(PendingOperation::Task(Box::new(plan)));
+    Ok(preview)
+}
+#[tauri::command]
+pub async fn open_logs_directory() -> Result<()> {
+    tauri::async_runtime::spawn_blocking(|| {
+        platform::desktop::open_directory(&crate::logging::directory()?)
+    })
+    .await
+    .map_err(|_| AppError::new("worker_failed", "无法打开日志目录。", "logs"))?
+}
+#[tauri::command]
+pub async fn log_problem(code: String, phase: String) {
+    let _ =
+        tauri::async_runtime::spawn_blocking(move || crate::logging::problem(&code, &phase)).await;
+}
+#[tauri::command]
+pub fn logs_available() -> bool {
+    crate::logging::available()
 }
 
 #[tauri::command]
@@ -299,9 +326,17 @@ pub fn open_app_installer() -> Result<()> {
 #[tauri::command]
 pub async fn setup_status() -> Result<crate::setup::Report> {
     let root = platform::app_root()?;
-    tauri::async_runtime::spawn_blocking(move || crate::setup::status(&root))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "无法检查安装状态。", "setup"))?
+    tauri::async_runtime::spawn_blocking(move || {
+        let result = crate::setup::status(&root);
+        if let Err(e) = &result {
+            crate::logging::problem(e.code, e.phase);
+        } else {
+            crate::logging::recovered();
+        }
+        result
+    })
+    .await
+    .map_err(|_| AppError::new("worker_failed", "无法检查安装状态。", "setup"))?
 }
 #[tauri::command]
 pub async fn read_app_settings() -> Result<crate::app_settings::AppSettings> {
@@ -338,100 +373,9 @@ pub async fn open_config_directory() -> Result<()> {
 }
 #[tauri::command]
 pub fn app_information() -> serde_json::Value {
-    serde_json::json!({"version":env!("CARGO_PKG_VERSION"),"license":"GPL-3.0-or-later","repository":"https://github.com/Leovikii/mpvkit","releaseReady":false,"platform":std::env::consts::OS})
+    serde_json::json!({"version":env!("CARGO_PKG_VERSION"),"platform":std::env::consts::OS})
 }
 #[tauri::command]
-pub fn license_text(kind: String) -> Result<&'static str> {
-    match kind.as_str() {
-        "project" => Ok(include_str!("../../COPYING.md")),
-        "license" => Ok(include_str!("../../LICENSE")),
-        "dependencies" => {
-            #[cfg(target_os = "windows")]
-            const NOTICES: &str = concat!(
-                include_str!("../../resources/app-dependency-notices.txt"),
-                "\n\nLXGW WenKai Screen v1.530 — unmodified subtitle font\n",
-                include_str!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt")
-            );
-            #[cfg(target_os = "linux")]
-            const NOTICES: &str = concat!(
-                include_str!("../../resources/app-dependency-notices-linux.txt"),
-                "\n\nLXGW WenKai Screen v1.530 — unmodified subtitle font\n",
-                include_str!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt")
-            );
-            Ok(NOTICES)
-        }
-        _ => Err(AppError::new(
-            "invalid_action",
-            "不支持此声明类型。",
-            "settings",
-        )),
-    }
-}
-
-#[tauri::command]
-pub async fn open_player_directory() -> Result<()> {
-    tauri::async_runtime::spawn_blocking(|| {
-        let player = crate::config::player_path(&platform::app_root()?)?;
-        platform::desktop::open_directory(
-            player
-                .parent()
-                .ok_or_else(|| AppError::new("invalid_path", "无法获取播放器目录。", "paths"))?,
-        )
-    })
-    .await
-    .map_err(|_| AppError::new("worker_failed", "无法打开目录。", "paths"))?
-}
-
-#[derive(Default)]
-pub struct PendingCore(Mutex<Option<platform::core::CorePlan>>);
-#[tauri::command]
-pub async fn check_core_update() -> Result<bool> {
-    tauri::async_runtime::spawn_blocking(platform::core::check_update)
-        .await
-        .map_err(|_| AppError::new("worker_failed", "检查更新异常结束，请重试。", "system-mpv"))?
-}
-#[tauri::command]
-pub async fn preview_core(
-    action: String,
-    state: State<'_, PendingCore>,
-) -> Result<platform::core::CorePreview> {
-    let plan = tauri::async_runtime::spawn_blocking(move || platform::core::prepare(&action))
-        .await
-        .map_err(|_| AppError::new("worker_failed", "核心预览异常。", "system-mpv"))??;
-    let preview = plan.preview.clone();
-    *state
-        .0
-        .lock()
-        .map_err(|_| AppError::new("state_unavailable", "核心状态不可用。", "system-mpv"))? =
-        Some(plan);
-    Ok(preview)
-}
-#[tauri::command]
-pub async fn apply_core(
-    preview_id: String,
-    state: State<'_, PendingCore>,
-) -> Result<Option<crate::mpv::MpvInfo>> {
-    let plan = {
-        let mut pending = state
-            .0
-            .lock()
-            .map_err(|_| AppError::new("state_unavailable", "核心状态不可用。", "system-mpv"))?;
-        if pending.as_ref().is_none_or(|p| p.preview.id != preview_id) {
-            return Err(AppError::new(
-                "stale_preview",
-                "没有匹配的核心预览。",
-                "system-mpv",
-            ));
-        }
-        pending.take().expect("matched core plan")
-    };
-    tauri::async_runtime::spawn_blocking(move || platform::core::execute(plan))
-        .await
-        .map_err(|_| {
-            AppError::new(
-                "worker_failed",
-                "核心任务异常，请检查系统安装状态。",
-                "system-mpv",
-            )
-        })?
+pub fn open_repository() -> Result<()> {
+    platform::open_repository()
 }

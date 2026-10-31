@@ -4,9 +4,9 @@
       {
         "label": "main",
         "title": "MpvKit",
-        "width": 1040,
+        "width": 560,
         "height": 760,
-        "minWidth": 640,
+        "minWidth": 480,
         "minHeight": 600,
         "transparent": false,
         "visible": false

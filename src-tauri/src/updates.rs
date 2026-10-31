@@ -387,9 +387,15 @@ pub async fn check_app_update(preview: bool, state: State<'_, Pending>) -> Resul
         .candidate
         .lock()
         .map_err(|_| error("state_unavailable"))? = None;
-    let (result, candidate) = tauri::async_runtime::spawn_blocking(move || inspect(preview))
-        .await
-        .map_err(|_| error("worker_failed"))??;
+    let (result, candidate) = tauri::async_runtime::spawn_blocking(move || {
+        let result = inspect(preview);
+        if let Err(e) = &result {
+            crate::logging::problem(e.code, "update-check");
+        }
+        result
+    })
+    .await
+    .map_err(|_| error("worker_failed"))??;
     let mut pending = state
         .candidate
         .lock()
@@ -537,6 +543,7 @@ pub fn discard_app_update(state: State<'_, Pending>) -> Result<()> {
 #[tauri::command]
 pub async fn install_app_update(
     id: String,
+    app: tauri::AppHandle,
     state: State<'_, Pending>,
     on_progress: tauri::ipc::Channel<Progress>,
 ) -> Result<()> {
@@ -562,14 +569,46 @@ pub async fn install_app_update(
         if hash(&bytes) != candidate.digest {
             return Err(error("stale_preview"));
         }
-        update.install(bytes).map_err(|_| error("update_install"))
+        let _ = app;
+        tauri::async_runtime::spawn_blocking(move || {
+            crate::logging::record("application", "update", "install", "started", None, None, 0);
+            let result = update
+                .restart_after_install(true)
+                .install(bytes)
+                .map_err(|_| error("update_install"));
+            if let Err(e) = &result {
+                crate::logging::problem(e.code, "update-install");
+            }
+            result
+        })
+        .await
+        .map_err(|_| error("worker_failed"))?
     }
     #[cfg(target_os = "linux")]
     {
         let plan = candidate.package.ok_or_else(|| error("stale_preview"))?;
-        tauri::async_runtime::spawn_blocking(move || platform::app_update::install(plan))
-            .await
-            .map_err(|_| error("worker_failed"))?
+        tauri::async_runtime::spawn_blocking(move || {
+            let started = std::time::Instant::now();
+            crate::logging::record("application", "update", "install", "started", None, None, 0);
+            let result = platform::app_update::install(plan);
+            crate::logging::record(
+                "application",
+                "update",
+                "install",
+                if result.is_ok() { "success" } else { "failed" },
+                result.as_ref().err().map(|e| e.code),
+                None,
+                started.elapsed().as_millis() as u64,
+            );
+            result
+        })
+        .await
+        .map_err(|_| error("worker_failed"))??;
+        // Release file locks before Tauri cleans up the single-instance service and relaunches.
+        drop(_config_lock);
+        drop(_data_lock);
+        app.request_restart();
+        Ok(())
     }
 }
 #[cfg(test)]

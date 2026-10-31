@@ -2,7 +2,9 @@
 
 A simple interface for installing, configuring and updating MPV on **Windows x64** and **Arch Linux / CachyOS x86_64 (KDE Wayland)**.
 
-Latest preview: **0.2.0-alpha.5**.
+Latest public preview: **0.2.0-alpha.5**. Local development: **0.2.0-beta.1**, with a narrow two-page interface, combined configuration installation and full configuration removal. See the [beta plan and test status](docs/v0.2.0-beta.1/plan.md).
+
+The installation instructions below describe the public alpha.5 release.
 
 ## Features
 

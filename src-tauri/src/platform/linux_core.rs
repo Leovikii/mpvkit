@@ -1,245 +1,79 @@
-//! Fixed Arch package operations. pkexec owns authentication; no shell or sudo input.
+//! Pacman owns all prompts and dependency decisions; the caller supplies a real terminal.
 use crate::{
-    deploy,
     error::{AppError, Result},
-    mpv,
+    native_core::Outcome,
 };
-use serde::Serialize;
-use std::{
-    path::PathBuf,
-    time::{Duration, Instant},
-};
-
+use std::{path::Path, process::Command};
 fn error(message: &'static str) -> AppError {
     AppError::new("package_failed", message, "system-mpv")
 }
-#[derive(Clone, Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct CorePreview {
-    pub id: String,
-    pub action: String,
-    pub package: &'static str,
-    pub source: &'static str,
-    pub executable: PathBuf,
-    pub config_directory: PathBuf,
-    pub details: String,
-}
-pub struct CorePlan {
-    pub preview: CorePreview,
-    stamp: Option<mpv::FileStamp>,
-    created: Instant,
-    transaction: String,
-}
-
-// Pacman's print transaction resolves dependencies without authorization or writes.
-fn transaction(action: &str) -> Result<String> {
-    let mut command = super::command(std::path::Path::new("/usr/bin/pacman"));
-    command.args(if action == "uninstall" {
-        vec!["-Rp"]
-    } else {
-        vec!["-Sp", "--needed"]
-    });
-    command.args(["--print-format", "%n %v %a %h", "--", "mpv"]);
-    let (status, output, errors) = mpv::capture_output(command, Duration::from_secs(15))?;
-    if !status.success() {
-        return Err(AppError::new(
-            "package_failed",
-            format!("无法准备 Pacman 事务：{}", errors.trim()),
-            "system-mpv",
-        ));
-    }
-    Ok(output)
-}
-fn stamp() -> Result<Option<mpv::FileStamp>> {
-    let path = std::path::Path::new("/usr/bin/mpv");
-    if path.exists() {
-        mpv::file_stamp(path).map(Some)
-    } else {
-        Ok(None)
+fn arguments(action: &str) -> Result<Vec<&'static str>> {
+    match action {
+        "install" | "upgrade" => Ok(vec!["-S", "--needed", "--", "mpv"]),
+        "uninstall" => Ok(vec!["-R", "--", "mpv"]),
+        _ => Err(error("不支持此核心操作。")),
     }
 }
-pub fn check_update() -> Result<bool> {
-    if stamp()?.is_none() {
-        return Err(error("MPV 核心未安装。"));
-    }
-    let mut command = super::command(std::path::Path::new("/usr/bin/pacman"));
-    command.args(["-Qu", "mpv"]);
-    let (status, output, errors) = mpv::capture_output(command, Duration::from_secs(15))?;
-    query_update(status.code(), &output, &errors)
-}
-fn query_update(code: Option<i32>, output: &str, errors: &str) -> Result<bool> {
-    if !errors.trim().is_empty() {
-        return Err(error("无法检查 MPV 更新，请检查系统包数据库后重试。"));
-    }
-    match code {
-        Some(1) if output.trim().is_empty() => Ok(false),
-        Some(0)
-            if output.lines().any(|line| {
-                let fields: Vec<_> = line.split_whitespace().collect();
-                fields.len() == 4 && fields[0] == "mpv" && fields[2] == "->"
-            }) =>
-        {
-            Ok(true)
-        }
-        _ => Err(error("无法检查 MPV 更新，请检查系统包数据库后重试。")),
-    }
-}
-pub fn prepare(action: &str) -> Result<CorePlan> {
-    if !matches!(action, "install" | "upgrade" | "uninstall") {
-        return Err(error("不支持此核心操作。"));
-    }
-    let os =
-        std::fs::read_to_string("/etc/os-release").map_err(|_| error("无法识别系统发行版。"))?;
-    if !supported_os(&os) {
-        return Err(error("当前仅支持 Arch/CachyOS 的 pacman 核心操作。"));
-    }
-    for path in ["/usr/bin/pacman", "/usr/bin/pkexec"] {
-        if !std::path::Path::new(path).is_file() {
-            return Err(error("未找到 pacman 或 pkexec，请使用系统包管理器处理。"));
-        }
-    }
-    let state = stamp()?;
-    if action == "install" && state.is_some() {
-        return Err(error("MPV 核心已安装，请检查更新。"));
-    }
-    if action == "uninstall" && state.is_none() {
-        return Err(error("MPV 核心未安装。"));
-    }
-    let transaction = transaction(action)?;
-    Ok(CorePlan {
-        preview: CorePreview {
-            id: deploy::operation_id(),
-            action: action.into(),
-            package: "mpv",
-            source: "pacman",
-            executable: "/usr/bin/mpv".into(),
-            config_directory: super::app_root()?,
-            details: format!(
-                "通过系统授权执行以下包事务（名称 / 版本 / 架构 / 摘要）。不绕过依赖检查，不移除依赖或用户配置，不刷新数据库。\n\n{transaction}"
-            ),
-        },
-        stamp: state,
-        created: Instant::now(),
-        transaction,
-    })
-}
-pub fn execute(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
-    reject_test_install()?;
-    let _lock = deploy::acquire(&super::default_root()?)?;
-    execute_locked(plan)
-}
-
-pub(crate) fn execute_locked(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
-    reject_test_install()?;
-    execute_native(plan)
-}
-
-fn reject_test_install() -> Result<()> {
-    // Debug test mode never reaches the real package manager.
+pub fn check(action: &str) -> Result<()> {
+    arguments(action)?;
     if cfg!(debug_assertions) && std::env::var_os("MPVKIT_TEST_MODE").is_some_and(|v| v == "1") {
-        return Err(error("Linux 隔离模式禁止调用真实包管理器。"));
+        return Err(error("隔离模式禁止调用真实包管理器。"));
+    }
+    let os = std::fs::read_to_string("/etc/os-release").map_err(|_| error("无法识别系统。"))?;
+    if !os
+        .lines()
+        .filter_map(|s| s.split_once('='))
+        .any(|(k, v)| k == "ID" && matches!(v.trim_matches('"'), "arch" | "cachyos"))
+    {
+        return Err(error("仅支持 Arch/CachyOS。"));
+    }
+    for tool in ["/usr/bin/konsole", "/usr/bin/pkexec", "/usr/bin/pacman"] {
+        if !Path::new(tool).is_file() {
+            return Err(error("需要 Konsole、pkexec 和 Pacman。"));
+        }
     }
     Ok(())
 }
-
-fn execute_native(plan: CorePlan) -> Result<Option<mpv::MpvInfo>> {
-    if plan.created.elapsed() > Duration::from_secs(300)
-        || plan.stamp != stamp()?
-        || plan.preview.config_directory != super::app_root()?
-        || plan.transaction != transaction(&plan.preview.action)?
-    {
-        return Err(AppError::new(
-            "stale_preview",
-            "核心或配置位置已变化，请重新预览。",
-            "system-mpv",
-        ));
-    }
-    let mut command = super::command(std::path::Path::new("/usr/bin/pkexec"));
-    command.args(package_args(&plan.preview.action));
-    // Pacman owns the transaction; do not kill it on probe timeouts or output limits.
-    let log = tempfile::tempfile().map_err(|_| error("无法创建包管理器输出文件。"))?;
-    let status = command
-        .stdin(std::process::Stdio::null())
-        .stdout(
-            log.try_clone()
-                .map_err(|_| error("无法读取包管理器输出文件。"))?,
-        )
-        .stderr(log)
-        .status()
-        .map_err(|_| error("无法启动系统授权或 Pacman。"))?;
-    if !status.success() {
-        return Err(error(
-            "包管理器操作未完成；可能取消授权或存在依赖/网络冲突，请检查系统状态。",
-        ));
-    }
-    if plan.preview.action == "uninstall" {
-        if stamp()?.is_some() {
-            return Err(error("包管理器已结束，但 MPV 核心仍存在。"));
-        }
-        return Ok(None);
-    }
-    let info = mpv::inspect(std::path::Path::new("/usr/bin/mpv"))?;
-    mpv::ensure_managed_options(std::path::Path::new("/usr/bin/mpv"))?;
-    Ok(Some(info))
+pub fn terminal(executable: &Path, action: &str, id: &str) -> Command {
+    let mut command = Command::new("/usr/bin/konsole");
+    command
+        .args(["--separate", "--nofork", "-e"])
+        .arg(executable)
+        .args(["--core-command", action, id]);
+    command
 }
-
-fn supported_os(os: &str) -> bool {
-    os.lines()
-        .filter_map(|line| line.trim().split_once('='))
-        .any(|(key, value)| {
-            key == "ID" && matches!(value.trim().trim_matches('"'), "arch" | "cachyos")
-        })
-}
-fn package_args(action: &str) -> Vec<&'static str> {
-    let mut args = vec![
-        "--disable-internal-agent",
-        "/usr/bin/pacman",
-        if action == "uninstall" { "-R" } else { "-S" },
-        "--noconfirm",
-        "mpv",
-    ];
-    if action != "uninstall" {
-        args.push("--needed");
-    }
-    args
+pub fn launch(action: &str) -> Result<Outcome> {
+    check(action)?;
+    crate::native_core::wait_command(
+        Command::new("/usr/bin/pkexec")
+            .arg("/usr/bin/pacman")
+            .args(arguments(action)?),
+    )
 }
 #[cfg(test)]
 mod tests {
     use super::*;
     #[test]
-    fn distro_and_native_arguments_keep_dependency_checks() {
-        for text in ["ID=arch\n", "NAME=Other\nID=\"cachyos\"\n"] {
-            assert!(supported_os(text));
-        }
-        for text in ["ID_LIKE=arch\nID=manjaro", "ID=debian", "ID=archlinux"] {
-            assert!(!supported_os(text));
-        }
+    fn fixed_scope_retains_native_prompts() {
         assert_eq!(
-            package_args("uninstall"),
+            arguments("install").unwrap(),
+            ["-S", "--needed", "--", "mpv"]
+        );
+        assert_eq!(arguments("upgrade").unwrap(), arguments("install").unwrap());
+        assert_eq!(arguments("uninstall").unwrap(), ["-R", "--", "mpv"]);
+        assert!(arguments("uninstall --noconfirm").is_err());
+        let command = terminal(Path::new("/tmp/test app"), "install", "abc-1");
+        assert_eq!(
+            command.get_args().collect::<Vec<_>>(),
             [
-                "--disable-internal-agent",
-                "/usr/bin/pacman",
-                "-R",
-                "--noconfirm",
-                "mpv"
+                "--separate",
+                "--nofork",
+                "-e",
+                "/tmp/test app",
+                "--core-command",
+                "install",
+                "abc-1"
             ]
         );
-        assert_eq!(package_args("upgrade")[2], "-S");
-        assert_eq!(package_args("install")[2], "-S");
-        assert!(package_args("install").contains(&"--needed"));
-        assert!(package_args("upgrade").contains(&"--needed"));
-        // Compiling on Windows checks shared types and both implementations without executing pacman.
-        let _check_update: fn() -> Result<bool> = check_update;
-        let _prepare: fn(&str) -> Result<CorePlan> = prepare;
-        let _execute: fn(CorePlan) -> Result<Option<mpv::MpvInfo>> = execute;
-    }
-    #[test]
-    fn updates_require_an_actual_package_candidate() {
-        assert!(!query_update(Some(1), "", "").unwrap());
-        assert!(query_update(Some(0), "mpv 1:0.41.0-1 -> 1:0.41.0-2\n", "").unwrap());
-        assert!(query_update(Some(1), "", "error: database missing").is_err());
-        assert!(query_update(Some(0), "", "").is_err());
-        assert!(query_update(Some(2), "", "").is_err());
-        assert!(query_update(None, "", "").is_err());
     }
 }

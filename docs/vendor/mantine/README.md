@@ -13,3 +13,5 @@
 2026-10-28：补充 Loader 正文，核对固定 9.7.3 的 size/color 及 Button leftSection，用标准布局显示行内加载指示。
 
 2026-10-28：补充 [Progress 正文](core-progress.md)，核对固定 9.7.3 的 value、aria-valuenow/label 及尺寸 API。确定进度使用独立 Progress，未知阶段继续使用 Loader；原始字节与摘要见 snapshot.json。
+
+2026-10-31：补充 [Menu 正文](core-menu.md)，用于收敛 MPV 次要操作；核对固定 9.7.3 的 Target、Item、disabled、键盘导航、Esc 与回焦声明。

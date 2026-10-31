@@ -3,57 +3,15 @@ use crate::{
     platform,
 };
 use serde::Serialize;
+#[cfg(all(test, target_os = "windows"))]
+use std::fs;
 use std::{
     ffi::OsString,
-    fs,
     path::{Path, PathBuf},
     process::{Command, Stdio},
     thread,
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, Instant},
 };
-
-#[derive(Clone, Debug, PartialEq)]
-pub struct FileStamp {
-    length: u64,
-    modified: SystemTime,
-}
-
-// Package operation previews recheck this stamp before invoking the system manager.
-pub fn file_stamp(path: &Path) -> Result<FileStamp> {
-    platform::validate_local_path(path)?;
-    let metadata = fs::metadata(path)
-        .map_err(|_| AppError::new("file_unavailable", "文件不存在或无法读取。", "inspect"))?;
-    if !metadata.is_file() {
-        return Err(AppError::new(
-            "file_required",
-            "请选择文件，而不是文件夹。",
-            "inspect",
-        ));
-    }
-    Ok(FileStamp {
-        length: metadata.len(),
-        modified: metadata
-            .modified()
-            .map_err(|_| AppError::new("file_state", "无法读取文件修改时间。", "inspect"))?,
-    })
-}
-
-/// Probe the system core without taking ownership of package-manager files.
-pub fn managed_executable(
-    root: &Path,
-    manifest: &crate::deploy::InstallManifest,
-) -> Result<PathBuf> {
-    if !manifest.components.contains_key("mpv") {
-        return Err(AppError::new(
-            "not_installed",
-            "请先安装播放增强。",
-            "inspect",
-        ));
-    }
-    let player = crate::config::player_path(root)?;
-    inspect(&player)?;
-    Ok(player)
-}
 
 pub fn capture(executable: &Path, args: &[OsString], timeout: Duration) -> Result<String> {
     let mut command = platform::command(executable);

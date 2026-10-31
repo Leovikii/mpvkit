@@ -2229,7 +2229,7 @@ dependencies = [
 
 [[package]]
 name = "mpvkit"
-version = "0.2.0-alpha.5"
+version = "0.2.0-beta.1"
 dependencies = [
  "gdkwayland-sys",
  "gtk",

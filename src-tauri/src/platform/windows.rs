@@ -253,3 +253,7 @@ pub fn hdr_config(hdr: crate::config::Hdr) -> &'static str {
         }
     }
 }
+
+pub fn open_repository() -> Result<()> {
+    open_system_uri("https://github.com/Leovikii/mpvkit")
+}

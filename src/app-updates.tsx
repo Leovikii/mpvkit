@@ -66,21 +66,21 @@ export function useAppUpdates(props: {
           setCompleted(true); setPrepared(null);
         }
       });
-    } catch (cause) { setProblem(cause); setPrepared(null); }
+    } catch (cause) { setProblem(cause); setPrepared(null); void invoke("log_problem",{code:(cause as {code?:string})?.code??"update_failed",phase:preparing?"update-prepare":"update-install"}).catch(()=>{}); }
     finally { receiving = false; active.current = false; setProgress(null); }
   }
   const status = completed ? t("updateComplete") : failed ? t("updateCheckFailed") : result?.status === "noRelease" ? t("noStableRelease") : result?.status === "current" ? t("upToDate") : update ? t("newAppVersion", { version: update.version }) : "";
   const phaseText = progress?.phase === "verify" ? t("verifyingUpdate") : progress?.phase === "prepare" ? t("preparingUpdate") : progress?.phase === "install" ? t(update?.method === "pacman" ? "authorizingUpdate" : "installingUpdate") : t("downloadingUpdate");
   const date = update?.date ? new Date(update.date) : null;
   const about = <>
-    <div className="setting-row update-setting update-check-row">
-      <div><Text fw={500}>{t("appUpdate")}</Text>{status && <Text size="sm" c="dimmed" role="status" aria-live="polite" mt={4}>{status}</Text>}</div>
-      <Group className="row-control update-controls" gap={8} justify="flex-end">
+    <div className="setting-row">
+      <div><Text fw={500}>{t("appUpdate")}</Text><Text size="sm" c="dimmed">{props.version}</Text>{status && <Text size="sm" c="dimmed" role="status" aria-live="polite" mt={4}>{status}</Text>}</div>
+      <Group className="row-control" gap={8} justify="flex-end">
         <Button type="button" variant="default" disabled={!props.desktop || !props.ready || checking || running || completed || props.blocked || props.saving} onClick={() => void check()}>{t(checking ? "checkingUpdate" : "checkUpdates")}</Button>
         {update && <Button type="button" variant="default" disabled={props.blocked} onClick={() => setShown(true)}>{t("viewUpdate")}</Button>}
       </Group>
     </div>
-    <div className="setting-row update-setting">
+    <div className="setting-row">
       <div><Text component="label" htmlFor="preview-update-switch" id="preview-update-label" fw={500}>{t("previewUpdates")}</Text></div>
       <div className="row-control"><Switch id="preview-update-switch" aria-labelledby="preview-update-label" checked={props.previews} disabled={!props.desktop || props.saving || running || completed || props.blocked} onChange={event => void previews(event.currentTarget.checked)} /></div>
     </div>
@@ -93,7 +93,7 @@ export function useAppUpdates(props: {
         <Text fw={500} size="sm" mt="lg" mb={8}>{t("releaseNotes")}</Text>
         <pre className="update-notes" tabIndex={0} aria-label={t("releaseNotes")}>{update.notes || t("noReleaseNotes")}</pre>
         {props.dirty && !completed && <Alert color="orange" mt="md">{t("updateDraft")}</Alert>}
-        {!completed && update.method === "installer" && <Text size="sm" c="dimmed" mt="md">{t("updateExit")}</Text>}
+        {!completed && <Text size="sm" c="dimmed" mt="md">{t("updateExit")}</Text>}
         {prepared && !completed && <><Text fw={500} size="sm" mt="md">{t("installationPreview")}</Text><pre className="update-notes" tabIndex={0}>{prepared.changes.join("\n")}</pre></>}
         {problem != null && <Alert color={errorKey(problem) === "updateCancelled" ? "gray" : "red"} mt="md" role={errorKey(problem) === "updateCancelled" ? "status" : "alert"}>{t(errorKey(problem))}</Alert>}
         {completed && <Alert color="green" mt="md" role="status">{t("updateComplete")}</Alert>}
