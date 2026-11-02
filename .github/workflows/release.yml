@@ -96,6 +96,11 @@ jobs:
             ~/AppData/Local/pnpm/store
           key: pnpm-release-${{ runner.os }}-${{ hashFiles('pnpm-lock.yaml') }}
       - run: pnpm install --frozen-lockfile
+      - name: Warm Windows PowerShell for junction fixture
+        if: runner.os == 'Windows'
+        timeout-minutes: 1
+        shell: pwsh
+        run: powershell.exe -NoProfile -NonInteractive -Command '$PSVersionTable.PSVersion'
       - shell: bash
         run: |
           pnpm test:frontend
