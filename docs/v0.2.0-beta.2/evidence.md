@@ -66,9 +66,9 @@ uosc 定向复验揭示测试 IPC 指针与原生窗口切换后的 hover 不同
 ## 未测边界与后续入口
 
 - 当前 Windows 主机未运行 Arch/KDE Wayland 原生 beta.2；Linux 测试已同步原生 uosc 行为，须在目标桌面按 [testing](../testing.md) 的 ignored/native 与 GTK/WebKit 入口复验。前批 Wayland 窗口修复证据仍只属于 beta.1 单项修复。
-- 未执行真实 WinGet/UAC、NSIS 安装更新重启、Pacman/Polkit、软件包安装；未验证混合 DPI 多屏、物理拖动竞态、HDR 设备和读屏。夹具或 IPC 输入不等于这些真实交互。
+- 本地未执行真实 WinGet/UAC、NSIS 安装更新重启、Pacman/Polkit 或宿主软件包安装；Arch CI 隔离包验收结果见后文。未验证混合 DPI 多屏、物理拖动竞态、HDR 设备和读屏。夹具或 IPC 输入不等于这些真实交互。
 - 未实施旧版迁移/旧桥接恢复，符合用户“没有旧用户”的范围；不建设独立远程预设发布。
-- 现有固定组件来源/许可的完整分发审阅缺口与 `releaseReady=false` 保留。本批检查通过不构成发布授权或签名验收。
+- 现有固定组件来源/许可的完整分发审阅缺口与 `releaseReady=false` 保留。本地检查不替代正式签名验收；本批正式 CI 发布与签名结果见后文。
 - 本批已获发布授权，按 [CI/CD](../ci/README.md)执行；发布结果、CI 与签名核验另记于后续证据。
 
 ## 发布前最终复验（2026-11-02）
@@ -79,3 +79,21 @@ uosc 定向复验揭示测试 IPC 指针与原生窗口切换后的 hover 不同
 - Rust 默认测试 53 通过、5 忽略：release-final-rust.log；前端/发布契约 19 通过：release-final-js.log。格式、版本/tag、来源许可 gate、两端依赖材料 check 和本地文档链接/原始快照摘要检查通过。
 - 实际 uosc 定向回归 1 通过：release-final-uosc.log，证据目录 `.local/e2e-artifacts/mpvkit-v018-EqJZLt`，包含白底与菜单/播放交互；产品部署仍是上游原文。
 - 本批授权提交推送 dev、创建 PR、通过 CI 后合并发布 beta.2，再将 dev 同步到 main；Arch 构建/隔离 Pacman 载荷验收交 Actions，不视为 KDE 桌面实测。
+
+## 公开发布核验（2026-11-02）
+
+- 用户本批明确授权测试通过后推送、PR 合并发布和 dev 同步；Arch 交 Actions CI。本地一次性脚本已清理，日志、截图、媒体、工具链与构建产物均在忽略目录，本批未提交这些产物。
+- 源码提交 `fe08c92`；[PR #16](https://github.com/Leovikii/mpvkit/pull/16) 的 [Checks](https://github.com/Leovikii/mpvkit/actions/runs/41380567424) 全部成功，包括前端、Windows/Arch fmt/clippy/test，以及 Arch makepkg、Pacman 元数据和新隔离根安装/重装/卸载载荷检查。
+- 合并提交及固定标签 `v0.2.0-beta.2` 为 `5f62599bf5b822998ecd5ab30021698fda493bed`；[Release](https://github.com/Leovikii/mpvkit/actions/runs/41381291683) 双端测试、正式签名、原生包验收、资产汇总和发布成功。发布步骤使用正式公钥通过 Minisign 验证两端安装包。
+- [公开 Release](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-beta.2) 从创建起 draft=false、prerelease=true、latest=false；六项资产完整，latest.json 最后上传。匿名下载全部六项，逐一匹配 GitHub API digest、SHA256SUMS 与标准 manifest 契约；本地日志/元数据位于 `.local/beta2/public-release-verification.json`，核验时间 `2026-11-02T03:22:15.750Z`。
+
+| 资产 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| latest.json | 1749 | `c927f3437b644189de5a8f003b3f549aa50d47faa01b4e06c5b8e57256b1dcfb` |
+| mpvkit-bin-0.2.0beta2-1-x86_64.pkg.tar.zst | 6989296 | `e0619a30c78419e0e6e1435d5f1c30073e00afa51fe487e703a765719f49cefe` |
+| mpvkit-bin-0.2.0beta2-1-x86_64.pkg.tar.zst.tauri.sig | 436 | `80c24de10023044612f4b6e67239e560354e58ffcf0b245a4bde037634a696b8` |
+| MpvKit_0.2.0-beta.2_x64-setup.exe | 4134637 | `5e980f75468582910192b19b1d46e7d091c5bb1e976ff6d78b6b8b1fc7c35b46` |
+| MpvKit_0.2.0-beta.2_x64-setup.exe.sig | 452 | `96f1fe129a11e2b95192d2ce75df3410e8c6a2878a6270949aa50baeacdf7e74` |
+| SHA256SUMS | 510 | `61f40038607f88f813250e0ef4145d69d0b63b8f45e75dda065292f915f8e71f` |
+
+Arch CI 不替代 KDE Wayland/GTK WebKit 原生操作；真实 WinGet/UAC、NSIS/Pacman/Polkit 安装及跨版本重启、多屏 HDR/辅助技术仍未验收，见上述边界。beta.1 标签保持不变。
