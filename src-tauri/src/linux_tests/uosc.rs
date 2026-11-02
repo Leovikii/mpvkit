@@ -41,7 +41,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         std::thread::sleep(Duration::from_millis(60));
         get("user-data/mpvkit-test")
     };
-    let launch = |name: &str, extra: &[&str], source: &Path| {
+    let spawn_player = |name: &str, extra: &[&str], source: &Path| {
         let _ = fs::remove_file(&socket);
         let child = platform::command(Path::new("/usr/bin/mpv"))
             .env("MPV_HOME", &config)
@@ -53,6 +53,10 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
                 "--save-position-on-quit=no",
             ])
             .arg(format!("--config-dir={}", config.display()))
+            .arg(format!(
+                "--wayland-app-id=mpvkit-window-test-{}-{name}",
+                deploy::operation_id()
+            ))
             .arg(format!("--input-ipc-server={}", socket.display()))
             .arg(format!(
                 "--log-file={}",
@@ -69,8 +73,13 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
                 .as_u64()
                 .is_some_and(|n| n > 0)
         });
-        wait(|| get("user-data/mpvkit-playback-mode") == "sequential");
-        std::thread::sleep(Duration::from_millis(400));
+        wait(|| get("user-data/mpvkit")["profile"].is_string());
+        child
+    };
+    let launch = |name: &str, extra: &[&str], source: &Path| {
+        let child = spawn_player(name, extra, source);
+        // Observe the settled window, including configure replies after the first output enters.
+        std::thread::sleep(Duration::from_millis(1200));
         child
     };
     let click = |e: &serde_json::Value| {
@@ -104,6 +113,18 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     let _guard = PlaybackGuard(socket.clone());
     let mut child = launch("startup", &[], media);
     let startup_size = get("osd-dimensions");
+    for _ in 0..10 {
+        std::thread::sleep(Duration::from_millis(100));
+        let size = get("osd-dimensions");
+        assert_eq!(
+            size["w"], startup_size["w"],
+            "startup width must stay stable"
+        );
+        assert_eq!(
+            size["h"], startup_size["h"],
+            "startup height must stay stable"
+        );
+    }
     let startup_outputs = get("display-names");
     let actual_output = startup_outputs[0].as_str().unwrap().to_owned();
     let startup_log = fs::read_to_string(output.join("startup.log")).unwrap();
@@ -132,7 +153,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         std::thread::sleep(Duration::from_millis(250));
         let data = inspect();
         let controls = &data["controls"];
-        for id in ["1", "2", "3", "13", "14"] {
+        for id in ["1", "2", "3", "11", "12"] {
             assert_eq!(
                 controls[id]["enabled"], true,
                 "essential {id} at {width}: {data}"
@@ -141,7 +162,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         assert!(controls["2"]["bx"].as_f64().unwrap() < data["width"].as_f64().unwrap() / 2.0);
         assert_eq!(controls["1"]["icon"], "skip_previous");
         assert_eq!(controls["3"]["icon"], "skip_next");
-        assert_eq!(controls["8"]["kind"], "button");
+        assert_eq!(controls["8"]["kind"], "command");
         let mut visible: Vec<_> = controls
             .as_object()
             .unwrap()
@@ -190,30 +211,31 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     assert_eq!(get("pause"), true);
     click(&inspect()["controls"]["8"]);
     let data = inspect();
-    assert_eq!(data["menu"]["type"], "mpvkit-speed");
+    assert_eq!(data["menu"]["type"], "menu");
     assert_eq!(data["menu"]["items"].as_array().unwrap().len(), 6);
     request(&socket, json!(["keypress", "HOME"]));
     request(&socket, json!(["keypress", "DOWN"]));
     request(&socket, json!(["keypress", "ENTER"]));
     wait(|| get("speed") == 0.75);
-    request(&socket, json!(["set_property", "speed", 1.1]));
-    wait(|| inspect()["controls"]["8"]["text"] == "1.1×");
+    request(&socket, json!(["set_property", "speed", 1.5]));
     click(&inspect()["controls"]["8"]);
     assert_eq!(
         inspect()["menu"]["type"],
-        "mpvkit-speed",
+        "menu",
         "reopened by native click"
     );
-    request(&socket, json!(["set_property", "speed", 1.5]));
-    wait(|| {
-        inspect()["menu"]["items"][4]["hint"]
-            .as_str()
-            .is_some_and(|s| s.contains("Current"))
-    });
     request(&socket, json!(["keypress", "ESC"]));
     assert_eq!(get("pause"), true);
-    click(&inspect()["controls"]["9"]);
-    assert_eq!(inspect()["menu"]["type"], "mpvkit-playback");
+    request(
+        &socket,
+        json!([
+            "script-message-to",
+            "uosc",
+            "show-submenu",
+            "播放模式 / Playback mode"
+        ]),
+    );
+    assert_eq!(inspect()["menu"]["items"].as_array().unwrap().len(), 3);
     request(&socket, json!(["keypress", "ESC"]));
     // Fullscreen round trips and file changes must retain the chosen window size.
     let before = get("osd-dimensions");
@@ -302,6 +324,40 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         assert!(child.wait().unwrap().success());
     }
     if extended {
+        for name in ["early-geometry", "early-next-file"] {
+            child = spawn_player(name, &[], media);
+            wait(|| get("osd-dimensions")["w"].as_u64().is_some_and(|w| w > 0));
+            std::thread::sleep(Duration::from_millis(100));
+            let log = output.join(format!("{name}.log"));
+            assert!(
+                !fs::read_to_string(&log)
+                    .unwrap()
+                    .contains("Reapplied startup autofit"),
+                "intervene before the correction, not after it"
+            );
+            if name == "early-geometry" {
+                request(&socket, json!(["set_property", "geometry", "900x506"]));
+                wait(|| get("osd-dimensions")["w"] == 900);
+            } else {
+                let loaded = get("user-data")["mpvkit-test-loaded"].as_u64().unwrap();
+                request(&socket, json!(["loadfile", media, "replace"]));
+                wait(|| {
+                    get("user-data")["mpvkit-test-loaded"]
+                        .as_u64()
+                        .is_some_and(|n| n > loaded)
+                });
+            }
+            let before = get("osd-dimensions");
+            std::thread::sleep(Duration::from_millis(1200));
+            assert_eq!(get("osd-dimensions")["w"], before["w"]);
+            assert!(
+                !fs::read_to_string(log)
+                    .unwrap()
+                    .contains("Reapplied startup autofit")
+            );
+            request(&socket, json!(["quit"]));
+            assert!(child.wait().unwrap().success());
+        }
         child = launch("custom-fit", &["--autofit=60%x60%"], media);
         let custom = get("osd-dimensions");
         let custom_outputs = get("display-names");

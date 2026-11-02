@@ -46,6 +46,7 @@ pub enum Plan {
         files: Box<deploy::DeploymentPlan>,
         player: PathBuf,
         needs_core: bool,
+        reapply: bool,
     },
     Remove {
         id: String,
@@ -75,11 +76,14 @@ impl Plan {
     pub fn preview(&self) -> Preview {
         match self {
             Self::Install {
-                files, needs_core, ..
+                files,
+                needs_core,
+                reapply,
+                ..
             } => Preview {
                 files: setup::files_only_preview(files),
                 needs_core: *needs_core,
-                kind: "install",
+                kind: if *reapply { "reapply" } else { "install" },
                 core_action: needs_core.then(|| "install".into()),
             },
             Self::Remove { id, files } => {
@@ -115,11 +119,15 @@ impl Plan {
 pub fn prepare_install(
     root: &std::path::Path,
     settings: config::Settings,
+    reapply: bool,
     cancel: &AtomicBool,
     progress: &mut impl FnMut(components::Progress),
 ) -> Result<Plan> {
     settings.validate()?;
     let report = setup::status(root)?;
+    if reapply {
+        setup::require_components(root)?;
+    }
     if report.recovery_required {
         return Err(AppError::new(
             "recovery_required",
@@ -135,7 +143,7 @@ pub fn prepare_install(
         ));
     }
     let player = config::player_path(root)?;
-    let configuration = config::portable::preview(root, &settings, true)?;
+    let configuration = config::portable::preview_mode(root, &settings, true, reapply)?;
     let selected: Vec<_> = components::ASSETS
         .iter()
         .filter(|asset| {
@@ -147,8 +155,13 @@ pub fn prepare_install(
         .map(|a| a.id.into())
         .collect();
     let (mut payloads, versions) = components::selected_payloads(&selected, cancel, progress)?;
-    payloads.extend(config::portable::installation_files(root, &settings)?);
+    payloads.extend(config::portable::installation_files(
+        root, &settings, reapply,
+    )?);
     let mut files = deploy::prepare_update(root, payloads, true, versions)?;
+    if reapply || !report.configuration_installed {
+        files.mark_preset()?;
+    }
     files.preview.configuration_diffs = configuration
         .files
         .into_iter()
@@ -175,6 +188,7 @@ pub fn prepare_install(
         files: Box::new(files),
         player,
         needs_core: !report.player_ready,
+        reapply,
     })
 }
 pub fn prepare_remove(root: &std::path::Path) -> Result<Plan> {
@@ -265,6 +279,7 @@ fn execute_steps(
             mut files,
             player,
             needs_core,
+            ..
         } => {
             files.validate()?;
             if needs_core {
@@ -376,6 +391,7 @@ mod tests {
                 files: Box::new(files),
                 player: dir.path().join("missing"),
                 needs_core: true,
+                reapply: false,
             },
             false,
             &mut |_| {},

@@ -1,4 +1,4 @@
-import { Alert, Button, Group, Modal, Switch, Text } from "@mantine/core";
+import { Alert, Button, Group, Modal, ScrollArea, Switch, Text } from "@mantine/core";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { useEffect, useRef, useState } from "react";
 import { errorKey, translator } from "./i18n";
@@ -87,7 +87,7 @@ export function useAppUpdates(props: {
   </>;
   const dialog = <Modal opened={shown && (!props.blocked || running)} onClose={dismiss} title={t("appUpdate")} size={560} centered radius={8} padding={0} closeButtonProps={{ "aria-label": t("close") }} closeOnEscape={!running} closeOnClickOutside={!running} withCloseButton={!running&&!completed&&problem==null} classNames={{ content: "update-dialog-content", header: "update-dialog-header", title: "update-dialog-title", body: "update-dialog-body" }}>
     {update && <>
-      <div className="update-dialog-scroll">
+      <ScrollArea.Autosize className="update-dialog-scroll" scrollbars="y" type="auto" scrollbarSize={8} viewportProps={{tabIndex:0,role:"region","aria-label":t("appUpdate")}}><div className="update-dialog-padding">
         <Text fw={500}>{props.version} → {update.version}</Text>
         {date && !Number.isNaN(date.getTime()) && <Text size="sm" c="dimmed" mt={4}>{new Intl.DateTimeFormat(document.documentElement.lang, { dateStyle: "long" }).format(date)}</Text>}
         <Text fw={500} size="sm" mt="lg" mb={8}>{t("releaseNotes")}</Text>
@@ -97,7 +97,7 @@ export function useAppUpdates(props: {
         {prepared && !completed && <><Text fw={500} size="sm" mt="md">{t("installationPreview")}</Text><pre className="update-notes" tabIndex={0}>{prepared.changes.join("\n")}</pre></>}
         {problem != null && <Alert color={errorKey(problem) === "updateCancelled" ? "gray" : "red"} mt="md" role={errorKey(problem) === "updateCancelled" ? "status" : "alert"}>{t(errorKey(problem))}</Alert>}
         {completed && <Alert color="green" mt="md" role="status">{t("updateComplete")}</Alert>}
-      </div>
+      </div></ScrollArea.Autosize>
       <div className="task-footer">
       {checking ? <TaskProgress label={t("checkingUpdate")} percent={null} /> : progress && <TaskProgress label={phaseText} percent={progress.percent} />}
       <Group className="update-dialog-actions" justify="flex-end" gap={8}>

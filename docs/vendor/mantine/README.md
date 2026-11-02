@@ -15,3 +15,5 @@
 2026-10-28：补充 [Progress 正文](core-progress.md)，核对固定 9.7.3 的 value、aria-valuenow/label 及尺寸 API。确定进度使用独立 Progress，未知阶段继续使用 Loader；原始字节与摘要见 snapshot.json。
 
 2026-10-31：补充 [Menu 正文](core-menu.md)，用于收敛 MPV 次要操作；核对固定 9.7.3 的 Target、Item、disabled、键盘导航、Esc 与回焦声明。
+
+2026-11-02：补充 [ScrollArea 正文](core-scroll-area.md)，核对固定 9.7.3 的 scrollbars、type、scrollbarSize、viewportProps、Autosize 及公开 Styles API，用于两页和任务/更新弹窗的统一滚动区域。原文不改写，摘要见 snapshot.json。

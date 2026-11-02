@@ -16,7 +16,7 @@ mp.register_script_message('mpvkit-test-inspect', function()
         local e = control.element
         if e then controls[tostring(i)] = {enabled=e.enabled, hidden=control.hide, ax=e.ax, ay=e.ay,
             bx=e.bx, by=e.by, icon=e.icon, name=e.name, font=e.font_size, kind=control.kind,
-            visibility=e:get_visibility(), text=e.name == 'mpvkit-speed' and string.format('%g×', mp.get_property_number('speed', 1)) or nil} end
+            visibility=e:get_visibility()} end
     end
     local menu = Elements.menu
     local items = {}

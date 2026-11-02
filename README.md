@@ -4,9 +4,12 @@ A simple interface for installing, configuring and updating MPV on **Windows x64
 
 Current preview: **0.2.0-beta.1**. See the [test status and known limits](docs/v0.2.0-beta.1/plan.md).
 
+Development version: **0.2.0-beta.2** (unreleased). See the [development handoff](docs/v0.2.0-beta.2/plan.md).
+
 ## Features
 
 - Edit playback settings before installation in a narrow two-page interface.
+- See preset updates and reapply configuration manually while keeping your playback choices.
 - Install configuration and playback extras together; manage system MPV in Settings.
 - Three playback presets, HDR options, naturally sorted folder playlists, subtitle discovery and playback resume.
 - Preview configuration changes and protect manual edits when saving. Confirmed full removal deletes the entire MPV configuration folder; removing system MPV is optional.

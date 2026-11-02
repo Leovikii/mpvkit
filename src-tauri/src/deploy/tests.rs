@@ -113,6 +113,74 @@ fn stale_file_manifest_and_expired_plans_are_rejected() {
     expired.created = Instant::now() - Duration::from_secs(301);
     assert_eq!(execute(expired).unwrap_err().code, "stale_preview");
     assert_eq!(read(&other, crate::config::relative!("mpv.conf")), "three");
+    let unchanged = plan(&other, "three");
+    fs::write(other.join("mpv.conf"), "changed after unchanged preview").unwrap();
+    assert_eq!(execute(unchanged).unwrap_err().code, "stale_preview");
+}
+
+#[test]
+fn preset_revision_is_transactional_and_partial_updates_preserve_it() {
+    let sandbox = Sandbox::new();
+    let root = sandbox.root();
+    install(&root, "one");
+    let mut full = plan(&root, "one");
+    full.mark_preset().unwrap();
+    assert!(!full.preview.no_changes); // metadata-only complete application
+    assert_eq!(
+        status(&root).unwrap().manifest.unwrap().preset_revision,
+        None
+    );
+    execute(full).unwrap();
+    let revision = Some(crate::config::PRESET_REVISION);
+    assert_eq!(
+        status(&root).unwrap().manifest.unwrap().preset_revision,
+        revision
+    );
+    let mut unchanged = plan(&root, "one");
+    unchanged.mark_preset().unwrap();
+    assert!(unchanged.preview.no_changes);
+    install(&root, "two");
+    assert_eq!(
+        status(&root).unwrap().manifest.unwrap().preset_revision,
+        revision
+    );
+    let partial = prepare_update(
+        &root,
+        vec![payload("input.conf", "keys")],
+        false,
+        BTreeMap::new(),
+    )
+    .unwrap();
+    execute(partial).unwrap();
+    assert_eq!(
+        status(&root).unwrap().manifest.unwrap().preset_revision,
+        revision
+    );
+    // Simulate interruption after both files and manifest were written.
+    let mut interrupted = plan(&root, "three");
+    let mut next: InstallManifest =
+        decode(interrupted.journal.new_manifest.as_deref().unwrap()).unwrap();
+    next.preset_revision = Some(crate::config::PRESET_REVISION + 1);
+    interrupted.journal.new_manifest = Some(serde_json::to_string_pretty(&next).unwrap());
+    begin(&interrupted).unwrap();
+    for i in 0..interrupted.journal.changes.len() {
+        apply_change(&root, &interrupted.journal, i).unwrap();
+    }
+    set_content(
+        &control(&root, "install.json").unwrap(),
+        interrupted
+            .journal
+            .new_manifest
+            .as_deref()
+            .map(str::as_bytes),
+    )
+    .unwrap();
+    recover(prepare_recovery(&root).unwrap()).unwrap();
+    assert_eq!(read(&root, "mpv.conf"), "two");
+    assert_eq!(
+        status(&root).unwrap().manifest.unwrap().preset_revision,
+        revision
+    );
 }
 
 #[test]
