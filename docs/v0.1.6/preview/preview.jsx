@@ -14,7 +14,7 @@ const clone = value => structuredClone(value);
 const files = settings => sampleFiles({quality:settings.profile,...settings.playback});
 const pause = () => new Promise(resolve=>setTimeout(resolve,180));
 let preferences, settings, installed, configured, core, scenario, pending, cancelled, modified, fileTime, presetStatus;
-const counts = {prepare:0,confirm:0,writes:0,coreLaunches:0,corePreviews:0,removalPreviews:0};
+const counts = {prepare:0,downloads:0,confirm:0,writes:0,coreLaunches:0,corePreviews:0,removalPreviews:0};
 function reset(value) {
   scenario=value; presetStatus=value==='preset-update'?'outdated':value==='preset-unapplied'?'unknown':null; pending=null; cancelled=false; modified=value==='conflict';
   preferences={...defaultAppSettings,language:'zh-Hans'}; settings=clone(defaultSettings);
@@ -22,7 +22,7 @@ function reset(value) {
   installed=Object.fromEntries(assets.map(asset=>[asset.id, {version:['fresh','no-core','download-error'].includes(value)?null:asset.version,ready:!['fresh','no-core','download-error'].includes(value)&&!(value==='broken'&&asset.id==='uosc')&&!(value==='partial'&&asset.id!=='uosc')} ]));
   if(value==='update')installed.uosc.version='5.12.0';
   fileTime=configured?Date.parse('2026-10-28T10:00:00Z'):null;
-  counts.prepare=0;counts.confirm=0;counts.writes=0;counts.coreLaunches=0;counts.corePreviews=0;counts.removalPreviews=0;
+  counts.prepare=0;counts.downloads=0;counts.confirm=0;counts.writes=0;counts.coreLaunches=0;counts.corePreviews=0;counts.removalPreviews=0;
 }
 reset('fresh');
 const report = () => ({root:'/example/config/mpv',playerDirectory:linux?'/usr/bin':'C:/Program Files/MPV Player',configDirectory:'/example/config/mpv',configDirectorySource:'Example',generation:Object.values(installed).some(item=>item.version)?'example':null,components:[{id:'mpv',version:core?'mpv 0.41.0':null,ready:core,issues:[]},...assets.map(asset=>({id:asset.id,...installed[asset.id],issues:[]}))],playerReady:core,playerInstalled:core,componentsReady:core&&Object.values(installed).every(item=>item.ready),settingsReady:configured,configurationInstalled:configured,presetStatus,configurationModified:modified,configModifiedAt:fileTime,recoveryRequired:false,issues:[],rootExists:true,configDirectoryExists:true});
@@ -56,12 +56,8 @@ mockIPC(async (command,args={})=>{
   if(command==='preview_install'){
     counts.prepare++;cancelled=false;
     const selected=assets.filter(asset=>!installed[asset.id].ready||installed[asset.id].version!==asset.version).map(asset=>asset.id);
-    return stream(args.onProgress,async send=>{
-      for(const id of selected){for(const received of [0,42,100]){send({component:id,phase:'download',received,total:100});await pause();if(cancelled)throw {code:'cancelled'};}send({component:id,phase:'verify-extract',received:100,total:100});}
-      if(scenario==='download-error')throw {code:'download_failed'};
-      pending={kind:'installation',components:selected,settings:clone(args.settings)};
-      return {...deployment([...selected.map(id=>'scripts/'+id+'.lua'),'mpv.conf']),kind:args.reapply?'reapply':'install',needsCore:!core,coreAction:core?null:'install'};
-    });
+    pending={kind:'installation',components:selected,settings:clone(args.settings)};
+    return {...deployment([...selected.map(id=>'scripts/'+id+'.lua'),'mpv.conf']),kind:args.reapply?'reapply':'install',needsCore:!core,coreAction:core?null:'install'};
   }
   if(command==='cancel_component_download'){cancelled=true;return;}
   if(command==='discard_deployment'){pending=null;return;}
@@ -80,8 +76,11 @@ mockIPC(async (command,args={})=>{
         stages.push({name:'configuration',success,exitCode:null,error:success?null:{code:'remove_partial',message:'Example cleanup failure'},detected:null});
       }
       else if(operation.kind==='installation'){
+        cancelled=false;
         if(!core){send({component:'mpv',phase:'package-manager',received:0,total:0});await pause();const stage=native('install');stages.push(stage);if(!stage.success){pending=null;return {stages};}}
 
+        for(const id of operation.components){counts.downloads++;for(const received of [0,42,100]){send({component:id,phase:'download',received,total:100});await pause();if(cancelled)throw {code:'cancelled'};}send({component:id,phase:'verify-extract',received:100,total:100});}
+        if(scenario==='download-error')throw {code:'download_failed'};
         send({component:operation.components.join(', '),phase:'install-components',received:0,total:0});await pause();
         if(window.__preview.partial){window.__preview.partial=false;stages.push({name:'configuration',success:false,exitCode:null,error:{code:'write_failed',message:'Example write failure'},detected:null});pending=null;return {stages};}
         for(const id of operation.components)installed[id]={version:assets.find(asset=>asset.id===id).version,ready:true};

@@ -97,3 +97,18 @@ uosc 定向复验揭示测试 IPC 指针与原生窗口切换后的 hover 不同
 | SHA256SUMS | 510 | `61f40038607f88f813250e0ef4145d69d0b63b8f45e75dda065292f915f8e71f` |
 
 Arch CI 不替代 KDE Wayland/GTK WebKit 原生操作；真实 WinGet/UAC、NSIS/Pacman/Polkit 安装及跨版本重启、多屏 HDR/辅助技术仍未验收，见上述边界。beta.1 标签保持不变。
+
+## 发布后 dev 修正验证（2026-11-02）
+
+本批仅提交推送 dev，不合并/发布；公开 beta.2 的 CI/签名/匿名核验不作为本批通过证据。源码版本仍为 beta.2，预设修订为 2。普通测试仅使用新隔离根；日志与媒体留 .local，不提交产物。
+
+实现：安装预览移除下载，使用固定组件路径/摘要清单生成原部署计划；确认后才获取字节并在同一计划中核对填充。下载取消入口随执行阶段移动；uosc 调整右侧顺序，单音轨可见，倍速仅留更多菜单。
+
+- 前端构建/typecheck、Rust fmt、all-targets clippy 通过；Rust 默认测试 **55 通过、5 忽略**。日志为 `.local/beta2/install-flow-frontend.log`、`install-flow-clippy-final.log` 和 `install-flow-rust-final.log`。Windows 沙箱阻止原子替换时出现环境性失败，允许原生测试权限后在新隔离根复验通过。
+- 固定归档专项 **1 通过**，59 个文件、33,245,394 字节，与离线组件路径/摘要清单逐项一致：`install-flow-archives.log`。部署测试新增缺失字节、错误摘要、确认后新文件阻断，以及下载取消保留已成功核心结果的检查。
+- 前端/发布契约 **19 通过**；离线 UI 矩阵通过，覆盖预览零下载、确认后下载取消无写入、中英/明暗/窄窗/200% 文本：`install-flow-js.log`、`install-flow-preview.log`。两端依赖许可材料 check、本地文档链接/原始快照摘要和 git diff --check 通过。
+- 最终 Windows 原生 **4 通过**：`install-flow-native-final.log`。空资产目录下可先预览及取消，确认后才报告缺失资产；下载失败不部署，预览后新增文件阻断，补齐固定资产后一次确认完成。另覆盖预设提示/重新应用与统一安装/保存/完整卸载。
+- uosc 原生专项覆盖 1200/900/640 宽度、缩放、单/多音轨显示和原生菜单、无音轨隐藏、更多菜单实际进入六档倍速并选择、白底控件/菜单及播放交互；截图和布局位于 `.local/e2e-artifacts/mpvkit-v018-P1kZo6`。部署 Lua 原始摘要核对通过。中途修正了测试对菜单异步切换、完成文案和 IPC 指针输入的假设，未修改产品上游渲染或命中逻辑。
+- 正式程序曾占用单实例，故测试构建通过忽略目录中的 `install-flow-build.conf.json` 使用独立标识 `io.github.mpvkit.devtests`，不改变产品标识，也不停止正式程序。最终构建日志为 `install-flow-isolated-build-final.log`；日志、媒体、截图和构建产物不入库，一次性编辑脚本及已核对路径的遗留测试 helper 已清理。
+
+本批未运行 Arch/Linux 构建及 KDE 原生回归，不继承公开 beta.2 的 CI 结果；Linux 测试已同步布局和菜单断言，后续在对应环境运行。真实网络下载、WinGet/UAC、Polkit/Pacman、系统安装更新重启及多屏/辅助技术仍未复验。本批仅 dev 更新，不改公开标签或发布包。

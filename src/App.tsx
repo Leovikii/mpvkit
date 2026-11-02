@@ -175,11 +175,8 @@ export function App() {
     request.current = null; setConfiguration(null); retryPreview.current = () => installOnly(reapply);
     setTaskDone(false); setOutcome(null); setExecuting(false); setCompleted([]); setTaskTitle(reapply ? "reapplyConfig" : report?.generation ? "repairInstallation" : "quickInstall");
     await run(async () => {
-      setPreview({kind:"download",data:null}); setProgress({component:"",phase:"prepare",received:0,total:0});
-      let receiving = true;
-      const channel = new Channel<Progress>(); channel.onmessage = p => { if (receiving) setProgress(p); };
-      try { setPreview({kind:"install",data:await invoke<Installation>("preview_install",{settings:draft,reapply,onProgress:channel})}); }
-      finally { receiving = false; setProgress(null); }
+      setPreview({kind:"download",data:null});
+      setPreview({kind:"install",data:await invoke<Installation>("preview_install",{settings:draft,reapply})});
     });
   }
   async function uninstall(keepCoreChoice = false) {
@@ -348,7 +345,7 @@ export function App() {
         {busy&&<TaskProgress label={progress ? t(progress.phase === "download" ? "downloadingUpdate" : progress.phase === "verify-extract" ? "verifyingUpdate" : progress.phase === "package-manager" ? "waitingPackageManager" : progress.phase === "remove-configuration" ? "removingConfiguration" : progress.phase === "install-components" ? "installingComponents" : "preparingUpdate")+(progress.component ? " · "+progress.component : "") : t(executing ? "executingTask" : "preparingUpdate")} percent={progress?.phase === "download" && progress.total > 0 ? Math.min(100,Math.floor(progress.received*100/progress.total)) : null} />}
         <Group justify="flex-end" gap={8}>
           {error!=null && retryPreview.current ? <Button disabled={busy} onClick={()=>void retryPreview.current?.()}>{t("prepareAgain")}</Button> : taskDone&&outcome?.stages.some(s=>!s.success) ? <Button disabled={busy} onClick={()=>void retryFailed()}>{t("prepareAgain")}</Button> : !taskDone && preview?.kind!=="download" && !(preview?.kind==="configuration"&&preview.readOnly) && <Button disabled={busy||!!hasConflicts} onClick={()=>void confirmPreview()}>{t(previewAction)}</Button>}
-          {busy&&!executing&&progress?.phase==="download" ? <Button variant="default" onClick={()=>void invoke("cancel_component_download").catch(setError)}>{t("cancel")}</Button> : <Button variant="default" data-autofocus disabled={busy} onClick={dismissTask}>{t(taskDone||error!=null?"close":"cancel")}</Button>}
+          {busy&&progress?.phase==="download" ? <Button variant="default" onClick={()=>void invoke("cancel_component_download").catch(setError)}>{t("cancel")}</Button> : <Button variant="default" data-autofocus disabled={busy} onClick={dismissTask}>{t(taskDone||error!=null?"close":"cancel")}</Button>}
         </Group>
       </div>
     </Modal>

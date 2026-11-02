@@ -859,3 +859,45 @@ fn component_update_rejects_changes_to_omitted_or_selected_files_after_preview()
     .unwrap();
     assert_eq!(execute(selected).unwrap_err().code, "file_conflict");
 }
+
+#[test]
+fn download_preview_preserves_approved_hashes_and_file_guards() {
+    let sandbox = Sandbox::new();
+    let root = sandbox.root();
+    let prepare = || {
+        prepare_download(
+            &root,
+            vec![],
+            vec![OwnedFile {
+                path: "font.bin".into(),
+                sha256: hash_bytes(b"verified"),
+            }],
+            BTreeMap::new(),
+        )
+        .unwrap()
+    };
+    let plan = prepare();
+    assert_eq!(
+        plan.preview.changes[0].after.as_deref(),
+        Some(hash_bytes(b"verified").as_str())
+    );
+    assert_eq!(execute(plan).unwrap_err().code, "component_incomplete");
+    let mut plan = prepare();
+    assert_eq!(
+        plan.supply_downloads(vec![payload("font.bin", "wrong")])
+            .unwrap_err()
+            .code,
+        "component_mismatch"
+    );
+    let mut plan = prepare();
+    plan.supply_downloads(vec![payload("font.bin", "verified")])
+        .unwrap();
+    fs::create_dir_all(&root).unwrap();
+    fs::write(root.join("font.bin"), "appeared during download").unwrap();
+    assert_eq!(execute(plan).unwrap_err().code, "stale_preview");
+    let mut plan = prepare();
+    plan.supply_downloads(vec![payload("font.bin", "verified")])
+        .unwrap();
+    execute(plan).unwrap();
+    assert_eq!(read(&root, "font.bin"), "verified");
+}

@@ -124,8 +124,8 @@
     "managedOverride": {
       "source": "resources/uosc.conf",
       "file": "script-opts/uosc.conf",
-      "size": 533,
-      "sha256": "71e64a00855f9257ce27a8cb8c54fbd059e5df5f4e1d45d4472dae5bb9e9b331",
+      "size": 412,
+      "sha256": "68047c5c0de0b15afb8860e8fa2c8f46a15fad77756b0c0aafd7cca8d098bf7f",
       "owner": "MpvKit"
     }
   },

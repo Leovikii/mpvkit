@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
 // One revision for the complete preset; UI-only changes do not increment it.
-pub const PRESET_REVISION: u32 = 1;
+pub const PRESET_REVISION: u32 = 2;
 
 macro_rules! relative {
     ($name:literal) => {

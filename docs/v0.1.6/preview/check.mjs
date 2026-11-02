@@ -36,7 +36,7 @@ try {
  assert.equal(await page.getByRole('link',{name:'在 GitHub 查看 MpvKit 仓库'}).getAttribute('href'),'https://github.com/Leovikii/mpvkit');
  await button('返回').click();assert.equal(await page.getByLabel('画质',{exact:true}).inputValue(),'high-quality');
  await button('一键安装').click();await dialog.locator('.changes').waitFor({state:'attached'});
- assert.equal((await page.evaluate(()=>__preview.counts)).writes,0);await confirm('取消');await dialog.waitFor({state:'hidden'});
+ assert.equal((await page.evaluate(()=>__preview.counts)).downloads,0,'preview must not download');assert.equal((await page.evaluate(()=>__preview.counts)).writes,0);await confirm('取消');await dialog.waitFor({state:'hidden'});
  await button('一键安装').click();await dialog.locator('.changes').waitFor({state:'attached'});await confirm('安装');await dialog.getByText('操作完成。',{exact:false}).first().waitFor();await close();
  assert((await page.evaluate(()=>__preview.report())).settingsReady);
  await page.getByLabel('画质',{exact:true}).selectOption('balanced');await button('保存配置').click();await dialog.locator('.configuration-text').waitFor();await confirm('保存配置');await dialog.getByText('已保存',{exact:true}).waitFor();await close();
@@ -59,6 +59,8 @@ try {
  assert(!(await page.evaluate(()=>__preview.report())).playerInstalled);await page.evaluate(()=>__preview.cleanupFailure=false);await confirm('重新准备');await dialog.locator('.changes').waitFor({state:'attached'});assert.equal(await dialog.getByRole('checkbox').count(),0);await confirm('卸载');await dialog.getByText('操作完成。',{exact:false}).first().waitFor();await close();
  assert.equal((await page.evaluate(()=>__preview.counts)).coreLaunches,1);
  await scenario('config-error');await page.getByLabel('画质',{exact:true}).selectOption('high-quality');await button('保存配置').click();await dialog.locator('.configuration-text').waitFor();await confirm('保存配置');await dialog.getByRole('button',{name:'重新准备',exact:true}).waitFor();await confirm('关闭');assert.equal(await page.getByLabel('画质',{exact:true}).inputValue(),'high-quality');
+ await scenario('fresh');await button('一键安装').click();await dialog.locator('.changes').waitFor({state:'attached'});assert.equal((await page.evaluate(()=>__preview.counts)).downloads,0);
+ await confirm('安装');await dialog.getByRole('button',{name:'取消',exact:true}).click();await dialog.getByRole('button',{name:'重新准备',exact:true}).waitFor();assert.equal((await page.evaluate(()=>__preview.counts)).writes,0);await close();
  await scenario('preset-update');
  await page.getByRole('status').getByText('预设已更新',{exact:true}).waitFor();
  assert.equal(await dialog.count(),0,'preset notice does not open a modal');
