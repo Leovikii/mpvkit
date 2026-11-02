@@ -90,3 +90,13 @@ Windows 原生回归覆盖：
 用户确认测试通过并授权本版发布。版本/tag 契约、发布材料 gate、19 项前端/发布模拟契约测试通过。发布前发现两端依赖材料仍记录 beta.2 输入摘要，按现有 collector 重新生成后通过 Windows/Linux `--check`：仅更新版本标题及 Cargo/package 输入摘要，包数、许可原文和依赖均未变化，无缺失材料。日志 `.local/beta3/pre-release-contracts.log`；后续 CI、PR、正式签名及匿名核验记录待实际完成后补充。
 
 PR #18 首轮 Arch 默认测试为 63 passed、1 failed、5 ignored：语言测试用任意双下划线判断模板残留，将嵌入 helper 路径的 GitHub runner `/__w/` 误判为占位符。改为逐一检查文本表中的确切 token 及 `__MPVKIT_HELPER__`，不修改生成逻辑或放宽业务验证；本地定向复验及后续 CI 结果分别记录。原日志 `.local/beta3/pr-arch-failure.log`。
+
+## 双平台 CI 与合并
+
+实现提交 `b2c8592`、测试修正 `cc2b814` 已推送 dev，经 [PR #18](https://github.com/Leovikii/mpvkit/pull/18) 合并为 `8ab5afd61fb2277294b282c03d34c7465a541c51`。修正后的 [Checks 41458874188](https://github.com/Leovikii/mpvkit/actions/runs/41458874188) 全部成功：前端、Windows/Arch Rust、最终 CI 汇总均通过。Windows 为 56 passed/5 ignored，Arch 为 64 passed/5 ignored；Arch 包元数据专测 1 passed，隔离 Pacman 安装/重装/资源/卸载通过，不等同 KDE 或真实系统授权测试。两端日志分别保存在 `.local/beta3/pr-windows-success.log`、`pr-arch-success.log`。
+
+本地断言定向复验为 1 passed，见 `.local/beta3/runner-path-test.log`。tag `v0.2.0-beta.3` 固定在合并源码 `8ab5afd`；[Release 41459748720](https://github.com/Leovikii/mpvkit/actions/runs/41459748720) 已由 main 推送触发，后续文档补记不移动该 tag。
+
+发布首轮 Arch 正式构建、签名及隔离包验收成功；Windows 默认测试 55 passed、1 failed、5 ignored，失败发生在 junction 安全测试调用 PowerShell 创建隔离夹具时超过 10 秒，尚未执行目标路径拒绝断言。错误复用了 `probe_timeout` 文案，不是 MPV 播放失败。原日志 `.local/beta3/release-windows-failure.log`；同一源码本地定向复验 1 passed，夹具及断言在 0.53 秒内完成，见 `junction-recheck.log`。保留 tag 与成功的 Arch 任务，仅通过 Actions 重跑失败任务；不修改产品或放宽安全检查，重试结果见后续发布记录。
+
+第一次重试仍在同一 PowerShell 夹具启动处超时（55 passed、1 failed、5 ignored），见 `release-windows-retry-failure.log`；原 PR 同项成功但全套耗时 15.35 秒，发布失败两轮为 16.19/16.45 秒。为避免新 runner 的 PowerShell 冷启动占用夹具 10 秒上限，发布工作流在测试前显式启动一次 Windows PowerShell（独立 1 分钟限制、失败仍阻断），保留原测试、断言及超时。此为发布流程修正，版本源码/tag 不变，通过 PR 检查后按既有 tag 的 release 重试入口重新构建签名，不沿用失败测试结果。
