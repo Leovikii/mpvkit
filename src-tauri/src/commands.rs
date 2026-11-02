@@ -71,7 +71,9 @@ pub async fn apply_deployment(
     remove_core: Option<bool>,
     webview: tauri::Webview,
     state: State<'_, PendingDeployment>,
+    job: State<'_, ComponentJob>,
 ) -> Result<crate::tasks::Outcome> {
+    let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let operation = {
         let mut pending = state.0.lock().map_err(|_| {
             AppError::new(
@@ -90,11 +92,24 @@ pub async fn apply_deployment(
                 "deploy",
             ));
         }
+        {
+            let mut current = job.0.lock().map_err(|_| {
+                AppError::new("state_unavailable", "获取状态不可用。", "components")
+            })?;
+            if current.is_some() {
+                return Err(AppError::new(
+                    "download_busy",
+                    "已有安装任务。",
+                    "components",
+                ));
+            }
+            *current = Some(cancel.clone());
+        }
         pending.take().expect("checked operation")
     };
     let on_progress =
         on_progress.map(|id| id.channel_on::<_, crate::components::Progress>(webview));
-    tauri::async_runtime::spawn_blocking(move || {
+    let result = tauri::async_runtime::spawn_blocking(move || {
         let kind = match &operation {
             PendingOperation::Deployment(_) => "save",
             PendingOperation::Recovery(_) => "recover",
@@ -109,13 +124,16 @@ pub async fn apply_deployment(
             PendingOperation::Recovery(plan) => {
                 crate::deploy::recover(*plan).map(|_| crate::tasks::Outcome { stages: vec![] })
             }
-            PendingOperation::Task(plan) => {
-                crate::tasks::execute(*plan, remove_core.unwrap_or(false), &mut |progress| {
+            PendingOperation::Task(plan) => crate::tasks::execute(
+                *plan,
+                remove_core.unwrap_or(false),
+                &cancel,
+                &mut |progress| {
                     if let Some(channel) = &on_progress {
                         let _ = channel.send(progress);
                     }
-                })
-            }
+                },
+            ),
         };
         let status = match &result {
             Ok(outcome) if outcome.stages.iter().all(|s| s.success) => "success",
@@ -140,7 +158,11 @@ pub async fn apply_deployment(
             "维护任务异常结束，请重新检查恢复状态。",
             "deploy",
         )
-    })?
+    });
+    *job.0
+        .lock()
+        .map_err(|_| AppError::new("state_unavailable", "获取状态不可用。", "components"))? = None;
+    result?
 }
 
 #[derive(Default)]
@@ -167,49 +189,21 @@ pub fn cancel_component_download(state: State<'_, ComponentJob>) -> Result<()> {
 pub async fn preview_install(
     settings: crate::config::Settings,
     reapply: Option<bool>,
-    on_progress: tauri::ipc::Channel<crate::components::Progress>,
-    job: State<'_, ComponentJob>,
+    language: crate::config::Language,
     state: State<'_, PendingDeployment>,
 ) -> Result<crate::tasks::Preview> {
     let root = platform::app_root()?;
-    let cancel = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    {
-        let mut current = job
-            .0
-            .lock()
-            .map_err(|_| AppError::new("state_unavailable", "获取状态不可用。", "components"))?;
-        if current.is_some() {
-            return Err(AppError::new(
-                "download_busy",
-                "已有组件获取任务，请先取消或等待完成。",
-                "components",
-            ));
-        }
-        *current = Some(cancel.clone());
-    }
-    let result = tauri::async_runtime::spawn_blocking(move || {
-        crate::tasks::prepare_install(
-            &root,
-            settings,
-            reapply.unwrap_or(false),
-            &cancel,
-            &mut |progress| {
-                let _ = on_progress.send(progress);
-            },
-        )
+    let plan = tauri::async_runtime::spawn_blocking(move || {
+        crate::tasks::prepare_install(&root, settings, reapply.unwrap_or(false), language)
     })
     .await
     .map_err(|_| {
         AppError::new(
             "worker_failed",
-            "组件任务异常结束，安装目录未改变。",
+            "安装预览异常结束，安装目录未改变。",
             "components",
         )
-    });
-    *job.0
-        .lock()
-        .map_err(|_| AppError::new("state_unavailable", "获取状态不可用。", "components"))? = None;
-    let plan = result??;
+    })??;
     let preview = plan.preview();
     *state
         .0

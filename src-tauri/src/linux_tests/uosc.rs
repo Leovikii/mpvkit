@@ -153,7 +153,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         std::thread::sleep(Duration::from_millis(250));
         let data = inspect();
         let controls = &data["controls"];
-        for id in ["1", "2", "3", "11", "12"] {
+        for id in ["1", "2", "3", "9", "10"] {
             assert_eq!(
                 controls[id]["enabled"], true,
                 "essential {id} at {width}: {data}"
@@ -162,7 +162,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         assert!(controls["2"]["bx"].as_f64().unwrap() < data["width"].as_f64().unwrap() / 2.0);
         assert_eq!(controls["1"]["icon"], "skip_previous");
         assert_eq!(controls["3"]["icon"], "skip_next");
-        assert_eq!(controls["8"]["kind"], "command");
+        assert_eq!(controls["9"]["kind"], "command");
         let mut visible: Vec<_> = controls
             .as_object()
             .unwrap()
@@ -209,7 +209,27 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     assert_eq!(get("pause"), false);
     request(&socket, json!(["keypress", "SPACE"]));
     assert_eq!(get("pause"), true);
-    click(&inspect()["controls"]["8"]);
+    let open_speed = || {
+        click(&inspect()["controls"]["9"]);
+        let data = inspect();
+        let index = data["menu"]["items"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .position(|item| item["title"].as_str().unwrap().contains("Playback speed"))
+            .expect("more menu includes speed");
+        request(&socket, json!(["keypress", "HOME"]));
+        for _ in 0..index {
+            request(&socket, json!(["keypress", "DOWN"]));
+        }
+        request(&socket, json!(["keypress", "ENTER"]));
+        wait(|| {
+            inspect()["menu"]["items"]
+                .as_array()
+                .is_some_and(|items| items.len() == 6)
+        });
+    };
+    open_speed();
     let data = inspect();
     assert_eq!(data["menu"]["type"], "menu");
     assert_eq!(data["menu"]["items"].as_array().unwrap().len(), 6);
@@ -218,7 +238,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     request(&socket, json!(["keypress", "ENTER"]));
     wait(|| get("speed") == 0.75);
     request(&socket, json!(["set_property", "speed", 1.5]));
-    click(&inspect()["controls"]["8"]);
+    open_speed();
     assert_eq!(
         inspect()["menu"]["type"],
         "menu",
@@ -228,12 +248,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     assert_eq!(get("pause"), true);
     request(
         &socket,
-        json!([
-            "script-message-to",
-            "uosc",
-            "show-submenu",
-            "播放模式 / Playback mode"
-        ]),
+        json!(["script-message-to", "uosc", "show-submenu", "Playback mode"]),
     );
     assert_eq!(inspect()["menu"]["items"].as_array().unwrap().len(), 3);
     request(&socket, json!(["keypress", "ESC"]));

@@ -1,7 +1,7 @@
 export type AppSettings = { schemaVersion: number; language: string; theme: string; previewUpdates: boolean };
 export type Environment = { languages: string[]; dark: boolean; highContrast: boolean; materialAllowed: boolean };
 export type Report = { root: string; playerDirectory: string; configDirectory: string; configDirectorySource?: string; generation: string | null; components: { id: string; version: string | null; ready: boolean; issues: string[] }[]; playerReady: boolean; playerInstalled: boolean; componentsReady: boolean; settingsReady: boolean; configurationModified: boolean; rootExists: boolean; configDirectoryExists: boolean; configurationInstalled: boolean; presetStatus: "outdated" | "unknown" | null; configModifiedAt: number | null; recoveryRequired: boolean; issues: string[] };
-export type Settings = { schemaVersion: number; profile: string; overrides: { subtitleSize?: number | null; osdSize?: number | null; volume?: number | null; hardwareDecoding?: boolean | null }; playback: { hdr: string; keepOpen:boolean; autoPlaylist:boolean } };
+export type Settings = { schemaVersion: number; profile: string; overrides: { subtitleSize?: number | null; osdSize?: number | null; volume?: number | null; hardwareDecoding?: boolean | null } };
 export type Asset = { id: string; version: string; size: number; url: string; sha256: string };
 export type Deployment = { retained: string[];  id: string; root: string; conflicts: string[]; noChanges: boolean; configurationDiffs: {path:string;before:string;after:string}[]; changes: {path: string; before: string | null; after: string | null}[] };
 export type Progress = {component: string; phase: string; received: number; total: number};
@@ -10,5 +10,5 @@ export type DraftRequest = {settings:Settings;replaceManual:boolean;expectedFing
 export type Installation = Deployment & {needsCore:boolean;kind:"install"|"reapply"|"remove"|"core";coreAction:string|null};
 export type TaskOutcome = {stages:{name:"core"|"configuration";success:boolean;output?:string;exitCode:number|null;error:{code:string;message:string;phase:string}|null;detected:boolean|null}[]};
 export type Preview = {kind:"install";data:Installation} | { kind: "playback" | "maintenance"; data: Deployment } | {kind:"configuration";data:ConfigurationPreview;readOnly:boolean} | { kind: "download"; data: null };
-export const defaultSettings: Settings = {schemaVersion: 3, profile: "balanced", overrides: {}, playback: {hdr:"auto",keepOpen:false,autoPlaylist:true}};
+export const defaultSettings: Settings = {schemaVersion: 4, profile: "balanced", overrides: {}};
 export const defaultAppSettings: AppSettings = {schemaVersion:1,language:"system",theme:"system",previewUpdates:false};

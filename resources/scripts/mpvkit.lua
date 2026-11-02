@@ -16,7 +16,7 @@ local config_dir = utils.split_path(config_file)
 local root = config_dir:gsub('[/\\]+$', '')
 local helper = __MPVKIT_HELPER__
 local order = {'power-saving', 'balanced', 'high-quality'}
-local labels = {['power-saving']='省电', balanced='均衡', ['high-quality']='高画质'}
+local labels = {['power-saving']='__POWER__', balanced='__BALANCED__', ['high-quality']='__HIGH__'}
 local current = options.profile
 local saving = false
 local function manifest() return read_json(utils.join_path(root, '.mpvkit/install.json')) end
@@ -35,47 +35,47 @@ local function publish()
 end
 local function apply(id)
     local entries = labels[id] and profile_options(id)
-    if not entries then mp.osd_message('画质配置不可用'); return false end
+    if not entries then mp.osd_message('__UNAVAILABLE__'); return false end
     local old = {}
     for _, entry in ipairs(entries) do old[entry.key] = mp.get_property(entry.key) end
     local _, err = mp.command_native({'apply-profile', 'mpvkit-' .. id})
     if err then
         for key, value in pairs(old) do mp.set_property(key, value) end
-        msg.error(tostring(err)); mp.osd_message('档位切换失败，已恢复原设置'); return false
+        msg.error(tostring(err)); mp.osd_message('__SWITCH_FAILED__'); return false
     end
-    current=id;publish();mp.osd_message('MpvKit：' .. labels[id] .. '（仅本次）');return true
+    current=id;publish();mp.osd_message(labels[id] .. ' (__TEMPORARY__)');return true
 end
 local function save()
-    if saving or not labels[current] then mp.osd_message('请先选择一个档位'); return end
+    if saving or not labels[current] then mp.osd_message('__CHOOSE__'); return end
     local installed = manifest()
     local previous = preference()
-    if not installed or installed.owner ~= 'MpvKit' or installed.schemaVersion ~= 1 then mp.osd_message('安装记录不可用，未保存'); return end
-    if previous and (previous.schemaVersion ~= 1 or previous.owner ~= 'MpvKit' or type(previous.revision) ~= 'number') then mp.osd_message('偏好记录无效，未覆盖'); return end
+    if not installed or installed.owner ~= 'MpvKit' or installed.schemaVersion ~= 1 then mp.osd_message('__RECORD_INVALID__'); return end
+    if previous and (previous.schemaVersion ~= 1 or previous.owner ~= 'MpvKit' or type(previous.revision) ~= 'number') then mp.osd_message('__PREFERENCE_INVALID__'); return end
     if not generation or generation == '' or installed.installationId ~= generation then
         msg.warn('preference_stale')
-        mp.osd_message('安装或设置已变化，请重新启动播放器后保存。'); return
+        mp.osd_message('__STALE__'); return
     end
-    if previous and previous.revision ~= revision then mp.osd_message('设置已变化，请重新启动播放器。'); return end
+    if previous and previous.revision ~= revision then mp.osd_message('__STALE__'); return end
     saving = true; publish()
     mp.command_native_async({name='subprocess', args={helper, '--save-playback', root, current, tostring(revision), generation}, capture_stdout=true, capture_stderr=true, playback_only=false}, function(success, result)
         saving = false; publish()
         if success and result.status == 0 then
             local result_state = utils.parse_json(result.stdout or '')
             if result_state then generation=result_state.generation; revision=result_state.revision end
-            mp.osd_message('已保存为默认；下次启动生效')
+            mp.osd_message('__SAVED__')
         else
             local failure
             if result and result.stdout then failure = utils.parse_json(result.stdout) end
-            mp.osd_message(failure and failure.message or '全局保存失败；本次选择仍然有效')
+            mp.osd_message(failure and failure.code == 'preference_stale' and '__STALE__' or '__SAVE_FAILED__')
             msg.warn(failure and failure.code or 'preference helper failed')
         end
     end)
 end
 local function menu()
     local items = {}
-    for _, id in ipairs(order) do items[#items + 1] = {title=labels[id], hint=current == id and '当前' or '仅本次', value={'script-message-to', 'mpvkit', 'profile', id}} end
-    items[#items + 1] = {title='保存当前档位为全局默认', hint='', value={'script-message-to', 'mpvkit', 'save'}}
-    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json({type='mpvkit-profiles', title='MpvKit 画质档位', items=items}))
+    for _, id in ipairs(order) do items[#items + 1] = {title=labels[id], hint=current == id and '__CURRENT__' or '__TEMPORARY__', value={'script-message-to', 'mpvkit', 'profile', id}} end
+    items[#items + 1] = {title='__SAVE__', hint='', value={'script-message-to', 'mpvkit', 'save'}}
+    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json({type='mpvkit-profiles', title='__QUALITY__', items=items}))
 end
 mp.register_script_message('profile', apply)
 mp.register_script_message('save', save)

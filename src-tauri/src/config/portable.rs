@@ -10,6 +10,7 @@ pub struct State {
     pub owner: String,
     pub revision: u64,
     pub settings: Settings,
+    pub language: Language,
     pub manual_config: bool,
 }
 impl Default for State {
@@ -19,6 +20,7 @@ impl Default for State {
             owner: "MpvKit".into(),
             revision: 0,
             settings: Settings::default(),
+            language: Language::default(),
             manual_config: false,
         }
     }
@@ -104,16 +106,24 @@ pub fn fingerprint(root: &Path) -> Result<String> {
 }
 // Read-only rendering uses exactly the same merger as the deployment plan.
 pub fn preview(root: &Path, settings: &Settings, replace: bool) -> Result<ConfigurationPreview> {
-    preview_mode(root, settings, replace, false)
+    preview_mode(root, settings, replace, false, None)
 }
 pub(crate) fn preview_mode(
     root: &Path,
     settings: &Settings,
     replace: bool,
     reset: bool,
+    language: Option<Language>,
 ) -> Result<ConfigurationPreview> {
     let fingerprint = fingerprint(root)?;
-    let payloads = generate_inner(root, &player_path(root)?, settings, replace, reset)?;
+    let payloads = generate_inner(
+        root,
+        &player_path(root)?,
+        settings,
+        replace,
+        reset,
+        language,
+    )?;
     let manifest = deploy::status(root)?.manifest;
     let mut files = Vec::new();
     for name in PREVIEW_FILES {
@@ -160,15 +170,7 @@ fn text(bytes: &[u8]) -> Result<String> {
 }
 fn gui_line(line: &str) -> bool {
     let key = line.split('=').next().unwrap_or("");
-    [
-        "keep-open",
-        "autocreate-playlist",
-        "hwdec",
-        "target-colorspace-hint",
-        "target-trc",
-        "target-prim",
-    ]
-    .contains(&key)
+    key == "hwdec"
 }
 fn block(raw: &str, settings: &Settings) -> String {
     let mut out = String::from(BEGIN);
@@ -177,6 +179,12 @@ fn block(raw: &str, settings: &Settings) -> String {
         for (k, v) in options {
             out.push_str(&format!("{k}={v}\n"));
         }
+    }
+    for (name, hdr) in [("auto", Hdr::Auto), ("on", Hdr::On), ("off", Hdr::Off)] {
+        out.push_str(&format!(
+            "[mpvkit-hdr-{name}]\n{}",
+            crate::platform::hdr_config(hdr)
+        ));
     }
     out.push_str(&format!(
         "[default]\nprofile=mpvkit-{}\n",
@@ -212,10 +220,22 @@ fn bounds(s: &str) -> Result<(usize, usize)> {
 }
 #[cfg(test)]
 pub fn generate(root: &Path, player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
-    generate_inner(root, player, settings, false, false)
+    generate_inner(root, player, settings, false, false, None)
 }
-pub fn installation_files(root: &Path, settings: &Settings, reapply: bool) -> Result<Vec<Payload>> {
-    generate_inner(root, &player_path(root)?, settings, true, reapply)
+pub fn installation_files(
+    root: &Path,
+    settings: &Settings,
+    reapply: bool,
+    language: Language,
+) -> Result<Vec<Payload>> {
+    generate_inner(
+        root,
+        &player_path(root)?,
+        settings,
+        true,
+        reapply,
+        Some(language),
+    )
 }
 fn generate_inner(
     root: &Path,
@@ -223,8 +243,14 @@ fn generate_inner(
     settings: &Settings,
     replace: bool,
     reset: bool,
+    language: Option<Language>,
 ) -> Result<Vec<Payload>> {
-    let mut files = base_files(player, settings)?;
+    let mut state = read_state(root)?;
+    // Only a fresh installation or complete reapplication selects a new language.
+    if reset || !root.join(".mpvkit/settings.json").exists() {
+        state.language = language.unwrap_or(state.language);
+    }
+    let mut files = base_files(player, settings, state.language)?;
     let raw = text(
         &files
             .iter()
@@ -246,7 +272,7 @@ fn generate_inner(
         )?)?;
         let (start, end) = bounds(&old)?;
         let previous = read_state(root)?;
-        let old_files = base_files(player, &previous.settings)?;
+        let old_files = base_files(player, &previous.settings, previous.language)?;
         let expected = block(
             &text(
                 &old_files
@@ -303,7 +329,6 @@ fn generate_inner(
             p.bytes = retained;
         }
     }
-    let mut state = read_state(root)?;
     let previous_settings = state.settings.clone();
     let previous_manual = state.manual_config;
     state.manual_config = other_manual || !reset && (state.manual_config || modified(root)?);
@@ -429,7 +454,7 @@ fn prepare_portable_mode(
         .iter()
         .map(|p| deploy::file_hash(p))
         .collect::<Result<Vec<_>>>()?;
-    let mut files = generate_inner(root, &player_path(root)?, &settings, replace, reset)?;
+    let mut files = generate_inner(root, &player_path(root)?, &settings, replace, reset, None)?;
     for p in &files {
         if !replace
             && !m.files.iter().any(|f| f.path == p.path)
@@ -452,15 +477,83 @@ fn prepare_portable_mode(
 mod tests {
     use super::*;
     #[test]
+    fn installed_language_is_preserved_until_complete_reapplication() {
+        let root = std::env::temp_dir().join(format!("mpvkit-language-{}", deploy::operation_id()));
+        install(&root);
+        let apply = |language| {
+            let files = installation_files(&root, &Settings::default(), true, language).unwrap();
+            deploy::execute(
+                deploy::prepare_update(&root, files, true, Default::default()).unwrap(),
+            )
+            .unwrap();
+        };
+        apply(Language::Chinese);
+        assert_eq!(read_state(&root).unwrap().language, Language::Chinese);
+        let input = std::fs::read(root.join("input.conf")).unwrap();
+        let lua = std::fs::read(root.join("scripts/mpvkit.lua")).unwrap();
+        assert!(String::from_utf8_lossy(&input).contains("#menu: 自动连播 > 开启"));
+        assert!(String::from_utf8_lossy(&lua).contains("保存为默认"));
+        let path = root.join("mpv.conf");
+        let conf = std::fs::read_to_string(&path).unwrap();
+        // Default settings are user-editable; changing quality must not reset them.
+        let conf = conf
+            .replacen("keep-open=no", "keep-open=yes", 1)
+            .replacen("autocreate-playlist=filter", "autocreate-playlist=no", 1)
+            .replacen("target-trc=auto", "target-trc=pq", 1);
+        std::fs::write(&path, conf).unwrap();
+        let settings = Settings {
+            profile: Profile::HighQuality,
+            ..Default::default()
+        };
+        deploy::execute(prepare_portable(&root, settings, false).unwrap()).unwrap();
+        assert_eq!(std::fs::read(root.join("input.conf")).unwrap(), input);
+        assert_eq!(std::fs::read(root.join("scripts/mpvkit.lua")).unwrap(), lua);
+        assert_eq!(read_state(&root).unwrap().language, Language::Chinese);
+        let saved = std::fs::read_to_string(&path).unwrap();
+        assert!(saved.contains("keep-open=yes\n") && saved.contains("autocreate-playlist=no\n"));
+        assert!(saved[..saved.find(BEGIN).unwrap()].contains("target-trc=pq\n"));
+        apply(Language::English);
+        assert_eq!(read_state(&root).unwrap().language, Language::English);
+        for name in ["input.conf", "script-opts/uosc.conf", "scripts/mpvkit.lua"] {
+            let text = std::fs::read_to_string(root.join(name)).unwrap();
+            let menu_text: serde_json::Value =
+                serde_json::from_str(include_str!("../../../resources/menu-text.json")).unwrap();
+            for key in menu_text
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .chain(["MPVKIT_HELPER"])
+            {
+                assert!(
+                    !text.contains(&format!("__{key}__")),
+                    "unexpanded placeholder {key}: {name}"
+                );
+            }
+            assert!(
+                !text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)),
+                "Chinese in English {name}"
+            );
+        }
+        assert!(
+            std::fs::read_to_string(root.join("script-opts/uosc.conf"))
+                .unwrap()
+                .contains("languages=en\n")
+        );
+        let restored = std::fs::read_to_string(&path).unwrap();
+        assert!(
+            restored.contains("keep-open=no\n")
+                && restored.contains("autocreate-playlist=filter\n")
+        );
+        assert!(restored[..restored.find(BEGIN).unwrap()].contains("target-trc=auto\n"));
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
     fn reapply_keeps_choices_restores_preset_and_is_idempotent() {
         let root = std::env::temp_dir().join(format!("mpvkit-reapply-{}", deploy::operation_id()));
         install(&root);
         let choices = Settings {
             profile: Profile::HighQuality,
-            playback: Playback {
-                auto_playlist: false,
-                ..Default::default()
-            },
             ..Default::default()
         };
         std::fs::write(root.join("mpv.conf"), "volume=31\n").unwrap();
@@ -468,10 +561,10 @@ mod tests {
         std::fs::write(root.join("private.conf"), "mine").unwrap();
         std::fs::create_dir(root.join("watch_later")).unwrap();
         std::fs::write(root.join("watch_later/resume"), "position").unwrap();
-        let preview = preview_mode(&root, &choices, true, true).unwrap();
+        let preview = preview_mode(&root, &choices, true, true, Some(Language::English)).unwrap();
         assert_eq!(preview.files[0].before, "volume=31\n");
         let prepare = || {
-            let files = installation_files(&root, &choices, true).unwrap();
+            let files = installation_files(&root, &choices, true, Language::English).unwrap();
             let mut plan = deploy::prepare_update(&root, files, true, Default::default()).unwrap();
             plan.mark_preset().unwrap();
             plan
@@ -481,7 +574,9 @@ mod tests {
         assert!(!modified(&root).unwrap());
         assert_eq!(
             std::fs::read(root.join("input.conf")).unwrap(),
-            include_bytes!("../../../resources/input.conf")
+            Language::English
+                .render(include_str!("../../../resources/input.conf"))
+                .as_bytes()
         );
         assert_eq!(
             std::fs::read_to_string(root.join("private.conf")).unwrap(),

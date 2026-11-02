@@ -47,6 +47,7 @@ pub enum Plan {
         player: PathBuf,
         needs_core: bool,
         reapply: bool,
+        downloads: Vec<String>,
     },
     Remove {
         id: String,
@@ -120,8 +121,7 @@ pub fn prepare_install(
     root: &std::path::Path,
     settings: config::Settings,
     reapply: bool,
-    cancel: &AtomicBool,
-    progress: &mut impl FnMut(components::Progress),
+    language: config::Language,
 ) -> Result<Plan> {
     settings.validate()?;
     let report = setup::status(root)?;
@@ -143,7 +143,8 @@ pub fn prepare_install(
         ));
     }
     let player = config::player_path(root)?;
-    let configuration = config::portable::preview_mode(root, &settings, true, reapply)?;
+    let configuration =
+        config::portable::preview_mode(root, &settings, true, reapply, Some(language))?;
     let selected: Vec<_> = components::ASSETS
         .iter()
         .filter(|asset| {
@@ -154,11 +155,21 @@ pub fn prepare_install(
         })
         .map(|a| a.id.into())
         .collect();
-    let (mut payloads, versions) = components::selected_payloads(&selected, cancel, progress)?;
+    let mut payloads = components::license_materials();
     payloads.extend(config::portable::installation_files(
-        root, &settings, reapply,
+        root, &settings, reapply, language,
     )?);
-    let mut files = deploy::prepare_update(root, payloads, true, versions)?;
+    let versions = components::ASSETS
+        .iter()
+        .filter(|a| selected.iter().any(|id| id == a.id))
+        .map(|a| (a.id.to_owned(), a.version.to_owned()))
+        .collect();
+    let mut files = deploy::prepare_download(
+        root,
+        payloads,
+        components::planned_files(&selected)?,
+        versions,
+    )?;
     if reapply || !report.configuration_installed {
         files.mark_preset()?;
     }
@@ -189,6 +200,7 @@ pub fn prepare_install(
         player,
         needs_core: !report.player_ready,
         reapply,
+        downloads: selected,
     })
 }
 pub fn prepare_remove(root: &std::path::Path) -> Result<Plan> {
@@ -248,6 +260,7 @@ fn core_stage(action: &str, task: &str) -> Stage {
 pub fn execute(
     plan: Plan,
     remove_core: bool,
+    cancel: &AtomicBool,
     progress: &mut impl FnMut(components::Progress),
 ) -> Result<Outcome> {
     let preview = plan.preview();
@@ -255,11 +268,12 @@ pub fn execute(
     if platform::app_root()? != preview.files.files.root {
         return Err(AppError::new("stale_preview", "配置位置已变化。", "setup"));
     }
-    execute_steps(plan, remove_core, progress, core_stage)
+    execute_steps(plan, remove_core, cancel, progress, core_stage)
 }
 fn execute_steps(
     plan: Plan,
     remove_core: bool,
+    cancel: &AtomicBool,
     progress: &mut impl FnMut(components::Progress),
     mut core: impl FnMut(&str, &str) -> Stage,
 ) -> Result<Outcome> {
@@ -279,6 +293,7 @@ fn execute_steps(
             mut files,
             player,
             needs_core,
+            downloads,
             ..
         } => {
             files.validate()?;
@@ -291,8 +306,11 @@ fn execute_steps(
                     return Ok(Outcome { stages });
                 }
             }
-            progress(event("install-components"));
             let result = (|| {
+                files.validate()?;
+                let (payloads, _) = components::selected_payloads(&downloads, cancel, progress)?;
+                files.supply_downloads(payloads)?;
+                progress(event("install-components"));
                 if platform::app_root()? != files.preview.root
                     || config::player_path(&files.preview.root)? != player
                 {
@@ -392,14 +410,44 @@ mod tests {
                 player: dir.path().join("missing"),
                 needs_core: true,
                 reapply: false,
+                downloads: vec![],
             },
             false,
+            &AtomicBool::new(false),
             &mut |_| {},
             failed_core,
         )
         .unwrap();
         assert_eq!(result.stages.len(), 1);
         assert!(!result.stages[0].success);
+        assert!(!root.exists());
+    }
+    #[test]
+    fn cancelled_download_preserves_successful_core_result_without_writing_configuration() {
+        let dir = tempfile::tempdir().unwrap();
+        let root = dir.path().join("mpv");
+        let files = deploy::prepare_update(&root, vec![], true, Default::default()).unwrap();
+        let result = execute_steps(
+            Plan::Install {
+                files: Box::new(files),
+                player: dir.path().join("mpv.exe"),
+                needs_core: true,
+                reapply: false,
+                downloads: vec![],
+            },
+            false,
+            &AtomicBool::new(true),
+            &mut |_| {},
+            |action, task| Stage {
+                success: true,
+                exit_code: Some(0),
+                ..failed_core(action, task)
+            },
+        )
+        .unwrap();
+        assert_eq!(result.stages.len(), 2);
+        assert!(result.stages[0].success);
+        assert_eq!(result.stages[1].error.as_ref().unwrap().code, "cancelled");
         assert!(!root.exists());
     }
     #[test]
@@ -412,6 +460,7 @@ mod tests {
         let result = execute_steps(
             prepare_remove(&root).unwrap(),
             true,
+            &AtomicBool::new(false),
             &mut |_| {},
             failed_core,
         )

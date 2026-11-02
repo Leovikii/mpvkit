@@ -7,7 +7,10 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
 // One revision for the complete preset; UI-only changes do not increment it.
-pub const PRESET_REVISION: u32 = 1;
+pub const PRESET_REVISION: u32 = 3;
+
+mod menu;
+pub use menu::Language;
 
 macro_rules! relative {
     ($name:literal) => {
@@ -45,22 +48,6 @@ pub struct Overrides {
     pub volume: Option<u16>,
     pub hardware_decoding: Option<bool>,
 }
-#[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
-#[serde(rename_all = "camelCase", deny_unknown_fields)]
-pub struct Playback {
-    pub hdr: Hdr,
-    pub keep_open: bool,
-    pub auto_playlist: bool,
-}
-impl Default for Playback {
-    fn default() -> Self {
-        Self {
-            hdr: Hdr::Auto,
-            keep_open: false,
-            auto_playlist: true,
-        }
-    }
-}
 #[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Hdr {
@@ -75,15 +62,13 @@ pub struct Settings {
     pub schema_version: u32,
     pub profile: Profile,
     pub overrides: Overrides,
-    pub playback: Playback,
 }
 impl Default for Settings {
     fn default() -> Self {
         Self {
-            schema_version: 3,
+            schema_version: 4,
             profile: Profile::Balanced,
             overrides: Overrides::default(),
-            playback: Playback::default(),
         }
     }
 }
@@ -92,7 +77,7 @@ fn error(code: &'static str, message: &'static str) -> AppError {
 }
 impl Settings {
     pub fn validate(&self) -> Result<()> {
-        if self.schema_version != 3 {
+        if self.schema_version != 4 {
             return Err(error(
                 "settings_version",
                 "设置版本不受支持，已保留原文件。",
@@ -136,7 +121,7 @@ pub use portable::{editable, modified, player_path, prepare_portable};
 pub fn generate(root: &Path, player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
     portable::generate(root, player, settings)
 }
-fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
+fn base_files(player: &Path, settings: &Settings, language: Language) -> Result<Vec<Payload>> {
     settings.validate()?;
     let player = player
         .to_str()
@@ -167,16 +152,7 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
     ] {
         conf.push_str(&format!("sub-file-paths-append={directory}\n"));
     }
-    conf.push_str(if settings.playback.auto_playlist {
-        "autocreate-playlist=filter\n"
-    } else {
-        "autocreate-playlist=no\n"
-    });
-    conf.push_str(if settings.playback.keep_open {
-        "keep-open=yes\n"
-    } else {
-        "keep-open=no\n"
-    });
+    conf.push_str("autocreate-playlist=filter\nkeep-open=no\n");
     let overrides = &settings.overrides;
     conf.push_str(&format!(
         "sub-font-size={}\nosd-font-size={}\nvolume={}\n",
@@ -187,14 +163,16 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
     conf.push_str(crate::platform::playback_config(
         overrides.hardware_decoding.unwrap_or(true),
     ));
-    conf.push_str(crate::platform::hdr_config(settings.playback.hdr));
+    conf.push_str(crate::platform::hdr_config(Hdr::Auto));
     conf.push_str(&format!(
         "alang={DEFAULT_LANGUAGES}\nslang={DEFAULT_LANGUAGES}\n"
     ));
     let mut files = vec![
         Payload {
             path: crate::config::relative!("input.conf").into(),
-            bytes: include_bytes!("../../resources/input.conf").to_vec(),
+            bytes: language
+                .render(include_str!("../../resources/input.conf"))
+                .into_bytes(),
         },
         Payload {
             path: crate::config::relative!("mpv.conf").into(),
@@ -210,18 +188,23 @@ fn base_files(player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
         },
         Payload {
             path: crate::config::relative!("script-opts/uosc.conf").into(),
-            bytes: include_bytes!("../../resources/uosc.conf").to_vec(),
+            bytes: format!(
+                "{}languages={}\n",
+                language.render(include_str!("../../resources/uosc.conf")),
+                language.uosc()
+            )
+            .into_bytes(),
         },
         Payload {
             path: ".mpvkit/settings.json".into(),
             bytes: Vec::new(),
         },
     ];
-    files.extend(runtime_files()?);
+    files.extend(runtime_files(language)?);
     Ok(files)
 }
 
-pub fn runtime_files() -> Result<Vec<Payload>> {
+pub fn runtime_files(language: Language) -> Result<Vec<Payload>> {
     let executable =
         std::env::current_exe().map_err(|_| error("helper_path", "无法取得管理器位置。"))?;
     // Native Rust tests run in a harness, while playback must invoke the separately built manager.
@@ -241,7 +224,8 @@ pub fn runtime_files() -> Result<Vec<Payload>> {
         serde_json::to_string(path).map_err(|_| error("helper_path", "无法编码管理器路径。"))?;
     Ok(vec![Payload {
         path: crate::config::relative!("scripts/mpvkit.lua").into(),
-        bytes: include_str!("../../resources/scripts/mpvkit.lua")
+        bytes: language
+            .render(include_str!("../../resources/scripts/mpvkit.lua"))
             .replace("__MPVKIT_HELPER__", &literal)
             .into_bytes(),
     }])
@@ -311,7 +295,7 @@ mod tests {
         );
         settings.schema_version = 99;
         assert!(settings.validate().is_err());
-        settings.schema_version = 3;
+        settings.schema_version = 4;
         settings.overrides.volume = Some(101);
         assert!(settings.validate().is_err());
         assert!(
@@ -361,19 +345,11 @@ mod tests {
             }
         }
         assert!(!root.exists());
-        let mut settings = settings;
-        settings.playback.auto_playlist = false;
-        settings.playback.keep_open = true;
-        let files = generate(&root, &root.join("mpv.exe"), &settings).unwrap();
-        let conf = &files.iter().find(|f| f.path == "mpv.conf").unwrap().bytes;
-        let conf = String::from_utf8_lossy(conf);
-        assert!(conf.contains("autocreate-playlist=no\n"));
-        assert!(conf.contains("keep-open=yes\n"));
     }
     #[test]
     fn fixed_languages_and_hdr_parameters_are_generated() {
         let root = std::env::temp_dir().join(format!("mpvkit-config-{}", deploy::operation_id()));
-        let mut edited = Settings::default();
+        let edited = Settings::default();
         for (hdr, expected) in [
             (Hdr::Auto, "target-trc=auto"),
             (Hdr::On, "target-trc=pq"),
@@ -386,7 +362,6 @@ mod tests {
                 },
             ),
         ] {
-            edited.playback.hdr = hdr;
             let files = generate(&root, &root.join("mpv.exe"), &edited).unwrap();
             let conf = String::from_utf8(
                 files
@@ -396,12 +371,13 @@ mod tests {
                     .bytes,
             )
             .unwrap();
-            assert!(conf.contains(expected));
+            assert!(conf.contains(crate::platform::hdr_config(hdr)));
+            assert!(crate::platform::hdr_config(hdr).contains(expected));
             assert!(conf.contains(&format!("alang={DEFAULT_LANGUAGES}\n")));
             assert!(conf.contains(&format!("slang={DEFAULT_LANGUAGES}\n")));
         }
         let mut invalid = serde_json::to_value(&edited).unwrap();
-        invalid["playback"]["hdr"] = "invalid".into();
+        invalid["playback"] = serde_json::json!({"hdr":"auto"});
         assert!(serde_json::from_value::<Settings>(invalid).is_err());
     }
 }

@@ -55,15 +55,7 @@ pub(super) fn verify(root: &Path, media: &Path) {
     }
     let socket = root.join("queue.sock");
     let get = |property: &str| request(&socket, json!(["get_property", property]));
-    let save = |auto_playlist, keep_open| {
-        let mut settings = config::read(root).unwrap();
-        settings.playback.auto_playlist = auto_playlist;
-        settings.playback.keep_open = keep_open;
-        let preview = config::portable::preview(root, &settings, false).unwrap();
-        setup::execute(setup::prepare_draft(root, settings, false, &preview.fingerprint).unwrap())
-            .unwrap();
-    };
-    let play = |files: &[&Path]| {
+    let play = |files: &[&Path], auto_playlist: bool, keep_open: bool| {
         let _ = fs::remove_file(&socket);
         let child = platform::command(Path::new("/usr/bin/mpv"))
             .env_remove("MPV_HOME")
@@ -87,6 +79,14 @@ pub(super) fn verify(root: &Path, media: &Path) {
                 "--resume-playback=no",
                 "--save-position-on-quit=no",
             ])
+            .arg(format!(
+                "--autocreate-playlist={}",
+                if auto_playlist { "filter" } else { "no" }
+            ))
+            .arg(format!(
+                "--keep-open={}",
+                if keep_open { "yes" } else { "no" }
+            ))
             .arg(format!("--input-ipc-server={}", socket.display()))
             .arg(format!("--log-file={}", root.join("queue.log").display()))
             .arg("--")
@@ -102,9 +102,8 @@ pub(super) fn verify(root: &Path, media: &Path) {
         request(&socket, json!(["seek", end, "absolute+exact"]));
         request(&socket, json!(["set_property", "pause", false]));
     };
-    save(true, true);
     let _guard = PlaybackGuard(socket.clone());
-    let mut child = play(&[&second]);
+    let mut child = play(&[&second], true, true);
     wait(|| get("user-data/mpvkit")["profile"].is_string());
     let queue = get("playlist");
     assert_eq!(
@@ -212,22 +211,20 @@ pub(super) fn verify(root: &Path, media: &Path) {
     wait(|| get("pause") == true && child.try_wait().unwrap().is_none());
     request(&socket, json!(["quit"]));
     assert!(child.wait().unwrap().success());
-    save(false, true);
-    child = play(&[&second]);
+    child = play(&[&second], false, true);
     assert_eq!(get("playlist-count"), 1);
     finish_file();
     wait(|| get("eof-reached") == true && get("pause") == true);
     assert_eq!(get("playlist-count"), 1);
     request(&socket, json!(["quit"]));
     assert!(child.wait().unwrap().success());
-    child = play(&[&first, &second]);
+    child = play(&[&first, &second], false, true);
     assert_eq!(get("playlist-count"), 2);
     finish_file();
     wait(|| get("playlist-pos") == 1);
     request(&socket, json!(["quit"]));
     assert!(child.wait().unwrap().success());
-    save(true, false);
-    child = play(&[&second]);
+    child = play(&[&second], true, false);
     finish_file();
     wait(|| get("playlist-pos") == 2 && get("time-pos").as_f64().is_some_and(|t| t < 1.0));
     finish_file();

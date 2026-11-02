@@ -1,0 +1,192 @@
+{
+  "uosc": [
+    {
+      "path": "fonts/uosc_icons.otf",
+      "sha256": "a853f50913597e67f76facd269ff230c2f3038f9acadec04dd653080785dee25"
+    },
+    {
+      "path": "fonts/uosc_textures.ttf",
+      "sha256": "ccc0660f284dfceb5ab31eb363ccb2355df30fcdf628e781ee374b7d4172ada5"
+    },
+    {
+      "path": "scripts/uosc/bin/ziggy-linux",
+      "sha256": "73895907d964efb6a1a2d5e76814833b0e310627ab4b791aaeeaea4b9163109f"
+    },
+    {
+      "path": "scripts/uosc/bin/ziggy-windows.exe",
+      "sha256": "ab76a5a059ef0aef0f54dc317e31eae25cc5b7e3840f81cbf98b1ab07a96f636"
+    },
+    {
+      "path": "scripts/uosc/char-conv/zh.json",
+      "sha256": "1e250ec50866529b57d273fa90bd8fc56f22b4371d5ea641ce3bebc832dd9889"
+    },
+    {
+      "path": "scripts/uosc/elements/BufferingIndicator.lua",
+      "sha256": "f7ceb7c88916e49ee5aef2a8c45d53ee5a6f9931b7977898ecf96ebfa543c1c4"
+    },
+    {
+      "path": "scripts/uosc/elements/Button.lua",
+      "sha256": "31d407dfc9e54295201f392d03886ef801108ead6384a2d12a620eafa38724c2"
+    },
+    {
+      "path": "scripts/uosc/elements/Controls.lua",
+      "sha256": "930f9c04fcc4e06dc8321e0639b719800a7b2c99e52e9acd5a9b4d6502c01565"
+    },
+    {
+      "path": "scripts/uosc/elements/Curtain.lua",
+      "sha256": "7f965119a6fc70d8cce70cf025db764a5d83433321da79a7734c691afdbb1e32"
+    },
+    {
+      "path": "scripts/uosc/elements/CycleButton.lua",
+      "sha256": "e49e20110bf84d852ce4d85f26e36a24330ef9a54f28f0886cc658352e09aa75"
+    },
+    {
+      "path": "scripts/uosc/elements/Element.lua",
+      "sha256": "381141cd760a42769c0abdf7cfdf7ef26930249e133fa9800e7c8623f55bc016"
+    },
+    {
+      "path": "scripts/uosc/elements/Elements.lua",
+      "sha256": "f44e57ea4c4c60f82f3775df9337064fdbcb7cb4bc157b47a5c07a12ee8a62c7"
+    },
+    {
+      "path": "scripts/uosc/elements/ManagedButton.lua",
+      "sha256": "da1c1ecf4d145e5c06fb7077a654b1c58412ae106e54b3f5946b919dabd01446"
+    },
+    {
+      "path": "scripts/uosc/elements/Menu.lua",
+      "sha256": "0cbc42afbe72f3f76f069995744de1e772d706445ed7987d1bffaafed50f2f49"
+    },
+    {
+      "path": "scripts/uosc/elements/PauseIndicator.lua",
+      "sha256": "f2fe8f6bf894c60686e021a5faa0eebf1da940ab61dbbac109f173865a6c8664"
+    },
+    {
+      "path": "scripts/uosc/elements/Speed.lua",
+      "sha256": "fee532d01e108cb4d74fbfdedaf91ea2fff81af3b4f3f4e3543fd8aaefa92326"
+    },
+    {
+      "path": "scripts/uosc/elements/Timeline.lua",
+      "sha256": "5be97872da67aa091e37f395664ad05e4c1f6e3cd6e727ef68217e236176b2ee"
+    },
+    {
+      "path": "scripts/uosc/elements/TopBar.lua",
+      "sha256": "7513c5ec0924befc5f7e8edb5a0c96870150ed827ace820ba863f1995ba8e3c0"
+    },
+    {
+      "path": "scripts/uosc/elements/Updater.lua",
+      "sha256": "41ecb02fb396d9a05f16db16b3970986bd21b31d4d5e32db9ed072338d9bc065"
+    },
+    {
+      "path": "scripts/uosc/elements/Volume.lua",
+      "sha256": "fa16d0cd19df402ef631931d49787ccc7fdf06adf3e86913deb5bafcd3266c7a"
+    },
+    {
+      "path": "scripts/uosc/elements/WindowBorder.lua",
+      "sha256": "c8a6a64c321732913bc8ad838a202bdca037cfab3db4dcd636cb63098dc806cb"
+    },
+    {
+      "path": "scripts/uosc/intl/de.json",
+      "sha256": "606d296d7d0dd010cb732722a0c9e28abc9c0d09d962e959212c29bfdf2a125e"
+    },
+    {
+      "path": "scripts/uosc/intl/es.json",
+      "sha256": "cc38c03c9b954c8711b23eddfedb83ba6c9653a133c3ad7e432cfecdd089a999"
+    },
+    {
+      "path": "scripts/uosc/intl/fr.json",
+      "sha256": "a8ec21232c1fbb5c3de5a90f1f92ec1e4258ea9827f9eff87989f20471552c3b"
+    },
+    {
+      "path": "scripts/uosc/intl/it.json",
+      "sha256": "58bf14006cb8a61730ee7faabad4a7c4ea99681efd4268ffb02a26354076839f"
+    },
+    {
+      "path": "scripts/uosc/intl/pl.json",
+      "sha256": "c3733a695296104618683f4b705b1e03493d1cd96ba5fe98c339020b3cd95cdd"
+    },
+    {
+      "path": "scripts/uosc/intl/pt.json",
+      "sha256": "ad8539c3d8ae368a93e2cd0402ad92480aa3ea57db6430ee1bd6c34876005a1f"
+    },
+    {
+      "path": "scripts/uosc/intl/ro.json",
+      "sha256": "22c90c139b53e0b417a62987baa4e46b010195df8e85bd076861b7044dd3ab1e"
+    },
+    {
+      "path": "scripts/uosc/intl/ru.json",
+      "sha256": "ac86fd3ae167e79cc51aec8bd12f04dc9491613fecdba6820f3388db6671b9a6"
+    },
+    {
+      "path": "scripts/uosc/intl/tr.json",
+      "sha256": "1081a7e970764e0ff438c3d8c2164543732cc10f6feb8e11fa670b741d3d896e"
+    },
+    {
+      "path": "scripts/uosc/intl/uk.json",
+      "sha256": "e57d8cbc32b5b8e92b50cde0b2eb06cb405f87a138ebd88b5cb962d84be8e4a8"
+    },
+    {
+      "path": "scripts/uosc/intl/zh-hans.json",
+      "sha256": "d3339e658874530f4275c70d0837986746f98a9abca453d4bb2bde285c5dde31"
+    },
+    {
+      "path": "scripts/uosc/intl/zh-HK.json",
+      "sha256": "889667e15b379bed7015fdc6bb6ac5295fba2bbb810f9392582da296d5444e5c"
+    },
+    {
+      "path": "scripts/uosc/lib/ass.lua",
+      "sha256": "e0eab05a8924cb184867c965aefdcabd5b11989335dd1d24aa9d4a44e2346694"
+    },
+    {
+      "path": "scripts/uosc/lib/buttons.lua",
+      "sha256": "f79302eda925010a8ccbfa7e960e0fc7760114b920d641897474ed91ea318f73"
+    },
+    {
+      "path": "scripts/uosc/lib/char_conv.lua",
+      "sha256": "57dca5a0498d254826d8c18a1fc800b3556a6f49318e7ad0fbefc51b7167660f"
+    },
+    {
+      "path": "scripts/uosc/lib/cursor.lua",
+      "sha256": "d77796d3d857b5527b882c18b92b9e81d7fb3f8a27e7b5ebf52e489c98bbc7f6"
+    },
+    {
+      "path": "scripts/uosc/lib/fzy.lua",
+      "sha256": "5b1b53aaf56c8b51bd3507f6f6b76c042b92ceb55eaac8533277754158426711"
+    },
+    {
+      "path": "scripts/uosc/lib/intl.lua",
+      "sha256": "234df27c1e6a27089b04e156c3146669bbe4fcb3960169692b222c9e4867110d"
+    },
+    {
+      "path": "scripts/uosc/lib/menus.lua",
+      "sha256": "08181fa05c2a0dd0c5146c0a0e02e44a690732f84a08e3c5bfdd06ff68e0f79e"
+    },
+    {
+      "path": "scripts/uosc/lib/std.lua",
+      "sha256": "fdaedd93bdb9b716dbd99ec1c8cff08b3d316c9fdc793718e2b4ee7a504799f5"
+    },
+    {
+      "path": "scripts/uosc/lib/text.lua",
+      "sha256": "f4e040412b2e3c2d276d8098aa1eea01e020e916123336470dd2480a5968eb07"
+    },
+    {
+      "path": "scripts/uosc/lib/utils.lua",
+      "sha256": "297fb0a150bc0ec8a4d342373c3864aafdd5aee7cccc66469c2a656cf120302c"
+    },
+    {
+      "path": "scripts/uosc/main.lua",
+      "sha256": "bf97dcde4f1b8bd74a5e1c672a436a5584b5db2dc9413ab5585745afd9e1dd8d"
+    }
+  ],
+  "thumbfast": [
+    {
+      "path": "scripts/thumbfast.lua",
+      "sha256": "a3d08e71eae8b892f6cd39f9593ea219768e709312d176bca883841b156448bf"
+    }
+  ],
+  "subtitle-font": [
+    {
+      "path": "fonts/LXGWWenKaiScreen.ttf",
+      "sha256": "abd13364163e3cd84372b333f2fdcee9efb848634668f1c0ce5788dcd059ee61"
+    }
+  ]
+}

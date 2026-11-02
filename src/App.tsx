@@ -134,9 +134,6 @@ export function App() {
     finally { busyRef.current = false; setBusy(false); }
   }
   function go(next: typeof page) { setPage(next); if (next !== "settings" && desktop && !busyRef.current) void refresh().catch(setError); }
-  function changePlayback<K extends keyof Settings["playback"]>(key: K, value: Settings["playback"][K]) {
-    setDraft(d => ({...d, playback:{...d.playback,[key]:value}}));
-  }
   const dirty = JSON.stringify(draft) !== savedDraft;
   closeState.current = {dirty,busy};
   useEffect(() => {
@@ -175,11 +172,8 @@ export function App() {
     request.current = null; setConfiguration(null); retryPreview.current = () => installOnly(reapply);
     setTaskDone(false); setOutcome(null); setExecuting(false); setCompleted([]); setTaskTitle(reapply ? "reapplyConfig" : report?.generation ? "repairInstallation" : "quickInstall");
     await run(async () => {
-      setPreview({kind:"download",data:null}); setProgress({component:"",phase:"prepare",received:0,total:0});
-      let receiving = true;
-      const channel = new Channel<Progress>(); channel.onmessage = p => { if (receiving) setProgress(p); };
-      try { setPreview({kind:"install",data:await invoke<Installation>("preview_install",{settings:draft,reapply,onProgress:channel})}); }
-      finally { receiving = false; setProgress(null); }
+      setPreview({kind:"download",data:null});
+      setPreview({kind:"install",data:await invoke<Installation>("preview_install",{settings:draft,reapply,language:locale})});
     });
   }
   async function uninstall(keepCoreChoice = false) {
@@ -235,7 +229,7 @@ export function App() {
   const action = (label: Key, onClick: () => void, primary = false, disabled = blocked) =>
     <Button type="button" variant={primary ? "filled" : "default"} disabled={disabled} onClick={e=>{previewOrigin.current=e.currentTarget;onClick();}}>{t(label)}</Button>;
   const row = (label: string, control: ReactNode, description?: ReactNode, id?: string) =>
-    <div className="setting-row"><div><Text id={id ? id+"-label" : undefined} fw={500}>{label}</Text>{description && <Text size="sm" c="dimmed">{description}</Text>}</div><div className="row-control">{control}</div></div>;
+    <div className="setting-row"><div><Text id={id ? id+"-label" : undefined} size="sm">{label}</Text>{description && <Text size="xs" c="dimmed">{description}</Text>}</div><div className="row-control">{control}</div></div>;
   const enhancements = ["uosc", "thumbfast", "subtitle-font"];
   const enhancementsReady = enhancements.every(id=>report?.components.some(c=>c.id===id&&c.ready));
   const enhancementsOutdated = enhancementsReady && assets.some(asset=>report?.components.find(c=>c.id===asset.id)?.version!==asset.version);
@@ -259,16 +253,23 @@ export function App() {
       {report?.configurationModified&&<Alert color="yellow" mb="md">{t("manualConfig")}</Alert>}
       <Paper withBorder className="section">
         {row(t("quality"),<NativeSelect aria-labelledby="quality-label" value={draft.profile} disabled={unavailable} data={Object.entries(profileKey).map(([value,k])=>({value,label:t(k)}))} onChange={e=>{const profile=e.currentTarget.value;setDraft(d=>({...d,profile}));}}/>,hint,"quality")}
-        {row(t("hdr"),<NativeSelect aria-labelledby="hdr-label" value={draft.playback.hdr} disabled={unavailable} data={[{value:"auto",label:t("auto")},{value:"on",label:t("hdrOn")},{value:"off",label:t("hdrOff")}]} onChange={e=>changePlayback("hdr",e.currentTarget.value)}/>,draft.playback.hdr==="on"?t("hdrHint"):undefined,"hdr")}
-        {row(t("autoPlaylist"),<Checkbox aria-labelledby="auto-playlist-label" aria-describedby="auto-playlist-hint" checked={draft.playback.autoPlaylist} disabled={unavailable} onChange={e=>changePlayback("autoPlaylist",e.currentTarget.checked)}/>,<span id="auto-playlist-hint">{t("autoPlaylistHint")}</span>,"auto-playlist")}
-        {row(t("endBehavior"),<NativeSelect aria-labelledby="end-behavior-label" value={draft.playback.keepOpen?"keep":"close"} disabled={unavailable} data={[{value:"close",label:t("closePlayer")},{value:"keep",label:t("keepWindow")}]} onChange={e=>changePlayback("keepOpen",e.currentTarget.value==="keep")}/>,undefined,"end-behavior")}
       </Paper>
-      <Paper withBorder className="section" data-enhancements>{row(t("extras"),<Text size="sm">{t(enhancementsReady?"ready":"notInstalled")}</Text>)}</Paper>
+      <section aria-labelledby="extras-title" className="section" data-enhancements>
+        <Text component="h2" id="extras-title" size="sm" fw={600} mt={24} mb={8}>{t("extras")}</Text>
+        <Paper withBorder>
+        {enhancements.map(id=>{
+          const component = report?.components.find(c=>c.id===id);
+          const version = component?.version;
+          return <div key={id} data-component={id}>{row(id==="subtitle-font"?t("subtitleFont"):id,
+            <Text size="sm">{t(component?.ready?"ready":version?"missing":"notInstalled")}</Text>,
+            <>{t(id==="uosc"?"playbackControls":id==="thumbfast"?"thumbnails":"subtitleFontRole")}{version && <> · {id==="thumbfast"?version.slice(0,7):version}</>}</>)}</div>;
+        })}
+        </Paper>
+      </section>
       <Paper withBorder className="section"><Fold title={t("advanced")}>
         {row(t("openConfigDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists),report?.configDirectory)}
         {report?.configurationInstalled&&row(t("modifiedAt"),<Text size="sm">{time(report.configModifiedAt)}</Text>)}
         {report?.configurationInstalled&&<div className="actions">{action("reapplyConfig",()=>void installOnly(true),false,blocked||!configurationReady)}</div>}
-        <Fold title={t("componentDetails")}>{enhancements.map(id=><div className="source-item" key={id}><Text size="sm">{id==="subtitle-font"?t("subtitleFont"):id} · {report?.components.find(c=>c.id===id)?.version??"—"}</Text></div>)}</Fold>
         <Fold title={t("sources")}>{assets.map(a=><div className="source-item" key={a.id}><Text size="sm">{a.id} · {a.version}</Text><code>{a.url}</code><code>SHA-256 {a.sha256}</code></div>)}</Fold>
       </Fold></Paper>
 
@@ -348,7 +349,7 @@ export function App() {
         {busy&&<TaskProgress label={progress ? t(progress.phase === "download" ? "downloadingUpdate" : progress.phase === "verify-extract" ? "verifyingUpdate" : progress.phase === "package-manager" ? "waitingPackageManager" : progress.phase === "remove-configuration" ? "removingConfiguration" : progress.phase === "install-components" ? "installingComponents" : "preparingUpdate")+(progress.component ? " · "+progress.component : "") : t(executing ? "executingTask" : "preparingUpdate")} percent={progress?.phase === "download" && progress.total > 0 ? Math.min(100,Math.floor(progress.received*100/progress.total)) : null} />}
         <Group justify="flex-end" gap={8}>
           {error!=null && retryPreview.current ? <Button disabled={busy} onClick={()=>void retryPreview.current?.()}>{t("prepareAgain")}</Button> : taskDone&&outcome?.stages.some(s=>!s.success) ? <Button disabled={busy} onClick={()=>void retryFailed()}>{t("prepareAgain")}</Button> : !taskDone && preview?.kind!=="download" && !(preview?.kind==="configuration"&&preview.readOnly) && <Button disabled={busy||!!hasConflicts} onClick={()=>void confirmPreview()}>{t(previewAction)}</Button>}
-          {busy&&!executing&&progress?.phase==="download" ? <Button variant="default" onClick={()=>void invoke("cancel_component_download").catch(setError)}>{t("cancel")}</Button> : <Button variant="default" data-autofocus disabled={busy} onClick={dismissTask}>{t(taskDone||error!=null?"close":"cancel")}</Button>}
+          {busy&&progress?.phase==="download" ? <Button variant="default" onClick={()=>void invoke("cancel_component_download").catch(setError)}>{t("cancel")}</Button> : <Button variant="default" data-autofocus disabled={busy} onClick={dismissTask}>{t(taskDone||error!=null?"close":"cancel")}</Button>}
         </Group>
       </div>
     </Modal>

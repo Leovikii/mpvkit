@@ -340,7 +340,7 @@ pub fn prepare_install(
     replace_existing: bool,
     components: BTreeMap<String, String>,
 ) -> Result<DeploymentPlan> {
-    prepare_files(root, payloads, replace_existing, components, false)
+    prepare_files(root, payloads, vec![], replace_existing, components, false)
 }
 
 // A component update keeps omitted files and their original ownership hashes, even when damaged.
@@ -350,12 +350,23 @@ pub fn prepare_update(
     replace_existing: bool,
     components: BTreeMap<String, String>,
 ) -> Result<DeploymentPlan> {
-    prepare_files(root, payloads, replace_existing, components, true)
+    prepare_files(root, payloads, vec![], replace_existing, components, true)
+}
+
+// Fixed component hashes allow a concrete preview without fetching the component bytes.
+pub(crate) fn prepare_download(
+    root: &Path,
+    payloads: Vec<Payload>,
+    downloads: Vec<OwnedFile>,
+    components: BTreeMap<String, String>,
+) -> Result<DeploymentPlan> {
+    prepare_files(root, payloads, downloads, true, components, true)
 }
 
 fn prepare_files(
     root: &Path,
     payloads: Vec<Payload>,
+    downloads: Vec<OwnedFile>,
     replace_existing: bool,
     mut components: BTreeMap<String, String>,
     preserve_omitted: bool,
@@ -364,7 +375,7 @@ fn prepare_files(
     if status(root)?.recovery_required {
         return Err(error("recovery_required", "有未完成操作，请先预览恢复。"));
     }
-    if payloads.len() > MAX_FILES {
+    if payloads.len() + downloads.len() > MAX_FILES {
         return Err(error("file_limit", "组件文件过多。"));
     }
     let old: Option<InstallManifest> = old_text.as_deref().map(decode).transpose()?;
@@ -385,43 +396,53 @@ fn prepare_files(
     let mut seen = BTreeSet::new();
     let mut total = 0u64;
     let mut guards = Vec::new();
-    for payload in payloads {
-        let path = target(root, &payload.path)?;
-        let key = payload.path.to_ascii_lowercase();
+    let entries = payloads
+        .into_iter()
+        .map(|p| {
+            let hash = hash_bytes(&p.bytes);
+            (p.path, hash, Some(p.bytes))
+        })
+        .chain(downloads.into_iter().map(|f| (f.path, f.sha256, None)));
+    for (relative, after, bytes) in entries {
+        let path = target(root, &relative)?;
+        if !valid_hash(&after) {
+            return Err(error("invalid_state", "组件文件摘要无效。"));
+        }
+        let key = relative.to_ascii_lowercase();
         if !seen.insert(key.clone()) {
             return Err(error("duplicate_path", "组件文件路径重复。"));
         }
-        total += payload.bytes.len() as u64;
-        if payload.bytes.len() as u64 > MAX_FILE || total > 1024 * 1024 * 1024 {
+        let size = bytes.as_ref().map_or(0, |b| b.len() as u64);
+        total += size;
+        if size > MAX_FILE || total > 1024 * 1024 * 1024 {
             return Err(error("file_limit", "组件展开大小超过限制。"));
         }
         let before = file_hash(&path)?;
-        let after = hash_bytes(&payload.bytes);
         let previous = owned.get(&key).copied();
         if previous.is_some_and(|entry| {
             before.is_some()
                 && before.as_deref() != Some(&entry.sha256)
-                && !(crate::config::editable(&payload.path)
+                && !(crate::config::editable(&relative)
                     && (before.as_deref() == Some(&after) || replace_existing))
         }) || (previous.is_none() && before.is_some() && !replace_existing)
         {
-            conflicts.push(payload.path.clone());
+            conflicts.push(relative.clone());
         }
         let backup = before
             .as_ref()
             .map(|_| format!("recovery/{id}/{}", changes.len()));
         files.push(OwnedFile {
-            path: payload.path.clone(),
+            path: relative.clone(),
             sha256: after.clone(),
         });
         if before.as_deref() != Some(&after) || previous.is_none() {
             changes.push(Change {
-                path: payload.path,
+                path: relative,
                 before,
                 after: Some(after),
                 backup,
             });
-            data.push(Some(payload.bytes));
+            data.push(bytes);
         } else {
             guards.push((path, before));
         }
@@ -778,6 +799,47 @@ fn apply_change(root: &Path, journal: &Journal, index: usize) -> Result<()> {
 }
 
 impl DeploymentPlan {
+    pub(crate) fn supply_downloads(&mut self, payloads: Vec<Payload>) -> Result<()> {
+        let manifest: InstallManifest = decode(
+            self.journal
+                .new_manifest
+                .as_deref()
+                .ok_or_else(|| error("invalid_state", "缺少目标安装记录。"))?,
+        )?;
+        let mut seen = BTreeSet::new();
+        for payload in payloads {
+            let hash = hash_bytes(&payload.bytes);
+            if !seen.insert(payload.path.clone())
+                || !manifest
+                    .files
+                    .iter()
+                    .any(|f| f.path == payload.path && f.sha256 == hash)
+            {
+                return Err(error("component_mismatch", "下载内容与安装预览不符。"));
+            }
+            if let Some(index) = self
+                .journal
+                .changes
+                .iter()
+                .position(|c| c.path == payload.path)
+            {
+                self.payloads[index] = Some(payload.bytes);
+            }
+        }
+        self.require_payloads()
+    }
+    fn require_payloads(&self) -> Result<()> {
+        if self
+            .journal
+            .changes
+            .iter()
+            .zip(&self.payloads)
+            .any(|(c, p)| c.after.is_some() && p.is_none())
+        {
+            return Err(error("component_incomplete", "安装内容尚未下载完整。"));
+        }
+        Ok(())
+    }
     pub(crate) fn mark_preset(&mut self) -> Result<()> {
         let mut manifest: InstallManifest = decode(
             self.journal
@@ -811,6 +873,7 @@ impl DeploymentPlan {
 }
 
 pub fn execute(plan: DeploymentPlan) -> Result<DeploymentStatus> {
+    plan.require_payloads()?;
     validate_plan(&plan)?;
     let root = &plan.preview.root;
     let _lock = acquire(root)?;

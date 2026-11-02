@@ -202,6 +202,21 @@ fn fixed_archives_extract_and_deploy() {
         let bytes = fs::read(directory.join(name)).unwrap();
         files.extend(unpack(asset, &bytes, &AtomicBool::new(false)).unwrap());
     }
+    let ids: Vec<_> = ASSETS.iter().map(|a| a.id.to_owned()).collect();
+    let mut expected = planned_files(&ids).unwrap();
+    let mut actual: Vec<_> = files
+        .iter()
+        .map(|p| deploy::OwnedFile {
+            path: p.path.clone(),
+            sha256: deploy::hash_bytes(&p.bytes),
+        })
+        .collect();
+    expected.sort_by(|a, b| a.path.cmp(&b.path));
+    actual.sort_by(|a, b| a.path.cmp(&b.path));
+    assert_eq!(
+        expected, actual,
+        "offline preview matches the fixed archives"
+    );
     let source: serde_json::Value = serde_json::from_str(SOURCE_MATERIALS).unwrap();
     let main = files
         .iter()

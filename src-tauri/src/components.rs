@@ -441,6 +441,27 @@ pub fn prepare_selected(
     Ok(plan)
 }
 
+pub(crate) fn planned_files(ids: &[String]) -> Result<Vec<deploy::OwnedFile>> {
+    let index: std::collections::BTreeMap<String, Vec<deploy::OwnedFile>> =
+        serde_json::from_str(include_str!("../../resources/component-files.json"))
+            .map_err(|_| error("invalid_state", "组件文件清单无效。"))?;
+    let mut files = Vec::new();
+    for id in ids {
+        for file in index
+            .get(id)
+            .ok_or_else(|| error("component_unknown", "未知组件。"))?
+        {
+            if let Some(path) = destination(id, &file.path) {
+                files.push(deploy::OwnedFile {
+                    path,
+                    sha256: file.sha256.clone(),
+                });
+            }
+        }
+    }
+    Ok(files)
+}
+
 pub fn selected_payloads(
     ids: &[String],
     cancel: &AtomicBool,
@@ -459,7 +480,21 @@ pub fn selected_payloads(
             received: asset.size,
             total: asset.size,
         });
-        payloads.extend(crate::components::unpack(asset, &bytes, cancel)?);
+        let files = crate::components::unpack(asset, &bytes, cancel)?;
+        let mut actual: Vec<_> = files
+            .iter()
+            .map(|p| deploy::OwnedFile {
+                path: p.path.clone(),
+                sha256: deploy::hash_bytes(&p.bytes),
+            })
+            .collect();
+        let mut expected = planned_files(&[asset.id.into()])?;
+        actual.sort_by(|a, b| a.path.cmp(&b.path));
+        expected.sort_by(|a, b| a.path.cmp(&b.path));
+        if actual != expected {
+            return Err(error("component_mismatch", "下载内容与安装预览不符。"));
+        }
+        payloads.extend(files);
         versions.insert(asset.id.into(), asset.version.into());
     }
     payloads.extend(license_materials());
@@ -506,7 +541,7 @@ fn acquire(
     download(asset, cancel, progress)
 }
 
-fn license_materials() -> Vec<Payload> {
+pub(crate) fn license_materials() -> Vec<Payload> {
     let files = vec![
         ("LXGWWenKaiScreen-OFL.txt",include_bytes!("../../resources/licenses/LXGWWenKaiScreen-OFL.txt").as_slice()),
         ("uosc-LGPL-2.1.txt",include_bytes!("../../resources/licenses/uosc-LGPL-2.1.txt").as_slice()),

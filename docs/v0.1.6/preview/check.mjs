@@ -29,6 +29,7 @@ try {
   return Math.abs(control.getBoundingClientRect().right-edge)<2;
  })),'row controls must share the right edge, including wrapped rows');
  await page.locator('main[aria-busy=false]').waitFor();
+ assert.equal(await page.getByLabel('HDR 输出',{exact:true}).count(),0);assert.equal(await page.getByLabel('自动连播',{exact:true}).count(),0);assert.equal(await page.getByLabel('全部播放结束后',{exact:true}).count(),0);
  assert.equal(await page.locator('.sidebar').count(),0);assert(await page.getByLabel('画质',{exact:true}).isEnabled());
  await page.getByLabel('画质',{exact:true}).selectOption('high-quality');
  await button('设置').click();assert.equal(await page.locator('input[type=text]').count(),0);
@@ -36,7 +37,7 @@ try {
  assert.equal(await page.getByRole('link',{name:'在 GitHub 查看 MpvKit 仓库'}).getAttribute('href'),'https://github.com/Leovikii/mpvkit');
  await button('返回').click();assert.equal(await page.getByLabel('画质',{exact:true}).inputValue(),'high-quality');
  await button('一键安装').click();await dialog.locator('.changes').waitFor({state:'attached'});
- assert.equal((await page.evaluate(()=>__preview.counts)).writes,0);await confirm('取消');await dialog.waitFor({state:'hidden'});
+ assert.equal((await page.evaluate(()=>__preview.counts)).downloads,0,'preview must not download');assert.equal((await page.evaluate(()=>__preview.counts)).writes,0);await confirm('取消');await dialog.waitFor({state:'hidden'});
  await button('一键安装').click();await dialog.locator('.changes').waitFor({state:'attached'});await confirm('安装');await dialog.getByText('操作完成。',{exact:false}).first().waitFor();await close();
  assert((await page.evaluate(()=>__preview.report())).settingsReady);
  await page.getByLabel('画质',{exact:true}).selectOption('balanced');await button('保存配置').click();await dialog.locator('.configuration-text').waitFor();await confirm('保存配置');await dialog.getByText('已保存',{exact:true}).waitFor();await close();
@@ -59,6 +60,8 @@ try {
  assert(!(await page.evaluate(()=>__preview.report())).playerInstalled);await page.evaluate(()=>__preview.cleanupFailure=false);await confirm('重新准备');await dialog.locator('.changes').waitFor({state:'attached'});assert.equal(await dialog.getByRole('checkbox').count(),0);await confirm('卸载');await dialog.getByText('操作完成。',{exact:false}).first().waitFor();await close();
  assert.equal((await page.evaluate(()=>__preview.counts)).coreLaunches,1);
  await scenario('config-error');await page.getByLabel('画质',{exact:true}).selectOption('high-quality');await button('保存配置').click();await dialog.locator('.configuration-text').waitFor();await confirm('保存配置');await dialog.getByRole('button',{name:'重新准备',exact:true}).waitFor();await confirm('关闭');assert.equal(await page.getByLabel('画质',{exact:true}).inputValue(),'high-quality');
+ await scenario('fresh');await button('一键安装').click();await dialog.locator('.changes').waitFor({state:'attached'});assert.equal((await page.evaluate(()=>__preview.counts)).downloads,0);
+ await confirm('安装');await dialog.getByRole('button',{name:'取消',exact:true}).click();await dialog.getByRole('button',{name:'重新准备',exact:true}).waitFor();assert.equal((await page.evaluate(()=>__preview.counts)).writes,0);await close();
  await scenario('preset-update');
  await page.getByRole('status').getByText('预设已更新',{exact:true}).waitFor();
  assert.equal(await dialog.count(),0,'preset notice does not open a modal');
@@ -73,6 +76,13 @@ try {
  assert.equal(await page.getByLabel('画质',{exact:true}).inputValue(),'high-quality');
  await scenario('preset-unapplied');await page.getByText('可重新应用配置',{exact:true}).waitFor();
  await scenario('ready');
+ const extras=page.getByRole('region',{name:'播放增强',exact:true});
+ for(const [value,statuses] of [['fresh',['未安装','未安装','未安装']],['partial',['已就绪','需要修复','需要修复']],['broken',['需要修复','已就绪','已就绪']],['ready',['已就绪','已就绪','已就绪']]]){
+  await scenario(value);
+  assert.deepEqual(await extras.locator('.row-control').allTextContents(),statuses);
+  for(const label of ['uosc','thumbfast','霞鹜文楷屏幕阅读版'])assert(await extras.getByText(label,{exact:true}).isVisible());
+  assert.equal(await page.getByRole('button',{name:'组件明细',exact:true}).count(),0);
+ }
  for(const language of ['zh-Hans','en']){
   await button('设置').click();await page.getByLabel('界面语言',{exact:true}).selectOption(language);
   const settings=language==='en'?'Settings':'设置',back=language==='en'?'Back':'返回';
