@@ -248,12 +248,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     assert_eq!(get("pause"), true);
     request(
         &socket,
-        json!([
-            "script-message-to",
-            "uosc",
-            "show-submenu",
-            "播放模式 / Playback mode"
-        ]),
+        json!(["script-message-to", "uosc", "show-submenu", "Playback mode"]),
     );
     assert_eq!(inspect()["menu"]["items"].as_array().unwrap().len(), 3);
     request(&socket, json!(["keypress", "ESC"]));

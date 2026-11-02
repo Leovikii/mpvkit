@@ -29,6 +29,7 @@ try {
   return Math.abs(control.getBoundingClientRect().right-edge)<2;
  })),'row controls must share the right edge, including wrapped rows');
  await page.locator('main[aria-busy=false]').waitFor();
+ assert.equal(await page.getByLabel('HDR 输出',{exact:true}).count(),0);assert.equal(await page.getByLabel('自动连播',{exact:true}).count(),0);assert.equal(await page.getByLabel('全部播放结束后',{exact:true}).count(),0);
  assert.equal(await page.locator('.sidebar').count(),0);assert(await page.getByLabel('画质',{exact:true}).isEnabled());
  await page.getByLabel('画质',{exact:true}).selectOption('high-quality');
  await button('设置').click();assert.equal(await page.locator('input[type=text]').count(),0);
@@ -75,6 +76,13 @@ try {
  assert.equal(await page.getByLabel('画质',{exact:true}).inputValue(),'high-quality');
  await scenario('preset-unapplied');await page.getByText('可重新应用配置',{exact:true}).waitFor();
  await scenario('ready');
+ const extras=page.getByRole('region',{name:'播放增强',exact:true});
+ for(const [value,statuses] of [['fresh',['未安装','未安装','未安装']],['partial',['已就绪','需要修复','需要修复']],['broken',['需要修复','已就绪','已就绪']],['ready',['已就绪','已就绪','已就绪']]]){
+  await scenario(value);
+  assert.deepEqual(await extras.locator('.row-control').allTextContents(),statuses);
+  for(const label of ['uosc','thumbfast','霞鹜文楷屏幕阅读版'])assert(await extras.getByText(label,{exact:true}).isVisible());
+  assert.equal(await page.getByRole('button',{name:'组件明细',exact:true}).count(),0);
+ }
  for(const language of ['zh-Hans','en']){
   await button('设置').click();await page.getByLabel('界面语言',{exact:true}).selectOption(language);
   const settings=language==='en'?'Settings':'设置',back=language==='en'?'Back':'返回';

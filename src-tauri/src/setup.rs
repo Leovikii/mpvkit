@@ -357,7 +357,7 @@ pub fn execute(plan: ChangePlan) -> Result<deploy::DeploymentStatus> {
 mod transaction_tests {
     use super::*;
     fn core(root: &Path) {
-        let mut files = config::runtime_files().unwrap();
+        let mut files = config::runtime_files(config::Language::English).unwrap();
         #[cfg(target_os = "windows")]
         mpv::fixture_player(root);
         files.push(deploy::Payload {

@@ -121,6 +121,7 @@ pub fn prepare_install(
     root: &std::path::Path,
     settings: config::Settings,
     reapply: bool,
+    language: config::Language,
 ) -> Result<Plan> {
     settings.validate()?;
     let report = setup::status(root)?;
@@ -142,7 +143,8 @@ pub fn prepare_install(
         ));
     }
     let player = config::player_path(root)?;
-    let configuration = config::portable::preview_mode(root, &settings, true, reapply)?;
+    let configuration =
+        config::portable::preview_mode(root, &settings, true, reapply, Some(language))?;
     let selected: Vec<_> = components::ASSETS
         .iter()
         .filter(|asset| {
@@ -155,7 +157,7 @@ pub fn prepare_install(
         .collect();
     let mut payloads = components::license_materials();
     payloads.extend(config::portable::installation_files(
-        root, &settings, reapply,
+        root, &settings, reapply, language,
     )?);
     let versions = components::ASSETS
         .iter()

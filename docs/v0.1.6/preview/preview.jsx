@@ -11,12 +11,13 @@ const params = new URLSearchParams(location.search);
 const linux = params.get('updates') === 'linux';
 const assets = [{id:'uosc',version:'5.13.0'},{id:'thumbfast',version:'0f711de3138c9bd6718209d819ac54022c23ded2'},{id:'subtitle-font',version:'1.530'}].map(asset=>({...asset,size:100,url:'https://example.invalid/'+asset.id,sha256:'0'.repeat(64)}));
 const clone = value => structuredClone(value);
-const files = settings => sampleFiles({quality:settings.profile,...settings.playback});
+const files = (settings,language=configured?installedLanguage:preferences.language) => sampleFiles({quality:settings.profile,language});
 const pause = () => new Promise(resolve=>setTimeout(resolve,180));
-let preferences, settings, installed, configured, core, scenario, pending, cancelled, modified, fileTime, presetStatus;
+let preferences, settings, installedLanguage, installed, configured, core, scenario, pending, cancelled, modified, fileTime, presetStatus;
 const counts = {prepare:0,downloads:0,confirm:0,writes:0,coreLaunches:0,corePreviews:0,removalPreviews:0};
 function reset(value) {
   scenario=value; presetStatus=value==='preset-update'?'outdated':value==='preset-unapplied'?'unknown':null; pending=null; cancelled=false; modified=value==='conflict';
+  installedLanguage='zh-Hans';
   preferences={...defaultAppSettings,language:'zh-Hans'}; settings=clone(defaultSettings);
   core=value!=='no-core'; configured=['ready','conflict','config-error','preset-update','preset-unapplied'].includes(value);
   installed=Object.fromEntries(assets.map(asset=>[asset.id, {version:['fresh','no-core','download-error'].includes(value)?null:asset.version,ready:!['fresh','no-core','download-error'].includes(value)&&!(value==='broken'&&asset.id==='uosc')&&!(value==='partial'&&asset.id!=='uosc')} ]));
@@ -56,7 +57,7 @@ mockIPC(async (command,args={})=>{
   if(command==='preview_install'){
     counts.prepare++;cancelled=false;
     const selected=assets.filter(asset=>!installed[asset.id].ready||installed[asset.id].version!==asset.version).map(asset=>asset.id);
-    pending={kind:'installation',components:selected,settings:clone(args.settings)};
+    pending={kind:'installation',components:selected,settings:clone(args.settings),language:!configured||args.reapply?args.language:installedLanguage};
     return {...deployment([...selected.map(id=>'scripts/'+id+'.lua'),'mpv.conf']),kind:args.reapply?'reapply':'install',needsCore:!core,coreAction:core?null:'install'};
   }
   if(command==='cancel_component_download'){cancelled=true;return;}
@@ -84,7 +85,7 @@ mockIPC(async (command,args={})=>{
         send({component:operation.components.join(', '),phase:'install-components',received:0,total:0});await pause();
         if(window.__preview.partial){window.__preview.partial=false;stages.push({name:'configuration',success:false,exitCode:null,error:{code:'write_failed',message:'Example write failure'},detected:null});pending=null;return {stages};}
         for(const id of operation.components)installed[id]={version:assets.find(asset=>asset.id===id).version,ready:true};
-        settings=operation.settings;configured=true;presetStatus=null;modified=false;fileTime=Date.now();
+        installedLanguage=operation.language;settings=operation.settings;configured=true;presetStatus=null;modified=false;fileTime=Date.now();
         stages.push({name:'configuration',success:true,exitCode:null,error:null,detected:null});
       }else if(operation.kind==='configuration'){
         await pause();if(scenario==='config-error'){scenario='core';throw {code:'write_failed',message:'Example write failure'};}

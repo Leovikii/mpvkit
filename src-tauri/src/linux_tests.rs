@@ -41,7 +41,10 @@ fn linux_configuration_has_no_windows_runtime_paths() {
     assert!(!conf.contains("d3d") && !conf.contains("C:\\"));
     assert_eq!(
         content("script-opts/uosc.conf"),
-        include_str!("../../resources/uosc.conf")
+        format!(
+            "{}languages=en\n",
+            config::Language::English.render(include_str!("../../resources/uosc.conf"))
+        )
     );
     assert!(
         content(crate::config::relative!("script-opts/thumbfast.conf"))
@@ -352,10 +355,6 @@ fn verify_render_modes(root: &Path, media: &Path, extended: bool) {
             }
             let settings = config::Settings {
                 profile,
-                playback: config::Playback {
-                    hdr,
-                    ..Default::default()
-                },
                 ..Default::default()
             };
             let preview = config::portable::preview(root, &settings, false).unwrap();
@@ -367,6 +366,15 @@ fn verify_render_modes(root: &Path, media: &Path, extended: bool) {
                 "--config=yes".into(),
                 format!("--config-dir={}", root.display()).into(),
                 "--load-scripts=no".into(),
+                format!(
+                    "--profile=mpvkit-hdr-{}",
+                    match hdr {
+                        config::Hdr::Auto => "auto",
+                        config::Hdr::On => "on",
+                        config::Hdr::Off => "off",
+                    }
+                )
+                .into(),
                 "--frames=2".into(),
                 "--audio=no".into(),
                 media.as_os_str().to_owned(),

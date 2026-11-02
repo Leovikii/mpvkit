@@ -1,6 +1,6 @@
 # 本地开发与测试入口
 
-公开预发布为 v0.2.0-beta.2；dev 的安装确认顺序及音轨布局修正尚未发布，源码版本暂不变，预设修订为 2。本版命令、结果和环境边界见 [beta.2 证据](v0.2.0-beta.2/evidence.md)，历史测试不作为本版通过。先读 [AGENTS](../AGENTS.md) 及[目录边界](current.md#当前目录)，普通测试始终只用新隔离根。
+公开预发布为 v0.2.0-beta.2；当前源码为未发布的 beta.3，预设修订为 3。当前命令、结果和环境边界见 [beta.3 证据](v0.2.0-beta.3/evidence.md)，历史测试不作为本版通过。先读 [AGENTS](../AGENTS.md) 及[目录边界](current.md#当前目录)，普通测试始终只用新隔离根。
 
 ## 工具与最小检查
 
@@ -128,6 +128,8 @@ node docs/v0.1.6/preview/check.mjs
 Windows 原生套件覆盖启动一次、预览偏好、无稳定版、失败重试、版本发现竞态、日志纯文本、草稿保护和测试安装阻断。隔离根 test-tools/updates 使用 releases-N.json、v<version>.json 及 v<version>-SHA256SUMS，包含六项资产名/真实摘要。Windows 与 Arch 的进度、预览、授权取消/失败/完成由原生 WebView 中的 IPC mock 演示，不运行真实安装器或 Pacman；官方插件下载验签在两端 Rust 回环测试实际执行。
 
 beta.2 原生套件新增首次安装 presetRevision、只读检测、普通保存保留标识、页内提示无自动弹窗、取消/过期失败不抬升标识、完整重新应用保留选择/未知内容/续播、重复应用不写及较新修订不提示降级。旧版迁移和旧桥接恢复不属本版范围。
+
+beta.3 新增 `native beta3 installed language, localized menus and playback options`：真实 WebView 切换语言不写播放器配置，普通画质保存保留安装语言，完整重新应用才更新；私有 uosc 副本取证并通过菜单键盘选择验证 HDR、自动连播、结束行为和画质菜单。原自动连播/字幕回归改为测试原生运行期选项及后续 loadfile；真实 HDR 输出仍须设备验收。Rust 默认测试另覆盖中文到英文重应用、默认区手改保护和未展开占位符。独立预览同步只保留画质。
 
 dev 安装顺序专项使用空的隔离资产目录证明确认前不获取资产、取消不写入、确认后下载失败不部署，再补齐固定资产复验过期保护及一次确认完成。固定归档专项比对 resources/component-files.json 的逐文件摘要；下载后必须与离线预览一致，不重新生成预览绕过原有状态守卫。
 

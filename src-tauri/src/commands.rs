@@ -189,11 +189,12 @@ pub fn cancel_component_download(state: State<'_, ComponentJob>) -> Result<()> {
 pub async fn preview_install(
     settings: crate::config::Settings,
     reapply: Option<bool>,
+    language: crate::config::Language,
     state: State<'_, PendingDeployment>,
 ) -> Result<crate::tasks::Preview> {
     let root = platform::app_root()?;
     let plan = tauri::async_runtime::spawn_blocking(move || {
-        crate::tasks::prepare_install(&root, settings, reapply.unwrap_or(false))
+        crate::tasks::prepare_install(&root, settings, reapply.unwrap_or(false), language)
     })
     .await
     .map_err(|_| {

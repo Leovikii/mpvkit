@@ -124,9 +124,10 @@
     "managedOverride": {
       "source": "resources/uosc.conf",
       "file": "script-opts/uosc.conf",
-      "size": 412,
-      "sha256": "68047c5c0de0b15afb8860e8fa2c8f46a15fad77756b0c0aafd7cca8d098bf7f",
-      "owner": "MpvKit"
+      "size": 391,
+      "sha256": "d61ae36cd2d1041d423cab992315671cb5662147b25556e64d33b51bfa976593",
+      "owner": "MpvKit",
+      "method": "Template localized by the manager on installation or complete reapplication; languages is appended for the selected locale."
     }
   },
   "uoscHelper": {

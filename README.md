@@ -4,6 +4,8 @@ A simple interface for installing, configuring and updating MPV on **Windows x64
 
 Current preview: **0.2.0-beta.2**. See the [test status and known limits](docs/v0.2.0-beta.2/plan.md).
 
+Unreleased development: **0.2.0-beta.3** simplifies playback settings and installs menus in the manager's language. See the [development plan](docs/v0.2.0-beta.3/plan.md).
+
 ## Features
 
 - Edit playback settings before installation in a narrow two-page interface.
