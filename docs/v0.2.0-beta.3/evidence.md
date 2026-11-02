@@ -88,3 +88,5 @@ Windows 原生回归覆盖：
 ## 发布前复核
 
 用户确认测试通过并授权本版发布。版本/tag 契约、发布材料 gate、19 项前端/发布模拟契约测试通过。发布前发现两端依赖材料仍记录 beta.2 输入摘要，按现有 collector 重新生成后通过 Windows/Linux `--check`：仅更新版本标题及 Cargo/package 输入摘要，包数、许可原文和依赖均未变化，无缺失材料。日志 `.local/beta3/pre-release-contracts.log`；后续 CI、PR、正式签名及匿名核验记录待实际完成后补充。
+
+PR #18 首轮 Arch 默认测试为 63 passed、1 failed、5 ignored：语言测试用任意双下划线判断模板残留，将嵌入 helper 路径的 GitHub runner `/__w/` 误判为占位符。改为逐一检查文本表中的确切 token 及 `__MPVKIT_HELPER__`，不修改生成逻辑或放宽业务验证；本地定向复验及后续 CI 结果分别记录。原日志 `.local/beta3/pr-arch-failure.log`。

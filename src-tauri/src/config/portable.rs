@@ -516,7 +516,20 @@ mod tests {
         assert_eq!(read_state(&root).unwrap().language, Language::English);
         for name in ["input.conf", "script-opts/uosc.conf", "scripts/mpvkit.lua"] {
             let text = std::fs::read_to_string(root.join(name)).unwrap();
-            assert!(!text.contains("__"), "unexpanded placeholder: {name}");
+            let menu_text: serde_json::Value =
+                serde_json::from_str(include_str!("../../../resources/menu-text.json")).unwrap();
+            for key in menu_text
+                .as_object()
+                .unwrap()
+                .keys()
+                .map(String::as_str)
+                .chain(["MPVKIT_HELPER"])
+            {
+                assert!(
+                    !text.contains(&format!("__{key}__")),
+                    "unexpanded placeholder {key}: {name}"
+                );
+            }
             assert!(
                 !text.chars().any(|c| ('\u{4e00}'..='\u{9fff}').contains(&c)),
                 "Chinese in English {name}"
