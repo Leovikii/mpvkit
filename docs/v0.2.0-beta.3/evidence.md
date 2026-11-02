@@ -100,3 +100,24 @@ PR #18 首轮 Arch 默认测试为 63 passed、1 failed、5 ignored：语言测�
 发布首轮 Arch 正式构建、签名及隔离包验收成功；Windows 默认测试 55 passed、1 failed、5 ignored，失败发生在 junction 安全测试调用 PowerShell 创建隔离夹具时超过 10 秒，尚未执行目标路径拒绝断言。错误复用了 `probe_timeout` 文案，不是 MPV 播放失败。原日志 `.local/beta3/release-windows-failure.log`；同一源码本地定向复验 1 passed，夹具及断言在 0.53 秒内完成，见 `junction-recheck.log`。保留 tag 与成功的 Arch 任务，仅通过 Actions 重跑失败任务；不修改产品或放宽安全检查，重试结果见后续发布记录。
 
 第一次重试仍在同一 PowerShell 夹具启动处超时（55 passed、1 failed、5 ignored），见 `release-windows-retry-failure.log`；原 PR 同项成功但全套耗时 15.35 秒，发布失败两轮为 16.19/16.45 秒。为避免新 runner 的 PowerShell 冷启动占用夹具 10 秒上限，发布工作流在测试前显式启动一次 Windows PowerShell（独立 1 分钟限制、失败仍阻断），保留原测试、断言及超时。此为发布流程修正，版本源码/tag 不变，通过 PR 检查后按既有 tag 的 release 重试入口重新构建签名，不沿用失败测试结果。
+
+发布流程修正经 [PR #19](https://github.com/Leovikii/mpvkit/pull/19) 合并为 `92dd038`，其 [Checks 41462836460](https://github.com/Leovikii/mpvkit/actions/runs/41462836460) 全部成功：Windows 56 passed/5 ignored（junction 测试通过），Arch 64 passed/5 ignored，包元数据 1 passed 及隔离 Pacman 验收通过。日志 `fixture-pr-windows-success.log`、`fixture-pr-arch-success.log` 留在 `.local/beta3/`。main 自动 [Release 41464169236](https://github.com/Leovikii/mpvkit/actions/runs/41464169236) 检出已有标签后成功跳过构建；手动 release 重试使用更新后的工作流和原标签源码。
+
+## 公开发布核验（2026-11-02）
+
+[Release 41464169070](https://github.com/Leovikii/mpvkit/actions/runs/41464169070) 按既有标签重建发布成功，固定标签 `v0.2.0-beta.3` 指向 `8ab5afd61fb2277294b282c03d34c7465a541c51`，不移动既有 tag。Windows/Arch 正式构建、测试、原生包及签名完成；发布步骤用正式公钥通过两端 Minisign 验证，再核对 SHA256SUMS 与更新清单。正式密钥仅在 Actions 环境使用，本机没有执行安装包。
+
+本次正式 Windows 默认测试 56 passed/5 ignored，junction 测试通过；测试前 PowerShell 启动步骤成功耗时 5 秒。Arch 默认测试 64 passed/5 ignored，包元数据 1 passed，隔离 Pacman 安装/重装/资源/卸载通过。构建与发布日志分别为 `.local/beta3/release-windows-success.log`、`release-arch-success.log`、`release-publish-success.log`；发布日志含两次 `Signature and comment signature verified`，验证实际安装包签名。
+
+[公开 Release](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-beta.3) 从创建起 draft=false、prerelease=true、latest=false，六项资产完整，latest.json 最后上传。独立匿名下载全部六项，逐一匹配 API digest/大小、SHA256SUMS 及标准 manifest 契约；清单版本、精确发布说明、两端下载 URL 和签名一致。核验时间 `2026-11-02T14:54:28.883Z`，本机记录 `.local/beta3/public-release-verification.json`，下载文件仅留忽略目录。
+
+| 资产 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| latest.json | 2009 | `db1ac72a7ecbd69cd77af52807f645bd23becc5fbb058a92f313fe1fe017c38f` |
+| mpvkit-bin-0.2.0beta3-1-x86_64.pkg.tar.zst | 6998372 | `44d5550092a285bafa8c3b1dd3e7bb80864e92349fe2f8295fd48a9432064675` |
+| mpvkit-bin-0.2.0beta3-1-x86_64.pkg.tar.zst.tauri.sig | 436 | `b29c299e6efa32e006ca8cf28061d7c14a711668476bea99abf99a3499b93503` |
+| MpvKit_0.2.0-beta.3_x64-setup.exe | 4152536 | `0451e909d3a08ddcb69b106bdd0d330a08bbc574eb971723c2a19489b5730e83` |
+| MpvKit_0.2.0-beta.3_x64-setup.exe.sig | 452 | `c1d48147be18df7648f4dcadb5257a865262cc3290457f7f0b44145fde9796f2` |
+| SHA256SUMS | 510 | `3749b1d162ddb3ec7a7097d01c909a375a0046e88dd7c80d1d30f18133a6e697` |
+
+CI Arch 容器与隔离 Pacman 验收不替代 KDE Wayland 桌面；真实 HDR 输出、WinGet/UAC、NSIS/Pacman/Polkit 系统安装、跨版本更新重启、多屏及辅助技术仍未验收。用户未提供逐设备实测明细，不据此关闭上述项目。发布记录以文档 PR 补齐，随后将 dev/main 同步；不改发布说明或资产，不启动下一版。
