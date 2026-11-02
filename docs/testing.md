@@ -1,6 +1,6 @@
 # 本地开发与测试入口
 
-公开预发布为 v0.2.0-beta.2；当前源码为未发布的 beta.3，预设修订为 3。当前命令、结果和环境边界见 [beta.3 证据](v0.2.0-beta.3/evidence.md)，历史测试不作为本版通过。先读 [AGENTS](../AGENTS.md) 及[目录边界](current.md#当前目录)，普通测试始终只用新隔离根。
+公开预发布及当前源码为 v0.2.0-beta.3，预设修订为 3。当前命令、结果和环境边界见 [beta.3 证据](v0.2.0-beta.3/evidence.md)，历史测试不作为本版通过。先读 [AGENTS](../AGENTS.md) 及[目录边界](current.md#当前目录)，普通测试始终只用新隔离根。
 
 ## 工具与最小检查
 
@@ -121,7 +121,7 @@ node docs/v0.1.6/preview/check.mjs
 - scripts/verify-uosc-sources.py：固定本地源码归档；verify-uosc-icons.mjs：固定字体映射；verify-scroll-bar-license.py、collect-go-notices.py：对应来源/许可。先读参数及原证据，不把这些脚本删成“无人调用”。
 - scripts/rebuild-uosc-helper.py、inspect-uosc-buildinfo.mjs、compare-uosc-links.go：固定 helper 的构建/核验链；用途和未完成发布审阅在 [验收台账](v0.1.0/acceptance.md)。
 
-最新一次通过范围统一记在 [当前交接](v0.2.0-beta.2/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
+最新一次通过范围统一记在 [当前交接](v0.2.0-beta.3/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
 
 ## 更新与分发专项
 
