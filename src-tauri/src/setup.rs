@@ -30,6 +30,7 @@ pub struct Report {
     pub components_ready: bool,
     pub settings_ready: bool,
     pub configuration_installed: bool,
+    pub preset_status: Option<&'static str>,
     pub configuration_modified: bool,
     pub config_modified_at: Option<u64>,
     pub recovery_required: bool,
@@ -62,6 +63,7 @@ pub fn status(root: &Path) -> Result<Report> {
         components_ready: false,
         settings_ready: false,
         configuration_installed: false,
+        preset_status: None,
         configuration_modified: false,
         config_modified_at: None,
         recovery_required: deployment.recovery_required,
@@ -123,6 +125,13 @@ pub fn status(root: &Path) -> Result<Report> {
             .files
             .iter()
             .any(|f| f.path == crate::config::relative!("mpv.conf"));
+        if report.configuration_installed {
+            report.preset_status = match m.preset_revision {
+                None => Some("unknown"),
+                Some(revision) if revision < config::PRESET_REVISION => Some("outdated"),
+                _ => None,
+            };
+        }
         report.settings_ready = config::portable::ready(root)?;
         report.configuration_modified = config::modified(root)?;
         // Actual main-file mtime; never substitutes a cached save/inspection time.
@@ -207,6 +216,24 @@ mod tests {
         let configured = status(&root).unwrap();
         assert!(configured.settings_ready);
         assert!(configured.config_modified_at.is_some());
+        let manifest_path = root.join(".mpvkit/install.json");
+        let mut manifest = deploy::status(&root).unwrap().manifest.unwrap();
+        for (revision, expected) in [
+            (None, Some("unknown")),
+            (Some(0), Some("outdated")),
+            (Some(config::PRESET_REVISION), None),
+            (Some(config::PRESET_REVISION + 1), None),
+        ] {
+            manifest.preset_revision = revision;
+            let bytes = serde_json::to_vec_pretty(&manifest).unwrap();
+            std::fs::write(&manifest_path, &bytes).unwrap();
+            assert_eq!(status(&root).unwrap().preset_status, expected);
+            assert_eq!(
+                std::fs::read(&manifest_path).unwrap(),
+                bytes,
+                "detection must not write a revision"
+            );
+        }
         let path = root.join(crate::config::relative!("mpv.conf"));
         let mut bytes = std::fs::read(&path).unwrap();
         bytes.extend(

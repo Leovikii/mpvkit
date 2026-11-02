@@ -203,6 +203,16 @@ fn fixed_archives_extract_and_deploy() {
         files.extend(unpack(asset, &bytes, &AtomicBool::new(false)).unwrap());
     }
     let source: serde_json::Value = serde_json::from_str(SOURCE_MATERIALS).unwrap();
+    let main = files
+        .iter()
+        .find(|f| f.path == "scripts/uosc/main.lua")
+        .unwrap();
+    assert_eq!(
+        deploy::hash_bytes(&main.bytes),
+        source["uoscIntegration"]["upstreamSha256"]
+            .as_str()
+            .unwrap()
+    );
     let helper = files
         .iter()
         .find(|file| file.path == crate::config::relative!("scripts/uosc/bin/ziggy-windows.exe"))
@@ -461,8 +471,18 @@ fn embedded_provenance_matches_actual_download_contract_and_has_honest_release_g
     let catalog: serde_json::Value = serde_json::from_str(CATALOG).unwrap();
     let source: serde_json::Value = serde_json::from_str(SOURCE_MATERIALS).unwrap();
     assert_eq!(
-        source["uoscIntegration"]["sha256"],
-        deploy::hash_bytes(include_bytes!("../../../resources/scripts/uosc-bridge.lua"))
+        catalog["components"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|entry| entry["id"] == "uosc")
+            .unwrap()["modified"],
+        false
+    );
+    assert_eq!(source["uoscIntegration"]["modified"], false);
+    assert_eq!(
+        source["uoscIntegration"]["deployedSha256"],
+        source["uoscIntegration"]["upstreamSha256"]
     );
     assert_eq!(
         source["uoscConfig"]["managedOverride"]["sha256"],

@@ -1,6 +1,6 @@
 # 本地开发与测试入口
 
-当前源码及公开预发布 v0.2.0-beta.1，2026-10-31。双端CI与发布核验已完成，真实交互边界见[beta.1交接](v0.2.0-beta.1/plan.md)。先读[AGENTS](../AGENTS.md)及[目录边界](current.md#当前目录)，本版Linux/Windows证据分别记录，不用历史版本结果代替。
+当前源码 v0.2.0-beta.2（未发布），公开预发布仍为 beta.1。本版命令、结果和环境边界见 [beta.2 证据](v0.2.0-beta.2/evidence.md)，历史测试不作为本版通过。先读 [AGENTS](../AGENTS.md) 及[目录边界](current.md#当前目录)，普通测试始终只用新隔离根。
 
 ## 工具与最小检查
 
@@ -121,13 +121,17 @@ node docs/v0.1.6/preview/check.mjs
 - scripts/verify-uosc-sources.py：固定本地源码归档；verify-uosc-icons.mjs：固定字体映射；verify-scroll-bar-license.py、collect-go-notices.py：对应来源/许可。先读参数及原证据，不把这些脚本删成“无人调用”。
 - scripts/rebuild-uosc-helper.py、inspect-uosc-buildinfo.mjs、compare-uosc-links.go：固定 helper 的构建/核验链；用途和未完成发布审阅在 [验收台账](v0.1.0/acceptance.md)。
 
-最新一次通过范围统一记在 [当前交接](v0.2.0-beta.1/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
+最新一次通过范围统一记在 [当前交接](v0.2.0-beta.2/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
 
 ## 更新与分发专项
 
 Windows 原生套件覆盖启动一次、预览偏好、无稳定版、失败重试、版本发现竞态、日志纯文本、草稿保护和测试安装阻断。隔离根 test-tools/updates 使用 releases-N.json、v<version>.json 及 v<version>-SHA256SUMS，包含六项资产名/真实摘要。Windows 与 Arch 的进度、预览、授权取消/失败/完成由原生 WebView 中的 IPC mock 演示，不运行真实安装器或 Pacman；官方插件下载验签在两端 Rust 回环测试实际执行。
 
-布局专项覆盖 WinUI 3 对齐、480/560/720 宽、200% 字号、深浅色、长日志滚动/固定操作区与焦点锁，截图只留 .local。独立预览同步当前界面，不能代替系统包或实际更新安装验收。
+beta.2 原生套件新增首次安装 presetRevision、只读检测、普通保存保留标识、页内提示无自动弹窗、取消/过期失败不抬升标识、完整重新应用保留选择/未知内容/续播、重复应用不写及较新修订不提示降级。旧版迁移和旧桥接恢复不属本版范围。
+
+uosc Windows 专项额外生成纯白视频，保存 white-controls-1200/900/640.png 与 white-speed-menu.png，便于观察亮背景对比度。媒体和探针只在隔离根，部署前核对上游 main.lua 原始摘要，取证代码不进入产品。UI 预览覆盖统一 ScrollArea 的窄窗、200% 文字、深浅/高对比、键盘滚动；真实 WebView 在原生任务和更新弹窗回归中验证。
+
+布局专项覆盖管理 SVG 箭头居中、ActionIcon/Checkbox、WinUI 3 对齐、480/560/720 宽、200% 字号、深浅色、长日志滚动/固定操作区与焦点锁，截图只留 .local。独立预览同步当前界面，不能代替系统包或实际更新安装验收。
 
 分发脚本命令与工作流见 [CI/CD 审阅说明](ci/README.md)。前轮 Windows 环境只运行 release.test.mjs 的资源/配方契约与 Rust 包参数测试，不能作为 Arch 实测。历史 alpha.1 在 CachyOS/KDE Wayland 完成的编译、makepkg、原生 GUI/播放和隔离 pacman 验收见[当前证据](v0.2.0-alpha.1/evidence.md#linux-必要回归与软件包验收2026-10-27)。
 

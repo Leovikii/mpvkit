@@ -1,4 +1,4 @@
-import { Alert, Button, Checkbox, Menu, Switch, MantineProvider, Modal, NativeSelect, Paper, AppShell, Tooltip, Accordion, Group, Transition, Text, Title, createTheme } from "@mantine/core";
+import { Alert, ActionIcon, Button, Checkbox, Menu, MantineProvider, Modal, NativeSelect, Paper, AppShell, ScrollArea, Tooltip, Accordion, Group, Transition, Text, Title, createTheme } from "@mantine/core";
 import { useEffect, useRef, useState, type ReactNode } from "react";
 import { getCurrentWindow } from "@tauri-apps/api/window";
 import { listen } from "@tauri-apps/api/event";
@@ -34,7 +34,6 @@ export function App() {
   const revision = useRef(0);
   const [error, setError] = useState<unknown>(null);
   const [notice, setNotice] = useState<Key | null>(null);
-  const [maintenanceAction, setMaintenanceAction] = useState("");
   const [preview, setPreview] = useState<Preview | null>(null);
   const [taskDone, setTaskDone] = useState(false);
   const [taskTitle, setTaskTitle] = useState<Key>("preview");
@@ -63,7 +62,7 @@ export function App() {
   };
   const dark = !environment.highContrast && (appSettings.theme === "system" ? environment.dark : appSettings.theme === "dark");
   const linux = info.platform === "linux";
-  const fontFamily = linux ? 'system-ui, "Noto Sans CJK SC", sans-serif' : '"Segoe UI", "Microsoft YaHei UI", sans-serif';
+  const fontFamily = linux ? 'system-ui, "Noto Sans CJK SC", sans-serif' : '"Segoe UI Variable", "Segoe UI", "Microsoft YaHei UI", sans-serif';
   const theme = createTheme({ ...brandTheme, respectReducedMotion: true, components: { Accordion: Accordion.extend({defaultProps:{transitionDuration:180}}), Modal: Modal.extend({defaultProps:{transitionProps:{transition:"fade",duration:160,exitDuration:120}}}), Tooltip: Tooltip.extend({defaultProps:{transitionProps:{transition:"fade",duration:120,exitDuration:90}}}), Button: Button.extend({defaultProps:{fw:400,size:"sm"}}) }, defaultRadius: 4, fontFamily, headings:{fontFamily,sizes:{h1:{fontSize:"1.65rem"},h2:{fontSize:"1.15rem"},h3:{fontSize:"1rem"}}}});
   const blocked = !desktop || busy || booting;
   const configurationReady = !!report?.componentsReady && !report.recoveryRequired;
@@ -171,15 +170,15 @@ export function App() {
     setTaskTitle(action === "uninstall" ? "uninstallCore" : action === "upgrade" ? "upgradeCore" : "installCore");
     await run(async () => { setPreview({kind:"download",data:null}); setPreview({kind:"install",data:await invoke<Installation>("preview_core",{action})}); });
   }
-  async function installOnly() {
+  async function installOnly(reapply = false) {
     if (busyRef.current) return;
-    request.current = null; setConfiguration(null); retryPreview.current = installOnly;
-    setTaskDone(false); setOutcome(null); setExecuting(false); setCompleted([]); setTaskTitle(report?.generation ? "repairInstallation" : "quickInstall");
+    request.current = null; setConfiguration(null); retryPreview.current = () => installOnly(reapply);
+    setTaskDone(false); setOutcome(null); setExecuting(false); setCompleted([]); setTaskTitle(reapply ? "reapplyConfig" : report?.generation ? "repairInstallation" : "quickInstall");
     await run(async () => {
       setPreview({kind:"download",data:null}); setProgress({component:"",phase:"prepare",received:0,total:0});
       let receiving = true;
       const channel = new Channel<Progress>(); channel.onmessage = p => { if (receiving) setProgress(p); };
-      try { setPreview({kind:"install",data:await invoke<Installation>("preview_install",{settings:draft,onProgress:channel})}); }
+      try { setPreview({kind:"install",data:await invoke<Installation>("preview_install",{settings:draft,reapply,onProgress:channel})}); }
       finally { receiving = false; setProgress(null); }
     });
   }
@@ -189,8 +188,7 @@ export function App() {
   }
   async function maintenance(action: string) {
     retryPreview.current = () => maintenance(action); setTaskDone(false); setOutcome(null); setExecuting(false);
-    setTaskTitle(({uninstall:"uninstall", "reset-config":"resetConfig",recover:"recover"} as Record<string,Key>)[action]);
-    setMaintenanceAction(action);
+    setTaskTitle("recover");
     await run(async () => { setPreview({kind:"download",data:null}); setPreview({kind:"maintenance",data:await invoke<Deployment>("preview_maintenance",{action})}); });
   }
   function dismissTask() { if (!busyRef.current) { void invoke("discard_deployment").catch(()=>{}); setPreview(null); setOutcome(null); setTaskDone(false); setError(null); setCompleted([]); } }
@@ -213,10 +211,7 @@ export function App() {
       }
       await refresh().catch(setError);
       if (pending.kind === "playback" || (pending.kind === "install" && applied.stages.some(s=>s.name==="configuration"&&s.success))) { await loadDraft(); request.current = null; }
-      if (pending.kind === "maintenance" && ["reset-config","uninstall"].includes(maintenanceAction)) {
-        await loadDraft();
-        request.current = null; setConfiguration(null);
-      }
+
       setTaskDone(true);
     });
   }
@@ -239,8 +234,8 @@ export function App() {
   }
   const action = (label: Key, onClick: () => void, primary = false, disabled = blocked) =>
     <Button type="button" variant={primary ? "filled" : "default"} disabled={disabled} onClick={e=>{previewOrigin.current=e.currentTarget;onClick();}}>{t(label)}</Button>;
-  const row = (label: string, control: ReactNode, description?: ReactNode) =>
-    <div className="setting-row"><div><Text fw={500}>{label}</Text>{description && <Text size="sm" c="dimmed">{description}</Text>}</div><div className="row-control">{control}</div></div>;
+  const row = (label: string, control: ReactNode, description?: ReactNode, id?: string) =>
+    <div className="setting-row"><div><Text id={id ? id+"-label" : undefined} fw={500}>{label}</Text>{description && <Text size="sm" c="dimmed">{description}</Text>}</div><div className="row-control">{control}</div></div>;
   const enhancements = ["uosc", "thumbfast", "subtitle-font"];
   const enhancementsReady = enhancements.every(id=>report?.components.some(c=>c.id===id&&c.ready));
   const enhancementsOutdated = enhancementsReady && assets.some(asset=>report?.components.find(c=>c.id===asset.id)?.version!==asset.version);
@@ -248,7 +243,7 @@ export function App() {
   function coreSettings() {
     const version = report?.components.find(c=>c.id==="mpv")?.version?.split(" Copyright")[0];
     return <Paper withBorder className="section" data-component="mpv">{row("MPV",
-      report && (!report.playerInstalled ? action("installCore",()=>void core("install")) : <Menu position="bottom-end" shadow="md" returnFocus><Menu.Target><Button type="button" variant="default" disabled={blocked} rightSection={<span aria-hidden="true">⌄</span>}>{t("manageCore")}</Button></Menu.Target><Menu.Dropdown>
+      report && (!report.playerInstalled ? action("installCore",()=>void core("install")) : <Menu position="bottom-end" shadow="md" returnFocus><Menu.Target><Button type="button" variant="default" disabled={blocked} rightSection={<svg aria-hidden="true" viewBox="0 0 16 16" width="16" height="16" fill="none" stroke="currentColor" strokeWidth="1.5"><path d="m4 6 4 4 4-4"/></svg>}>{t("manageCore")}</Button></Menu.Target><Menu.Dropdown>
         <Menu.Item onClick={()=>void core("upgrade")}>{t("upgradeCore")}</Menu.Item>
         <Menu.Item onClick={()=>void run(async()=>{await invoke("open_default_apps");})}>{t("defaultApps")}</Menu.Item>
         <Menu.Divider/><Menu.Item color="red" onClick={()=>void core("uninstall")}>{t("uninstallCore")}</Menu.Item>
@@ -260,18 +255,19 @@ export function App() {
     const unavailable = blocked || !!report?.recoveryRequired;
     return <>
       {report?.recoveryRequired && <Alert color="orange" mb="md">{t("recovery")}<div className="actions">{action("recover",()=>void maintenance("recover"))}</div></Alert>}
+      {report?.configurationInstalled&&report.presetStatus&&<Alert role="status" aria-live="polite" mb="md"><Text size="sm">{t(report.presetStatus==="outdated"?"presetUpdated":"presetUnapplied")}</Text><div className="actions">{action("reapplyConfig",()=>void installOnly(true),false,blocked||!configurationReady)}</div></Alert>}
       {report?.configurationModified&&<Alert color="yellow" mb="md">{t("manualConfig")}</Alert>}
       <Paper withBorder className="section">
-        {row(t("quality"),<NativeSelect aria-label={t("quality")} value={draft.profile} disabled={unavailable} data={Object.entries(profileKey).map(([value,k])=>({value,label:t(k)}))} onChange={e=>{const profile=e.currentTarget.value;setDraft(d=>({...d,profile}));}}/>,hint)}
-        {row(t("hdr"),<NativeSelect aria-label={t("hdr")} value={draft.playback.hdr} disabled={unavailable} data={[{value:"auto",label:t("auto")},{value:"on",label:t("hdrOn")},{value:"off",label:t("hdrOff")}]} onChange={e=>changePlayback("hdr",e.currentTarget.value)}/>,draft.playback.hdr==="on"?t("hdrHint"):undefined)}
-        {row(t("autoPlaylist"),<Switch aria-label={t("autoPlaylist")} aria-describedby="auto-playlist-hint" checked={draft.playback.autoPlaylist} disabled={unavailable} onChange={e=>changePlayback("autoPlaylist",e.currentTarget.checked)}/>,<span id="auto-playlist-hint">{t("autoPlaylistHint")}</span>)}
-        {row(t("endBehavior"),<NativeSelect aria-label={t("endBehavior")} value={draft.playback.keepOpen?"keep":"close"} disabled={unavailable} data={[{value:"close",label:t("closePlayer")},{value:"keep",label:t("keepWindow")}]} onChange={e=>changePlayback("keepOpen",e.currentTarget.value==="keep")}/>)}
+        {row(t("quality"),<NativeSelect aria-labelledby="quality-label" value={draft.profile} disabled={unavailable} data={Object.entries(profileKey).map(([value,k])=>({value,label:t(k)}))} onChange={e=>{const profile=e.currentTarget.value;setDraft(d=>({...d,profile}));}}/>,hint,"quality")}
+        {row(t("hdr"),<NativeSelect aria-labelledby="hdr-label" value={draft.playback.hdr} disabled={unavailable} data={[{value:"auto",label:t("auto")},{value:"on",label:t("hdrOn")},{value:"off",label:t("hdrOff")}]} onChange={e=>changePlayback("hdr",e.currentTarget.value)}/>,draft.playback.hdr==="on"?t("hdrHint"):undefined,"hdr")}
+        {row(t("autoPlaylist"),<Checkbox aria-labelledby="auto-playlist-label" aria-describedby="auto-playlist-hint" checked={draft.playback.autoPlaylist} disabled={unavailable} onChange={e=>changePlayback("autoPlaylist",e.currentTarget.checked)}/>,<span id="auto-playlist-hint">{t("autoPlaylistHint")}</span>,"auto-playlist")}
+        {row(t("endBehavior"),<NativeSelect aria-labelledby="end-behavior-label" value={draft.playback.keepOpen?"keep":"close"} disabled={unavailable} data={[{value:"close",label:t("closePlayer")},{value:"keep",label:t("keepWindow")}]} onChange={e=>changePlayback("keepOpen",e.currentTarget.value==="keep")}/>,undefined,"end-behavior")}
       </Paper>
       <Paper withBorder className="section" data-enhancements>{row(t("extras"),<Text size="sm">{t(enhancementsReady?"ready":"notInstalled")}</Text>)}</Paper>
       <Paper withBorder className="section"><Fold title={t("advanced")}>
         {row(t("openConfigDirectory"),action("openDirectory",()=>void run(async()=>{await invoke("open_config_directory");}),false,blocked||!report?.configDirectoryExists),report?.configDirectory)}
         {report?.configurationInstalled&&row(t("modifiedAt"),<Text size="sm">{time(report.configModifiedAt)}</Text>)}
-        {report?.configurationInstalled&&<div className="actions">{action("resetConfig",()=>void maintenance("reset-config"),false,blocked||!configurationReady)}</div>}
+        {report?.configurationInstalled&&<div className="actions">{action("reapplyConfig",()=>void installOnly(true),false,blocked||!configurationReady)}</div>}
         <Fold title={t("componentDetails")}>{enhancements.map(id=><div className="source-item" key={id}><Text size="sm">{id==="subtitle-font"?t("subtitleFont"):id} · {report?.components.find(c=>c.id===id)?.version??"—"}</Text></div>)}</Fold>
         <Fold title={t("sources")}>{assets.map(a=><div className="source-item" key={a.id}><Text size="sm">{a.id} · {a.version}</Text><code>{a.url}</code><code>SHA-256 {a.sha256}</code></div>)}</Fold>
       </Fold></Paper>
@@ -280,8 +276,8 @@ export function App() {
   }
   function appPreferences() {
     return <><Paper withBorder className="section">
-      {row(t("uiLanguage"),<NativeSelect aria-label={t("uiLanguage")} value={appSettings.language} data={[{value:"system",label:t("system")},{value:"zh-Hans",label:"简体中文"},{value:"en",label:"English"}]} disabled={blocked||appSaving} onChange={e=>void saveApp({...appSettings,language:e.currentTarget.value})}/>)}
-      {row(t("theme"),<NativeSelect aria-label={t("theme")} value={appSettings.theme} data={[{value:"system",label:t("system")},{value:"light",label:t("light")},{value:"dark",label:t("dark")}]} disabled={blocked||appSaving} onChange={e=>void saveApp({...appSettings,theme:e.currentTarget.value})}/>)}
+      {row(t("uiLanguage"),<NativeSelect aria-labelledby="ui-language-label" value={appSettings.language} data={[{value:"system",label:t("system")},{value:"zh-Hans",label:"简体中文"},{value:"en",label:"English"}]} disabled={blocked||appSaving} onChange={e=>void saveApp({...appSettings,language:e.currentTarget.value})}/>,undefined,"ui-language")}
+      {row(t("theme"),<NativeSelect aria-labelledby="app-theme-label" value={appSettings.theme} data={[{value:"system",label:t("system")},{value:"light",label:t("light")},{value:"dark",label:t("dark")}]} disabled={blocked||appSaving} onChange={e=>void saveApp({...appSettings,theme:e.currentTarget.value})}/>,undefined,"app-theme")}
       </Paper>{coreSettings()}<Paper withBorder className="section">{updates.about}</Paper>
       <Group gap={8} justify="flex-end" className="settings-links">
         <Button type="button" variant="subtle" disabled={blocked} onClick={()=>void run(async()=>{await invoke("open_logs_directory");setLogsAvailable(await invoke<boolean>("logs_available"));})}>{t("openLogs")}</Button>
@@ -297,13 +293,13 @@ export function App() {
     if (preview.kind === "install") {
       const data = preview.data;
       return <>
-        <Text size="sm">{t(data.kind === "remove" ? "uninstallHint" : data.kind === "core" ? data.coreAction === "uninstall" ? "uninstallCoreHint" : "nativePackageHint" : data.needsCore ? "installWithCore" : "installBundleHint")}</Text>
+        <Text size="sm">{t(data.kind === "reapply" ? "reapplyConfigHint" : data.kind === "remove" ? "uninstallHint" : data.kind === "core" ? data.coreAction === "uninstall" ? "uninstallCoreHint" : "nativePackageHint" : data.needsCore ? "installWithCore" : "installBundleHint")}</Text>
         {data.kind!=="core"&&<Text size="sm" className="path" my="sm">{data.root}</Text>}
         {data.kind==="remove"&&report?.playerInstalled&&<Checkbox mt="md" label={t("alsoRemoveCore")} checked={removeCore} disabled={busy} onChange={e=>setRemoveCore(e.currentTarget.checked)}/>}
         {deploymentDetails(data)}
       </>;
     }
-    return <><Text size="sm">{t(preview.kind==="maintenance"?(maintenanceAction==="recover"?"recoverHint":"resetConfigHint"):"writeHint")}</Text><Text size="sm" className="path" my="sm">{preview.data.root}</Text>{deploymentDetails(preview.data)}</>;
+    return <><Text size="sm">{t(preview.kind==="maintenance"?"recoverHint":"writeHint")}</Text><Text size="sm" className="path" my="sm">{preview.data.root}</Text>{deploymentDetails(preview.data)}</>;
   }
   function deploymentDetails(data: Deployment) {
     return <>
@@ -313,21 +309,21 @@ export function App() {
     </>;
   }
   const hasConflicts = preview && preview.kind!=="download" && "conflicts" in preview.data && Array.isArray(preview.data.conflicts) && (preview.data.conflicts.length>0);
-  const previewAction: Key = preview?.kind==="install" ? preview.data.kind==="remove" ? "uninstallAction" : preview.data.kind==="core" ? preview.data.coreAction==="uninstall" ? "uninstallAction" : preview.data.coreAction==="upgrade" ? "upgradeCore" : "install" : "install" : preview?.kind==="playback" ? "saveConfig" : "applyChanges";
+  const previewAction: Key = preview?.kind==="install" ? preview.data.kind==="reapply" ? "reapplyConfig" : preview.data.kind==="remove" ? "uninstallAction" : preview.data.kind==="core" ? preview.data.coreAction==="uninstall" ? "uninstallAction" : preview.data.coreAction==="upgrade" ? "upgradeCore" : "install" : "install" : preview?.kind==="playback" ? "saveConfig" : "applyChanges";
   const navIcon = page === "configuration" ? "M9 3h6l1 3 3 1 2 5-2 5-3 1-1 3H9l-1-3-3-1-2-5 2-5 3-1z M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0" : "M15 5l-7 7 7 7";
   return <MantineProvider theme={theme} forceColorScheme={dark?"dark":"light"}>
     <AppShell padding={0} className="app-shell" data-material={material} data-high-contrast={environment.highContrast}>
-      <AppShell.Main component="div"><main id="main-content" className="page-surface" aria-busy={busy||booting}><PageEntrance key={page}><div className="page-scroll">
+      <AppShell.Main component="div"><main id="main-content" className="page-surface" aria-busy={busy||booting}><PageEntrance key={page}><ScrollArea className="page-scroll" scrollbars="y" type="auto" scrollbarSize={8} viewportProps={{tabIndex:0,role:"region","aria-label":t(page)}}><div className="page-padding">
         <Group className="page-heading" justify="space-between" wrap="nowrap">
-          {page==="settings"&&<Tooltip label={t("back")} events={{hover:true,focus:true,touch:false}}><Button ref={navigationButton} type="button" variant="subtle" aria-label={t("back")} onClick={()=>go("configuration")} px={8}><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={navIcon}/></svg></Button></Tooltip>}
+          {page==="settings"&&<Tooltip label={t("back")} events={{hover:true,focus:true,touch:false}}><ActionIcon size="2rem" ref={navigationButton} type="button" variant="subtle" aria-label={t("back")} onClick={()=>go("configuration")}><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={navIcon}/></svg></ActionIcon></Tooltip>}
           <Title order={1}>{t(page)}</Title>
-          {page==="configuration"&&<Tooltip label={t("settings")} events={{hover:true,focus:true,touch:false}}><Button ref={navigationButton} type="button" variant="subtle" aria-label={t("settings")} onClick={()=>go("settings")} px={8}><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={navIcon}/></svg></Button></Tooltip>}
+          {page==="configuration"&&<Tooltip label={t("settings")} events={{hover:true,focus:true,touch:false}}><ActionIcon size="2rem" ref={navigationButton} type="button" variant="subtle" aria-label={t("settings")} onClick={()=>go("settings")}><svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.5"><path d={navIcon}/></svg></ActionIcon></Tooltip>}
         </Group>
         {!desktop&&<Alert mb="md">{t("webOnly")}</Alert>}{busy&&!preview&&!progress&&<Text role="status" mb="md">{t("working")}</Text>}
         {booting?<Text role="status">{t("loading")}</Text>:page==="configuration"?playback():appPreferences()}
         {error!=null&&!preview&&<Alert color="red" mt="md" role="alert">{failureText(error)}{action("retry",()=>void run(async()=>{if(!report)await boot();else await refresh();}))}<Fold title={t("details")}><pre>{JSON.stringify(error,null,2)}</pre></Fold>{!linux&&(error as {code?:string})?.code==="winget_missing"&&action("getWinget",()=>void run(async()=>{await invoke("open_app_installer");}))}</Alert>}
         {notice&&<Text mt="md" role="status" aria-live="polite">{t(notice)}</Text>}
-      </div>{page==="configuration"&&<footer className="save-bar"><Text size="sm" c="dimmed">{t(dirty?"unsaved":report?.configurationInstalled?"saved":"notInstalled")}</Text><Group gap={8} justify="flex-end">
+      </div></ScrollArea>{page==="configuration"&&<footer className="save-bar"><Text size="sm" c="dimmed">{t(dirty?"unsaved":report?.configurationInstalled?"saved":"notInstalled")}</Text><Group gap={8} justify="flex-end">
         {report?.generation&&(!enhancementsReady||enhancementsOutdated||!report.settingsReady)&&action("repairInstallation",()=>void installOnly(),false,blocked||!!report.recoveryRequired)}
         {report?.generation?action("uninstall",()=>void uninstall()):action("quickInstall",()=>void installOnly(),true,blocked||!!report?.recoveryRequired)}
         {report?.configurationInstalled&&(dirty||report.configurationModified)&&action("saveConfig",()=>void prepareSettings(),true,blocked||!configurationReady)}
@@ -335,7 +331,7 @@ export function App() {
     </AppShell>{updates.dialog}
     <Modal opened={closing} onClose={()=>setClosing(false)} title={t("exitApp")} centered closeButtonProps={{"aria-label":t("close")}}><Text>{t("discardDraft")}</Text><div className="dialog-actions"><Button onClick={()=>void getCurrentWindow().destroy()}>{t("discardAndClose")}</Button><Button variant="default" data-autofocus onClick={()=>setClosing(false)}>{t("cancel")}</Button></div></Modal>
     <Modal opened={preview!==null} onClose={dismissTask} title={t(taskTitle)} size={560} centered classNames={{content:"task-dialog-content",body:"task-dialog-body"}} withCloseButton={!taskDone&&error==null} closeButtonProps={{"aria-label":t("close"),disabled:busy}} closeOnClickOutside={!busy} closeOnEscape={!busy}>
-      <div className="task-dialog-scroll" tabIndex={-1} data-autofocus={busy||undefined}>
+      <ScrollArea.Autosize className="task-dialog-scroll" scrollbars="y" type="auto" scrollbarSize={8} viewportProps={{tabIndex:0,role:"region","aria-label":t(taskTitle)}}><div className="task-dialog-padding" tabIndex={-1} data-autofocus={busy||undefined}>
       {taskDone ? <div role="status" aria-live="polite">{outcome?.stages.length ? outcome.stages.map((stage,index)=><Alert key={index} color={stage.success?"green":"orange"} mb="sm" title={t(stage.name==="core"?"coreResult":"configState")}>
         {t(stage.success?"done":"stageFailed")}{stage.exitCode!==null&&<Text size="sm">{t("exitCode",{code:stage.exitCode})}</Text>}{stage.output&&<Fold title={t("details")}><pre>{stage.output}</pre></Fold>}{stage.error&&<Text size="sm">{failureText(stage.error)}</Text>}{stage.name==="core"&&stage.detected!==null&&<Text size="sm">{t(stage.detected?"coreStillInstalled":"coreNotDetected")}</Text>}
         </Alert>) : t(preview?.kind==="playback"?"saved":"done")}</div> : previewContent()}
@@ -346,7 +342,7 @@ export function App() {
       </>}
 
       {error!=null&&<Alert color="red" mt="md">{failureText(error)}{action("retry",()=>void run(async()=>{if(!report)await boot();else await refresh();}))}<Fold title={t("details")}><pre>{JSON.stringify(error,null,2)}</pre></Fold>{!linux&&(error as {code?:string})?.code==="winget_missing"&&action("getWinget",()=>void run(async()=>{await invoke("open_app_installer");}))}</Alert>}
-      </div>
+      </div></ScrollArea.Autosize>
       <div className="task-footer">
         {completed.length>0&&<Text size="sm" mb="sm">{t("completedItems",{items:completed.join(" · ")})}</Text>}
         {busy&&<TaskProgress label={progress ? t(progress.phase === "download" ? "downloadingUpdate" : progress.phase === "verify-extract" ? "verifyingUpdate" : progress.phase === "package-manager" ? "waitingPackageManager" : progress.phase === "remove-configuration" ? "removingConfiguration" : progress.phase === "install-components" ? "installingComponents" : "preparingUpdate")+(progress.component ? " · "+progress.component : "") : t(executing ? "executingTask" : "preparingUpdate")} percent={progress?.phase === "download" && progress.total > 0 ? Math.min(100,Math.floor(progress.received*100/progress.total)) : null} />}

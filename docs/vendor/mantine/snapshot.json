@@ -178,6 +178,13 @@
       "sha256": "5f1c63587bf0df7946894e925dcd31126fbcf189c8270da1a90ba88bc51ec09d"
     },
     {
+      "file": "core-scroll-area.md",
+      "url": "https://mantine.dev/llms/core-scroll-area.md",
+      "retrievedOn": "2026-11-02",
+      "size": 21314,
+      "sha256": "b3b151b81ffd9803f35f086cb5b8d4b33284718fe1e3c7a8daabbe17b15e20f8"
+    },
+    {
       "file": "core-menu.md",
       "url": "https://mantine.dev/llms/core-menu.md",
       "retrievedOn": "2026-10-31",

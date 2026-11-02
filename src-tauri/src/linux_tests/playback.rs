@@ -105,7 +105,7 @@ pub(super) fn verify(root: &Path, media: &Path) {
     save(true, true);
     let _guard = PlaybackGuard(socket.clone());
     let mut child = play(&[&second]);
-    wait(|| get("user-data/mpvkit-playback-mode") == "sequential");
+    wait(|| get("user-data/mpvkit")["profile"].is_string());
     let queue = get("playlist");
     assert_eq!(
         queue
@@ -151,28 +151,32 @@ pub(super) fn verify(root: &Path, media: &Path) {
             .iter()
             .any(|v| v["hearing-impaired"] == true)
     );
-    for (mode, file, playlist, shuffle) in [
-        ("file", json!("inf"), json!(false), false),
-        ("playlist", json!(false), json!("inf"), false),
-        ("shuffle", json!(false), json!(false), true),
-        ("sequential", json!(false), json!(false), false),
-    ] {
-        request(
-            &socket,
-            json!(["script-message-to", "mpvkit", "playback-mode", mode]),
-        );
-        wait(|| get("user-data/mpvkit-playback-mode") == mode);
-        assert_eq!(get("loop-file"), file);
-        assert_eq!(get("loop-playlist"), playlist);
-        assert_eq!(get("user-data/mpvkit-uosc")["shuffle"], shuffle);
+    for property in ["loop-file", "loop-playlist"] {
+        request(&socket, json!(["set_property", property, "inf"]));
+        assert_eq!(get(property), "inf");
+        request(&socket, json!(["set_property", property, "no"]));
+        assert_eq!(get(property), false);
     }
-    request(&socket, json!(["set_property", "loop-file", "2"]));
-    wait(|| get("user-data/mpvkit-playback-mode") == "custom");
-    request(
-        &socket,
-        json!(["script-message-to", "mpvkit", "playback-mode", "sequential"]),
+    request(&socket, json!(["script-binding", "uosc/shuffle"]));
+    request(&socket, json!(["script-binding", "uosc/next"]));
+    wait(|| get("playlist-pos") != 1);
+    assert_eq!(
+        get("playlist")
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["filename"].clone())
+            .collect::<Vec<_>>(),
+        queue
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v["filename"].clone())
+            .collect::<Vec<_>>()
     );
-    wait(|| get("user-data/mpvkit-playback-mode") == "sequential");
+    request(&socket, json!(["script-binding", "uosc/shuffle"]));
+    request(&socket, json!(["set_property", "playlist-pos", 1]));
+    wait(|| get("playlist-pos") == 1 && get("time-pos").is_number());
     request(&socket, json!(["keypress", "`"]));
     wait(|| get("user-data")["mpv"]["console"]["open"] == true);
     let paused = get("pause");
@@ -196,7 +200,7 @@ pub(super) fn verify(root: &Path, media: &Path) {
     fs::write(
         root.join("queue-and-tracks.json"),
         serde_json::to_vec_pretty(&json!({
-            "queue":queue,"tracks":tracks,"uosc":get("user-data/mpvkit-uosc"),
+            "queue":queue,"tracks":tracks,
             "osdDimensions":get("osd-dimensions"),"modes":true,"console":true
         }))
         .unwrap(),

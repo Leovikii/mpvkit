@@ -137,6 +137,8 @@ pub struct InstallManifest {
     pub config_directory: String,
     pub files: Vec<OwnedFile>,
     pub components: BTreeMap<String, String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub preset_revision: Option<u32>,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize)]
@@ -420,6 +422,8 @@ fn prepare_files(
                 backup,
             });
             data.push(Some(payload.bytes));
+        } else {
+            guards.push((path, before));
         }
     }
     // Omitted owned files are removed only when their recorded bytes still match.
@@ -458,6 +462,7 @@ fn prepare_files(
         files,
         config_directory: default_config_directory(),
         components,
+        preset_revision: old.as_ref().and_then(|m| m.preset_revision),
     };
     conflicts.extend(script_conflicts(root, &manifest)?);
     let no_changes = changes.is_empty()
@@ -773,6 +778,23 @@ fn apply_change(root: &Path, journal: &Journal, index: usize) -> Result<()> {
 }
 
 impl DeploymentPlan {
+    pub(crate) fn mark_preset(&mut self) -> Result<()> {
+        let mut manifest: InstallManifest = decode(
+            self.journal
+                .new_manifest
+                .as_deref()
+                .ok_or_else(|| error("invalid_state", "缺少目标安装记录。"))?,
+        )?;
+        if manifest.preset_revision != Some(crate::config::PRESET_REVISION) {
+            manifest.preset_revision = Some(crate::config::PRESET_REVISION);
+            self.journal.new_manifest = Some(
+                serde_json::to_string_pretty(&manifest)
+                    .map_err(|_| error("state_write", "无法生成安装记录。"))?,
+            );
+            self.preview.no_changes = false;
+        }
+        Ok(())
+    }
     pub(crate) fn validate(&self) -> Result<()> {
         validate_plan(self)
     }

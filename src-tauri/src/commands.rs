@@ -42,10 +42,6 @@ pub async fn preview_maintenance(
 ) -> Result<crate::setup::ChangePreview> {
     let root = platform::app_root()?;
     let operation = tauri::async_runtime::spawn_blocking(move || match action.as_str() {
-        "reset-config" => crate::config::portable::reset(&root)
-            .map(crate::setup::files_only)
-            .map(Box::new)
-            .map(PendingOperation::Deployment),
         "recover" => crate::deploy::prepare_recovery(&root)
             .map(Box::new)
             .map(PendingOperation::Recovery),
@@ -170,6 +166,7 @@ pub fn cancel_component_download(state: State<'_, ComponentJob>) -> Result<()> {
 #[tauri::command]
 pub async fn preview_install(
     settings: crate::config::Settings,
+    reapply: Option<bool>,
     on_progress: tauri::ipc::Channel<crate::components::Progress>,
     job: State<'_, ComponentJob>,
     state: State<'_, PendingDeployment>,
@@ -191,9 +188,15 @@ pub async fn preview_install(
         *current = Some(cancel.clone());
     }
     let result = tauri::async_runtime::spawn_blocking(move || {
-        crate::tasks::prepare_install(&root, settings, &cancel, &mut |progress| {
-            let _ = on_progress.send(progress);
-        })
+        crate::tasks::prepare_install(
+            &root,
+            settings,
+            reapply.unwrap_or(false),
+            &cancel,
+            &mut |progress| {
+                let _ = on_progress.send(progress);
+            },
+        )
     })
     .await
     .map_err(|_| {

@@ -73,7 +73,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
                 .as_u64()
                 .is_some_and(|n| n > 0)
         });
-        wait(|| get("user-data/mpvkit-playback-mode") == "sequential");
+        wait(|| get("user-data/mpvkit")["profile"].is_string());
         child
     };
     let launch = |name: &str, extra: &[&str], source: &Path| {
@@ -153,7 +153,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         std::thread::sleep(Duration::from_millis(250));
         let data = inspect();
         let controls = &data["controls"];
-        for id in ["1", "2", "3", "13", "14"] {
+        for id in ["1", "2", "3", "11", "12"] {
             assert_eq!(
                 controls[id]["enabled"], true,
                 "essential {id} at {width}: {data}"
@@ -162,7 +162,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         assert!(controls["2"]["bx"].as_f64().unwrap() < data["width"].as_f64().unwrap() / 2.0);
         assert_eq!(controls["1"]["icon"], "skip_previous");
         assert_eq!(controls["3"]["icon"], "skip_next");
-        assert_eq!(controls["8"]["kind"], "button");
+        assert_eq!(controls["8"]["kind"], "command");
         let mut visible: Vec<_> = controls
             .as_object()
             .unwrap()
@@ -211,30 +211,31 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     assert_eq!(get("pause"), true);
     click(&inspect()["controls"]["8"]);
     let data = inspect();
-    assert_eq!(data["menu"]["type"], "mpvkit-speed");
+    assert_eq!(data["menu"]["type"], "menu");
     assert_eq!(data["menu"]["items"].as_array().unwrap().len(), 6);
     request(&socket, json!(["keypress", "HOME"]));
     request(&socket, json!(["keypress", "DOWN"]));
     request(&socket, json!(["keypress", "ENTER"]));
     wait(|| get("speed") == 0.75);
-    request(&socket, json!(["set_property", "speed", 1.1]));
-    wait(|| inspect()["controls"]["8"]["text"] == "1.1×");
+    request(&socket, json!(["set_property", "speed", 1.5]));
     click(&inspect()["controls"]["8"]);
     assert_eq!(
         inspect()["menu"]["type"],
-        "mpvkit-speed",
+        "menu",
         "reopened by native click"
     );
-    request(&socket, json!(["set_property", "speed", 1.5]));
-    wait(|| {
-        inspect()["menu"]["items"][4]["hint"]
-            .as_str()
-            .is_some_and(|s| s.contains("Current"))
-    });
     request(&socket, json!(["keypress", "ESC"]));
     assert_eq!(get("pause"), true);
-    click(&inspect()["controls"]["9"]);
-    assert_eq!(inspect()["menu"]["type"], "mpvkit-playback");
+    request(
+        &socket,
+        json!([
+            "script-message-to",
+            "uosc",
+            "show-submenu",
+            "播放模式 / Playback mode"
+        ]),
+    );
+    assert_eq!(inspect()["menu"]["items"].as_array().unwrap().len(), 3);
     request(&socket, json!(["keypress", "ESC"]));
     // Fullscreen round trips and file changes must retain the chosen window size.
     let before = get("osd-dimensions");

@@ -104,8 +104,16 @@ pub fn fingerprint(root: &Path) -> Result<String> {
 }
 // Read-only rendering uses exactly the same merger as the deployment plan.
 pub fn preview(root: &Path, settings: &Settings, replace: bool) -> Result<ConfigurationPreview> {
+    preview_mode(root, settings, replace, false)
+}
+pub(crate) fn preview_mode(
+    root: &Path,
+    settings: &Settings,
+    replace: bool,
+    reset: bool,
+) -> Result<ConfigurationPreview> {
     let fingerprint = fingerprint(root)?;
-    let payloads = generate_inner(root, &player_path(root)?, settings, replace, false)?;
+    let payloads = generate_inner(root, &player_path(root)?, settings, replace, reset)?;
     let manifest = deploy::status(root)?.manifest;
     let mut files = Vec::new();
     for name in PREVIEW_FILES {
@@ -206,8 +214,8 @@ fn bounds(s: &str) -> Result<(usize, usize)> {
 pub fn generate(root: &Path, player: &Path, settings: &Settings) -> Result<Vec<Payload>> {
     generate_inner(root, player, settings, false, false)
 }
-pub fn installation_files(root: &Path, settings: &Settings) -> Result<Vec<Payload>> {
-    generate_inner(root, &player_path(root)?, settings, true, false)
+pub fn installation_files(root: &Path, settings: &Settings, reapply: bool) -> Result<Vec<Payload>> {
+    generate_inner(root, &player_path(root)?, settings, true, reapply)
 }
 fn generate_inner(
     root: &Path,
@@ -296,12 +304,28 @@ fn generate_inner(
         }
     }
     let mut state = read_state(root)?;
+    let previous_settings = state.settings.clone();
+    let previous_manual = state.manual_config;
     state.manual_config = other_manual || !reset && (state.manual_config || modified(root)?);
     state.settings = settings.clone();
-    state.revision = state
-        .revision
-        .checked_add(1)
-        .ok_or_else(|| error("settings_limit", "设置修订数已达上限。"))?;
+    let unchanged = reset
+        && previous_settings == state.settings
+        && previous_manual == state.manual_config
+        && files
+            .iter()
+            .filter(|p| p.path != ".mpvkit/settings.json")
+            .try_fold(true, |same, p| {
+                Ok::<_, AppError>(
+                    same && deploy::file_hash(&root.join(&p.path))?.as_deref()
+                        == Some(&deploy::hash_bytes(&p.bytes)),
+                )
+            })?;
+    if !unchanged {
+        state.revision = state
+            .revision
+            .checked_add(1)
+            .ok_or_else(|| error("settings_limit", "设置修订数已达上限。"))?;
+    }
     files
         .iter_mut()
         .find(|p| p.path == ".mpvkit/settings.json")
@@ -378,6 +402,7 @@ pub fn prepare_portable(
 ) -> Result<deploy::DeploymentPlan> {
     prepare_portable_mode(root, settings, replace, false)
 }
+#[cfg(test)]
 pub fn reset(root: &Path) -> Result<deploy::DeploymentPlan> {
     prepare_portable_mode(root, Settings::default(), true, true)
 }
@@ -426,6 +451,52 @@ fn prepare_portable_mode(
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn reapply_keeps_choices_restores_preset_and_is_idempotent() {
+        let root = std::env::temp_dir().join(format!("mpvkit-reapply-{}", deploy::operation_id()));
+        install(&root);
+        let choices = Settings {
+            profile: Profile::HighQuality,
+            playback: Playback {
+                auto_playlist: false,
+                ..Default::default()
+            },
+            ..Default::default()
+        };
+        std::fs::write(root.join("mpv.conf"), "volume=31\n").unwrap();
+        std::fs::write(root.join("input.conf"), "SPACE ignore\n").unwrap();
+        std::fs::write(root.join("private.conf"), "mine").unwrap();
+        std::fs::create_dir(root.join("watch_later")).unwrap();
+        std::fs::write(root.join("watch_later/resume"), "position").unwrap();
+        let preview = preview_mode(&root, &choices, true, true).unwrap();
+        assert_eq!(preview.files[0].before, "volume=31\n");
+        let prepare = || {
+            let files = installation_files(&root, &choices, true).unwrap();
+            let mut plan = deploy::prepare_update(&root, files, true, Default::default()).unwrap();
+            plan.mark_preset().unwrap();
+            plan
+        };
+        deploy::execute(prepare()).unwrap();
+        assert_eq!(read_state(&root).unwrap().settings, choices);
+        assert!(!modified(&root).unwrap());
+        assert_eq!(
+            std::fs::read(root.join("input.conf")).unwrap(),
+            include_bytes!("../../../resources/input.conf")
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("private.conf")).unwrap(),
+            "mine"
+        );
+        assert_eq!(
+            std::fs::read_to_string(root.join("watch_later/resume")).unwrap(),
+            "position"
+        );
+        assert!(prepare().preview.no_changes);
+        let stale = prepare();
+        std::fs::write(root.join("input.conf"), "changed after preview").unwrap();
+        assert_eq!(deploy::execute(stale).unwrap_err().code, "stale_preview");
+        std::fs::remove_dir_all(root).unwrap();
+    }
     fn install(root: &Path) {
         let mut files = generate(root, &player_path(root).unwrap(), &Settings::default()).unwrap();
         #[cfg(target_os = "windows")]
