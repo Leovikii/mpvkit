@@ -1,5 +1,7 @@
 # 当前开发基线：v0.2.0-beta.3
 
+rc.1 [方案已确认、待实施](v0.2.0-rc.1/plan.md)：四项共用保存、Lua 拆分、菜单状态/顺序、信息按钮、切集可见性及 Windows 安装完成页默认勾选启动均尚未实施。本轮只推送文档，后续接手见[交接](v0.2.0-rc.1/plan.md#后续-agent-接手)；本页继续描述实际 beta.3 行为。
+
 更新：2026-11-02。当前公开预发布为 beta.3，整套预设修订为 3；本批实施与验证见 [beta.3 交接](v0.2.0-beta.3/plan.md)和[证据](v0.2.0-beta.3/evidence.md)。双端 CI、正式签名、Arch 隔离包验收及匿名公开下载核验通过，标签固定在 `8ab5afd`。此前安装顺序与音轨布局修正已一并发布，原始结果见 [beta.2](v0.2.0-beta.2/plan.md#发布后-dev-修正2026-11-02)；历史测试不作为本版验收。
 
 GUI 使用官方单实例插件，同一用户桌面会话重复启动唤回现有窗口；`--save-playback` helper 在 GUI 初始化前独立处理，不受单实例拦截。Linux 依赖有效会话总线，缺失时明确启动失败；desktop 仅声明 AudioVideo，升级软件包后生效。单实例不限制 MPV、WebKit 子进程或其他用户会话。
@@ -89,4 +91,4 @@ Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写�
 | 系统默认应用快捷入口 / 管理器桌面 | platform/windows.rs、linux.rs 只打开系统设置；系统包入口在 packaging/ |
 | 更新/日志/核心进程 | updates.rs、app-updates.tsx、logging.rs、native_core.rs、mpv.rs |
 
-业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。本版验证见 [交接](v0.2.0-beta.2/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。
+业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。已发布验证见 [beta.3 交接](v0.2.0-beta.3/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。
