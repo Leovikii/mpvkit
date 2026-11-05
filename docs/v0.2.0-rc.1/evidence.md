@@ -11,7 +11,7 @@
 - 管理器只显示画质；共用业务入口在预览/保存/修复/重新应用时保留磁盘上的最新三项播放器专属选择，避免旧 GUI 草稿覆盖新偏好。画质使用当前页面选择。
 - 普通 Windows 安装成功显示完成页，默认勾选启动，完成前不启动；updater/passive/silent 保持原有路径。检查 RunAsUser 返回值，失败反馈。
 
-详细契约及后续入口见[计划](plan.md)。README 公开下载仍指向已发布 beta.3。
+详细契约及后续入口见[计划](plan.md)。README 公开下载、Arch 安装示例与版本入口已随发布更新为 rc.1。
 
 ## 环境与命令
 
@@ -85,13 +85,47 @@ rc.1 菜单专项覆盖四项保存/实际激活、同值不写、连续选择�
 
 ## 未测与后续入口
 
-1. 未在 Arch/CachyOS 构建本版 ELF/原生包，未运行 KDE Wayland 实播、polkit 或包验收；Linux 测试调用方已同步，但 Windows 编译不验证 cfg(linux) 代码。
+1. 本机未运行 Arch/KDE；本版 cfg(linux) 编译、Rust 与隔离包验收由下述 CI 实际验证。KDE Wayland 实播、polkit 与设备矩阵仍未测，容器包验收不代替桌面/系统集成。
 2. 未执行真实 NSIS 首装/同版重装/跨版本升级、取消/失败、运行中程序处理、卸载以及真实 updater 单次重启；须隔离系统/VM。页面探针与模板编译不能代替这些结果。
 3. 未验证真实 HDR 输出/显示器、多屏混合 DPI、物理拖动竞态、辅助技术或低速合成器。原生属性和画面截图不证明 HDR、画质或能效优劣。
-4. CI、正式签名、六项 Release 资产/匿名下载进入本轮已授权发布流程；具体结果另记下节，不把本机 debug 构建算作正式发布。后续新版本仍需其对应授权。
+
+本版 CI、正式签名及六项公开资产核验已完成，见下文；不把本机 debug 构建算作正式发布。后续新版本仍需其对应授权。
 
 接手先检查工作区及[计划](plan.md#后续-agent-接手)，保留用户改动；不重审已确认设计、不继承历史验收。
 
 ## 用户实测与发布授权（2026-11-05）
 
-用户对上述 Windows 测试程序反馈“测试通过”，并要求推送更新、合并 main 发布，随后同步 dev。未提供逐项设备结果，因此保留真实 HDR、KDE、系统安装/升级等原有未测边界。按既有 PR CI → main 自动发布 → 正式资产/匿名下载核验 → 分支同步执行，结果待补。
+用户对上述 Windows 测试程序反馈“测试通过”，并要求推送更新、合并 main 发布，随后同步 dev。未提供逐项设备结果，因此保留真实 HDR、KDE、系统安装/升级等原有未测边界。按既有 PR CI → main 自动发布 → 正式资产/匿名下载核验 → 分支同步执行。
+
+## PR CI 与合并（2026-11-05）
+
+- 实施提交 `c8c78db` 已推送 dev，经 [PR #21](https://github.com/Leovikii/mpvkit/pull/21) 合并到 main，合并提交 `c0a43f1`。
+- [Checks 42010614880](https://github.com/Leovikii/mpvkit/actions/runs/42010614880) 全部成功：前端构建/测试及发布契约、Windows Clippy/Rust（59 通过、5 ignored）、Arch fmt/Clippy/Rust（67 通过、5 ignored）、Arch debug 包构建、实际 Pacman 只读元数据测试（1 通过）及隔离安装/同版重装/资源/卸载。
+- CI 隔离包脚本的 `-dd/--noscriptlet` 不验证真实依赖拉取、授权或桌面钩子；缺少 core/extra 数据库及同版重装警告符合其隔离载荷测试设计，未刷新主机数据库。原始 CI 日志保留本机 `.local/rc1-ci-logs.zip`。
+- 自动 [Release 42011677102](https://github.com/Leovikii/mpvkit/actions/runs/42011677102) 全部成功。新标签 `v0.2.0-rc.1` 固定 `c0a43f1a198189a71b1546a39cf61b18a89f6a19`；所有既有 tag 未移动。
+
+## 公开发布核验（2026-11-05）
+
+[Release 42011677102](https://github.com/Leovikii/mpvkit/actions/runs/42011677102) 完成双端正式构建、测试、原生包和 updater 签名。Windows 默认测试 59 passed/5 ignored，Arch 为 67 passed/5 ignored；Arch 包元数据 1 passed，隔离安装/同版重装/资源/卸载通过。desktop-file-validate、readelf、版本排序与许可材料 gate 完成。正式密钥仅在 Actions 发布环境使用，本机未运行正式安装包。
+
+发布步骤以正式公钥验证两端实际安装包，日志含两次 `Signature and comment signature verified`，并核对 SHA256SUMS 与标准 manifest。[公开 Release](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-rc.1) 从创建起 draft=false、prerelease=true、latest=false，latest.json 最后上传；匿名 stable latest 查询返回 404，rc.1 未成为稳定 latest。
+
+于 `2026-11-05T10:43:44.866Z` 独立匿名下载全部六项，逐一匹配 API digest/大小、SHA256SUMS 和 manifest 契约；清单版本、精确发布说明、两端 URL 与签名一致。本机记录 `.local/rc1-public-verification.json`，原始发布日志 `.local/rc1-release-logs.zip`，Arch 诊断 `.local/rc1-release-linux.zip`；资产仅留忽略目录 `.local/rc1-public-assets`。
+
+| 资产 | 字节 | SHA-256 |
+| --- | ---: | --- |
+| latest.json | 1980 | `953d422a26ef25c916c266eb92656bc756641953a27270672972fa4c74ce5e3b` |
+| MpvKit_0.2.0-rc.1_x64-setup.exe | 4165029 | `fd61ac7aa6eec297a934e976cc674a7f6ffeec93a40205b6c836b03b94e9c2f7` |
+| MpvKit_0.2.0-rc.1_x64-setup.exe.sig | 448 | `a2332ab7589dd0554110ce5f1310f30aae9da2239b10b01ef91cc78a381f7d55` |
+| mpvkit-bin-0.2.0rc1-1-x86_64.pkg.tar.zst | 7015320 | `f0985c447a3b744cc4874513cd60afebdf61a75e496909776bf5a6a306b9c00f` |
+| mpvkit-bin-0.2.0rc1-1-x86_64.pkg.tar.zst.tauri.sig | 436 | `6875413f43aca7059c59c414eb5e552687da259dc42754c7cbb814a0462ac40b` |
+| SHA256SUMS | 502 | `93f6e3ebc2b480a1c8f2671e25ba6aff39800e7c243056d7db5f30d0ce450000` |
+
+Arch namcap 无错误，警告已逐项复核（原文 `.local/rc1-arch-namcap.txt`）：
+
+- unstripped：既有 PKGBUILD 显式 `!strip/!debug`，不在封装阶段再次修改已构建 ELF。
+- ld-linux unused：动态加载器条目仍出现在 ELF NEEDED，保留系统加载器，不据此删依赖。
+- glibc、dbus、libgcc、libsoup3、hicolor-icon-theme、glib2、gdk-pixbuf2、cairo：均由已声明的 GTK/WebKit 等依赖链满足，属于 implicitly satisfied；不重复逐库增加直接依赖。
+- xdg-utils、polkit、konsole “may not be needed”：由原生目录/授权/终端操作运行期调用，非静态 ELF 链接，保留声明。
+
+发布记录通过文档交接补齐，随后将 dev/main 同步；源码 tag、发布说明与资产保持不变，不启动下一版。KDE、真实 HDR、系统安装/升级与设备矩阵等未测边界继续保留。

@@ -1,6 +1,6 @@
 # 本地开发与测试入口
 
-当前源码为 v0.2.0-rc.1、预设修订 4；公开预发布仍为 beta.3。本轮已获实施/测试授权，当前结果见[本版证据](v0.2.0-rc.1/evidence.md)，历史测试不作为本版通过。先读 [AGENTS](../AGENTS.md) 及[目录边界](current.md#当前目录)，普通测试始终用新隔离根。
+源码及公开预发布为 v0.2.0-rc.1、预设修订 4；本机验证、用户实测反馈、双端 CI 与发布结果见[本版证据](v0.2.0-rc.1/evidence.md)，历史测试不作为本版通过。先读 [AGENTS](../AGENTS.md) 及[目录边界](current.md#当前目录)，普通测试始终用新隔离根。
 
 rc.1 新增 native rc1 menus save four defaults and reflect actual properties：实际 WebView 安装/语言、MPV 属性/菜单激活、选择即保存、重开/切集/重启、外部修改只刷新、连续选择与同值无写、保存失败重试，以及管理器保存/重新应用保留偏好。受控输入/过期代际/冲突、修复脚本/未知同名保护等由 Rust 覆盖；不再读取 user-data/mpvkit 缓存。
 

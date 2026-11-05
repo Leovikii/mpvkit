@@ -1,6 +1,6 @@
 # CI/CD 与分发
 
-公开版本为 v0.2.0-beta.3，其双端 CI、正式签名和匿名公开发布核验已完成，见[交接](../v0.2.0-beta.3/plan.md)与[发布证据](../v0.2.0-beta.3/evidence.md)。当前源码 rc.1 尚未发布，验证见[本版证据](../v0.2.0-rc.1/evidence.md)。配置以 [.github/workflows](../../.github/workflows) 为准。
+当前公开预发布为 v0.2.0-rc.1，双端 CI、正式签名、Arch 隔离包及六项匿名资产核验完成，见[交接](../v0.2.0-rc.1/plan.md)与[发布证据](../v0.2.0-rc.1/evidence.md#公开发布核验2026-11-05)。配置以 [.github/workflows](../../.github/workflows) 为准；历史结果留在对应版本。
 
 ## PR 检查
 

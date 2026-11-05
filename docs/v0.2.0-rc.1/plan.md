@@ -1,6 +1,6 @@
 # v0.2.0-rc.1 需求与开发计划
 
-更新：2026-11-05。rc.1 实施与本机验证已完成，用户反馈 Windows 测试程序测试通过，并授权推送、合并 main 发布更新，随后同步 dev 到 main。本版 **0.2.0-rc.1 / 整套预设修订 4**，发布流程进行中；公开版本暂为 beta.3，既有标签固定 `8ab5afd`。按既有 CI/正式签名/发布契约执行，不增加人工审批阶段。
+更新：2026-11-05。**0.2.0-rc.1 / 整套预设修订 4 已发布**，标签固定 `c0a43f1`。用户实测反馈通过后，按明确授权推送、经 PR #21 合并 main 并完成双端 CI、正式签名、Arch 隔离包与六项匿名资产核验；发布记录及 dev/main 同步随本轮交接收尾。既有 beta.3 标签 `8ab5afd` 未移动，不启动下一版。
 
 ## 实施状态
 
@@ -11,8 +11,8 @@
 | 菜单 | 单一 Lua 数据树，通过 uosc 公开 open-menu/update-menu；四项即选即保存，倍速/循环仅运行期 |
 | 控件 | 新增信息按钮；两侧切集按钮使用 has_playlist；右键与更多共用菜单 |
 | Windows | 普通安装完成页默认勾选启动；点击完成后按选择启动；updater/静默路径保留 |
-| 验证 | Windows 构建、59 项 Rust、Clippy、前端/发布契约、13 项原生首轮与定向复验、安全 NSIS 页面探针通过；完整 debug NSIS 已编译未运行，详见[本版证据](evidence.md) |
-| 待验 | Arch 构建/原生包、KDE 真实窗口、系统安装与真实跨版本重启、真实 HDR 等不在本机通过范围 |
+| 验证 | 本机 59 项 Rust/13 项原生首轮及定向复验/NSIS 页面探针通过；双端 CI、正式构建签名、Arch 包与隔离验收、六项匿名资产核验完成，详见[本版证据](evidence.md) |
+| 待验 | KDE 真实窗口、系统安装与真实跨版本重启、真实 HDR、多屏及辅助技术等设备边界保留 |
 
 ## 已确认范围与实现
 
@@ -108,10 +108,10 @@ uosc 5.13.0 / `d124c2c930d69446448022851373e00ae592390d` 未升级，部署字�
 
 ## 后续 agent 接手
 
-1. 先读[证据](evidence.md)、[当前基线](../current.md)、[AGENTS](../../AGENTS.md)，检查 git status；本轮已获推送/合并/发布授权，最新 CI、发布与分支同步结果以证据为准，不重新审核已确认设计。
+1. 先读[证据](evidence.md)、[当前基线](../current.md)、[AGENTS](../../AGENTS.md)，检查 git status；rc.1 已发布，标签固定 `c0a43f1`，后续交接文档不移动标签。不重新审核已确认设计。
 2. 代码入口：[preferences](../../src-tauri/src/preferences.rs)、[portable](../../src-tauri/src/config/portable.rs)、[菜单 Lua](../../resources/scripts/mpvkit.lua)、[窗口 Lua](../../resources/scripts/mpvkit-window.lua)、[NSIS](../../packaging/windows/installer.nsi)。Windows 原生回归在 native-v016.test.mjs，Lua 确定性入口在 linux_tests 两份 policy.lua。
-3. 本机 Windows 可继续用户实测；Arch 构建/包验收和 KDE 实播需对应环境。真实 HDR、多屏 DPI、辅助技术、实际 NSIS 首装/重装/升级、取消/失败、运行中程序处理及真实 updater 单次重启仍须隔离系统验证；不得以页面探针/IPC mock 冒充通过。
-4. 完成本轮 rc.1 CI、main 合并、正式签名发布及 dev 同步；保留所有已发布 tag，不把授权扩展到新版本。不增加人工审批阶段，不把未测设备边界改写成已通过。
+3. 本机 Windows 实测反馈通过，Arch 构建/包验收由本版 CI 完成；KDE 实播仍需对应环境。真实 HDR、多屏 DPI、辅助技术、实际 NSIS 首装/重装/升级、取消/失败、运行中程序处理及真实 updater 单次重启仍须隔离系统验证；不得以页面探针/IPC mock 冒充通过。
+4. 本轮发布记录及 dev/main 同步随交接收尾；保留所有已发布 tag，不把授权扩展到新版本。不增加人工审批阶段，不把未测设备边界改写成已通过。
 
 `.local` 下工具、探针构建、日志和媒体只是本机证据，不分发、不提交；固定工具链和准备方法见[测试入口](../testing.md)。
 
