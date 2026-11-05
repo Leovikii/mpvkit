@@ -208,23 +208,25 @@ fn arch_wayland_install_playback_and_uninstall() {
     wait(|| request(&socket, serde_json::json!(["get_property", "volume"])) == 60.0);
     let scripts = serde_json::json!({
         "uoscBindings":request(&socket,serde_json::json!(["get_property","input-bindings"])),
-        "mpvkit":request(&socket,serde_json::json!(["get_property","user-data/mpvkit"]))
+        "scale":request(&socket,serde_json::json!(["get_property","scale"]))
     });
     assert!(
         scripts["uoscBindings"]
             .to_string()
             .contains("uosc/__keybinding")
     );
-    assert_eq!(scripts["mpvkit"]["profile"], "balanced");
+    assert_eq!(scripts["scale"], "lanczos");
     request(
         &socket,
-        serde_json::json!(["script-message-to", "mpvkit", "profile", "high-quality"]),
+        serde_json::json!([
+            "script-message-to",
+            "mpvkit",
+            "select",
+            "profile",
+            "high-quality"
+        ]),
     );
     wait(|| request(&socket, serde_json::json!(["get_property", "scale"])) == "ewa_lanczossharp");
-    request(
-        &socket,
-        serde_json::json!(["script-message-to", "mpvkit", "save"]),
-    );
     wait(|| config::read(&root).is_ok_and(|s| s.profile == config::Profile::HighQuality));
     request(
         &socket,

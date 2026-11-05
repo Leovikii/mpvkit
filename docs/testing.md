@@ -1,12 +1,12 @@
 # 本地开发与测试入口
 
-公开预发布及当前源码为 v0.2.0-beta.3，预设修订为 3。当前命令、结果和环境边界见 [beta.3 证据](v0.2.0-beta.3/evidence.md)，历史测试不作为本版通过。先读 [AGENTS](../AGENTS.md) 及[目录边界](current.md#当前目录)，普通测试始终只用新隔离根。
+当前源码为 v0.2.0-rc.1、预设修订 4；公开预发布仍为 beta.3。本轮已获实施/测试授权，当前结果见[本版证据](v0.2.0-rc.1/evidence.md)，历史测试不作为本版通过。先读 [AGENTS](../AGENTS.md) 及[目录边界](current.md#当前目录)，普通测试始终用新隔离根。
 
-rc.1 [计划已确认、待实施](v0.2.0-rc.1/plan.md#实施顺序与验收)，本轮仅文档交接推送，不开展构建或运行测试，尚无本版运行结果。获准实施后重点补菜单实际状态与刷新、控件条件及隔离 Windows 完成页的默认勾选、确认前不启动、勾选后单次启动与取消勾选后不启动，并验证 updater 自动重启和静默安装不显示完成页。正式 Release 不使用 debug 根覆写，安装器运行必须在隔离用户或 VM 中进行。
+rc.1 新增 native rc1 menus save four defaults and reflect actual properties：实际 WebView 安装/语言、MPV 属性/菜单激活、选择即保存、重开/切集/重启、外部修改只刷新、连续选择与同值无写、保存失败重试，以及管理器保存/重新应用保留偏好。受控输入/过期代际/冲突、修复脚本/未知同名保护等由 Rust 覆盖；不再读取 user-data/mpvkit 缓存。
 
-rc.1 四项共用[播放默认值保存模块](v0.2.0-rc.1/plan.md#播放默认值保存模块)待实施：验证受控更新与非法输入拒绝、单项保存保留其他项、连续切换最终值、相同值无差异不写、保存失败后重新选择重试、冲突/事务恢复及管理器保存保留菜单偏好；未接入的音量等项目不写默认值。不得把原画质专用 helper 的历史测试当作新模块通过。
+无用户配置的 Lua 确定性检查：用目标 MPV 加 --no-config --load-scripts=no --vo=null --ao=null --idle=yes，再分别指定 --script=src-tauri/src/linux_tests/playback-policy.lua 和 window-policy.lua。前者执行真实产品模板，检查队列串行、四项受控更新、原生失败回滚、保存失败重试与观测不写盘；后者直接加载独立窗口脚本，保留安静期/复核/取消/音频先行/一次性检查。Windows 上通过不等于 KDE 合成器时序通过。
 
-[Lua 拆分](v0.2.0-rc.1/plan.md#lua-调查与已确认拆分2026-11-04)同步验证脚本生成/预览/归属/修复/卸载、未知同名文件保护、Windows 不部署窗口脚本，以及 Linux 确定性策略和真实窗口回归。测试读取实际属性或保存结果后再删除无消费者状态缓存；拆文件不代表旧平台测试自动通过。
+Windows 运行 node scripts/test-windows-installer.mjs 验证模板原生完成页及真实 RunAsUser 夹具：中英、默认勾选、完成前不启动、取消勾选不启动、/P、/UPDATE /P /R /ARGS、/S、/S /R、失败。探针仅写仓库 .local，不执行产品安装、注册表或真实配置写入。正式安装/升级/运行中程序处理与真实 updater 重启仍须隔离用户或 VM；不能用 debug 根替代正式 Release 行为。
 
 ## 工具与最小检查
 
@@ -102,7 +102,7 @@ beta.1 已在 Windows x64 上执行构建及隔离回归，包含原生560×760�
 
 本版不再包含媒体登记/Offreg 专项。包自带登记机制及 12 种常见扩展名的只读核验见 [v0.1.9 证据](v0.1.9/evidence.md#windows-软件包的媒体登记核验)；未执行主机安装器，不能等同真实 UAC/登记验收。历史完整原生结果见 [alpha.1 交接](v0.2.0-alpha.1/plan.md)，本版未完成的 Windows 原生项目及接手顺序见 [beta.1 Windows 交接](v0.2.0-beta.1/plan.md#windows-测试交接)。
 
-当前 Windows NSIS 已采用可见一键安装，默认位置固定、无向导；构建命令和来源见[安装器说明](../packaging/windows/README.md)。本地脱离系统写入的页面探针不是正式安装验收，不得直接在开发者真实环境执行正式安装器来代替隔离 VM/用户验证。
+当前 Windows NSIS 为直接进度及可选启动完成页，默认位置固定、无目录向导；构建命令和来源见[安装器说明](../packaging/windows/README.md)。本地脱离系统写入的页面探针不是正式安装验收，不得直接在开发者真实环境执行正式安装器来代替隔离 VM/用户验证。
 
 scripts/test-process.ps1、test-media-preferences.mjs、make-media-fixtures.mjs 为现有套件辅助；test-window.ps1 为独立原生窗口/DPI/截图探针，使用时先核对精确 PID/映像。截图仅为测试取证，不是已删除的产品截图功能。
 
@@ -127,7 +127,7 @@ node docs/v0.1.6/preview/check.mjs
 - scripts/verify-uosc-sources.py：固定本地源码归档；verify-uosc-icons.mjs：固定字体映射；verify-scroll-bar-license.py、collect-go-notices.py：对应来源/许可。先读参数及原证据，不把这些脚本删成“无人调用”。
 - scripts/rebuild-uosc-helper.py、inspect-uosc-buildinfo.mjs、compare-uosc-links.go：固定 helper 的构建/核验链；用途和未完成发布审阅在 [验收台账](v0.1.0/acceptance.md)。
 
-最新一次通过范围统一记在 [当前交接](v0.2.0-beta.3/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
+最新一次通过范围统一记在 [当前交接](v0.2.0-rc.1/plan.md)，本版命令和日志路径亦见交接；历史产物摘要见 [alpha.1 证据](v0.2.0-alpha.1/evidence.md)。测试日志和合成媒体放 .local/ 或 /tmp，不提交 ELF、个人配置、凭据或完整桌面截图。
 
 ## 更新与分发专项
 
@@ -135,7 +135,7 @@ Windows 原生套件覆盖启动一次、预览偏好、无稳定版、失败重
 
 beta.2 原生套件新增首次安装 presetRevision、只读检测、普通保存保留标识、页内提示无自动弹窗、取消/过期失败不抬升标识、完整重新应用保留选择/未知内容/续播、重复应用不写及较新修订不提示降级。旧版迁移和旧桥接恢复不属本版范围。
 
-beta.3 新增 `native beta3 installed language, localized menus and playback options`：真实 WebView 切换语言不写播放器配置，普通画质保存保留安装语言，完整重新应用才更新；私有 uosc 副本取证并通过菜单键盘选择验证 HDR、自动连播、结束行为和画质菜单。原自动连播/字幕回归改为测试原生运行期选项及后续 loadfile；真实 HDR 输出仍须设备验收。Rust 默认测试另覆盖中文到英文重应用、默认区手改保护和未展开占位符。独立预览同步只保留画质。
+beta.3 的菜单/语言专项已由 rc.1 原生菜单测试接替；该测试保持安装语言规则，同时验证四项持久化和真实状态。真实 HDR 输出仍须设备验收。
 
 dev 安装顺序专项使用空的隔离资产目录证明确认前不获取资产、取消不写入、确认后下载失败不部署，再补齐固定资产复验过期保护及一次确认完成。固定归档专项比对 resources/component-files.json 的逐文件摘要；下载后必须与离线预览一致，不重新生成预览绕过原有状态守卫。
 

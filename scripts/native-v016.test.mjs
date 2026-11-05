@@ -42,8 +42,8 @@ test("native application updates: startup once, preview preference, logs, progre
   const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-updates-')),root=path.join(sandbox,'data');
   const fixtures=path.join(root,'test-tools/updates'); await fs.mkdir(fixtures,{recursive:true});
   const prefix='https://github.com/Leovikii/mpvkit/releases/download/';
-  const version='0.2.0-beta.4';
-  const win='MpvKit_'+version+'_x64-setup.exe',linux='mpvkit-bin-0.2.0beta4-1-x86_64.pkg.tar.zst';
+  const version='0.2.0-rc.2';
+  const win='MpvKit_'+version+'_x64-setup.exe',linux='mpvkit-bin-0.2.0rc2-1-x86_64.pkg.tar.zst';
   const metadata=JSON.stringify({version,notes:'更新日志 <script>must stay text</script>\n'+'- Preview fix / 改进更新与配置保存。\n'.repeat(60),pub_date:'2026-10-28T00:00:00Z',platforms:{'windows-x86_64':{url:prefix+'v'+version+'/'+win,signature:'isolated-fixture-not-an-installer'}}});
   const contents={[win]:'fixture',[win+'.sig']:'signature',[linux]:'fixture',[linux+'.tauri.sig']:'signature','latest.json':metadata};
   contents.SHA256SUMS=Object.entries(contents).map(([name,bytes])=>hash(bytes)+'  '+name).sort().join('\n')+'\n';
@@ -378,19 +378,19 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     run(ffmpeg,["-y","-v","error","-f","lavfi","-i","color=white:s=1280x720:r=24:d=3","-c:v","libx264","-preset","ultrafast",white]);
     await fs.copyFile(media,path.join(mediaDir,"02.mkv"));await fs.copyFile(media,path.join(mediaDir,"03.mkv"));
     const logs=[];
-    async function launch(extra=[]){const log=path.join(artifacts,"mpv-"+logs.length+".log");logs.push(log);child=spawn(player,["--config-dir="+config,"--input-ipc-server="+pipe,"--ao=null","--pause=yes","--keep-open=yes","--save-position-on-quit=no","--resume-playback=no","--geometry=1200x700","--log-file="+log,...extra,media],{env:{...process.env,MPV_HOME:config,TEMP:sandbox,TMP:sandbox},stdio:"ignore",windowsHide:false});await wait(async()=>!!(await get("user-data/mpvkit"))&&!!(await inspect()).controls["2"],"uosc and helper initialized");await sleep(500);}
+    async function launch(extra=[]){const log=path.join(artifacts,"mpv-"+logs.length+".log");logs.push(log);child=spawn(player,["--config-dir="+config,"--input-ipc-server="+pipe,"--ao=null","--pause=yes","--keep-open=yes","--save-position-on-quit=no","--resume-playback=no","--geometry=1200x700","--log-file="+log,...extra,media],{env:{...process.env,MPV_HOME:config,TEMP:sandbox,TMP:sandbox},stdio:"ignore",windowsHide:false});await wait(async()=>!!(await get("scale"))&&!!(await inspect()).controls["2"],"uosc and helper initialized");await sleep(500);}
     await launch();
     const layouts=[];
     for(const width of [1200,900,640]){
       await call(["set_property","geometry",width+"x"+Math.round(width*0.5625)]);await sleep(500);const data=await inspect();layouts.push(data);
-      for(const id of ["1","2","3","9","10"])assert(data.controls[id].enabled,"essential control "+id+" at "+width);
+      for(const id of ["1","2","3","8","10","11"])assert(data.controls[id].enabled,"essential control "+id+" at "+width);
       const play=data.controls["2"];assert(play.bx<data.width/2,"transport is left at "+width);
-      assert(data.controls["1"].bx<=play.ax&&play.bx<=data.controls["3"].ax);assert(data.controls["10"].bx<=data.width);
-      assert(data.controls["7"].enabled);assert.equal(data.controls["7"].icon,"graphic_eq");assert(!Object.values(data.controls).some(c=>c.icon==="speed"));
+      assert(data.controls["1"].bx<=play.ax&&play.bx<=data.controls["3"].ax);assert(data.controls["11"].bx<=data.width);
+      if(width>=900)assert(data.controls["7"].enabled);assert.equal(data.controls["7"].icon,"graphic_eq");assert(!Object.values(data.controls).some(c=>c.icon==="speed"));
       await call(["mouse",Math.round(data.width/2),Math.round(play.ay+5)]);await sleep(300);await shot("layout-"+width);
     }
-    await call(["script-binding","uosc/menu"]);let narrowMenu=await inspect();
-    for(const title of ["Playback info","Playback mode","Playback speed"])assert(narrowMenu.menu.items.some(item=>item.title.includes(title)),"narrow menu entry "+title);
+    await call(["script-message-to","mpvkit","menu"]);await wait(async()=>(await inspect()).menu?.type==="mpvkit-menu","narrow menu opened");let narrowMenu=await inspect();
+    for(const title of ["Info","Playback mode","Speed"])assert(narrowMenu.menu.items.some(item=>item.title.includes(title)),"narrow menu entry "+title);
     assert(!narrowMenu.menu.items.some(item=>/screenshot|截图/i.test(item.title)));
     await call(["keypress","ESC"]);await sleep(300);
     await call(["set_property","geometry","1200x675"]);await sleep(400);let data=await inspect();
@@ -408,8 +408,9 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     }
     await call(["set_property","pause",true],["set_property","speed",1]);await sleep(200);data=await inspect();
     await click(data.controls["2"]);assert.equal(await get("pause"),false);await call(["keypress","SPACE"]);assert.equal(await get("pause"),true);
-    await call(["script-message-to","uosc","show-submenu","Playback mode"]);
-    data=await inspect();assert.equal(data.menu.type,"menu");assert.equal(data.menu.items.length,3);
+    await call(["script-message-to","mpvkit","menu","mode"]);
+    await wait(async()=>(await inspect()).menu?.type==="mpvkit-menu","playback mode menu opened");
+    data=await inspect();assert.equal(data.menu.type,"mpvkit-menu");assert.equal(data.menu.items.length,3);
     const pause=await get("pause");await call(["keypress","HOME"],["keypress","ENTER"]);
     await wait(async()=>(await inspect()).shuffle===true);assert.equal(await get("pause"),pause,"menu did not click through");
     await call(["script-binding","uosc/shuffle"]);await wait(async()=>(await inspect()).shuffle===false);
@@ -428,18 +429,18 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     await call(["set_property","loop-file","inf"],["seek",2.8,"absolute+exact"],["set_property","pause",false]);await sleep(700);assert.equal(await get("playlist-pos"),0);assert(await get("time-pos")<2);await call(["set_property","pause",true]);
     await call(["set_property","loop-file","no"],["set_property","loop-playlist","no"],["seek",1,"absolute+exact"]);
     async function openSpeed(){
-      await click((await inspect()).controls["9"]);
-      await wait(async()=>(await inspect()).menu?.items.some(i=>i.title.includes("Playback speed")),"more menu opened");
-      const index=(await inspect()).menu.items.findIndex(i=>i.title.includes("Playback speed"));
+      await click((await inspect()).controls["10"]);
+      await wait(async()=>(await inspect()).menu?.items.some(i=>i.title.includes("Speed")),"more menu opened");
+      const index=(await inspect()).menu.items.findIndex(i=>i.title.includes("Speed"));
       await call(["keypress","HOME"]);for(let i=0;i<index;i++)await call(["keypress","DOWN"]);
       await call(["keypress","ENTER"]);await wait(async()=>(await inspect()).menu?.items.length===6,"speed submenu opened");
     }
-    await openSpeed();data=await inspect();assert.equal(data.menu.type,"menu");assert.equal(data.menu.items.length,6);
-    await call(["keypress","HOME"],["keypress","DOWN"],["keypress","ENTER"]);await wait(async()=>await get("speed")===0.75,"speed menu selection");await call(["set_property","speed",1]);
+    await openSpeed();data=await inspect();assert.equal(data.menu.type,"mpvkit-menu");assert.equal(data.menu.items.length,6);
+    await call(["keypress","HOME"],["keypress","DOWN"],["keypress","ENTER"]);await wait(async()=>await get("speed")===0.75,"speed menu selection");await call(["keypress","ESC"],["set_property","speed",1]);
     // Shift+i operates the built-in stats overlay; screenshots include OSD.
     await call(["change-list","script-opts","append","uosc-scale=0.5"],["set_property","geometry","1200x680"]);await sleep(500);await shot("layout-full");
-    data=await inspect();await call(["keypress","I"]);await call(["mouse",1,1]);await sleep(1400);const stats=await shot("stats-button");
-    await call(["keypress","I"]);await sleep(600);const plain=await shot("stats-closed");assert.notEqual(hash(stats),hash(plain));
+    data=await inspect();await click(data.controls["8"]);await call(["mouse",1,1]);await sleep(1400);const stats=await shot("stats-button");
+    await click((await inspect()).controls["8"]);await sleep(600);const plain=await shot("stats-closed");assert.notEqual(hash(stats),hash(plain));
     await call(["keypress","I"]);await sleep(600);await shot("stats-keyboard");await call(["keypress","I"]);await sleep(300);
     await call(["set_property","fullscreen",true]);await sleep(600);data=await inspect();assert(data.controls["2"].enabled);await call(["mouse",data.width/2,data.controls["2"].ay+5]);await sleep(300);await shot("fullscreen");await call(["set_property","fullscreen",false]);
     await call(["keypress","MBTN_RIGHT"]);await sleep(300);
@@ -466,13 +467,20 @@ test("native v018 uosc layout, actual playback modes and stats", {timeout:600000
     // Options reload exercises the actual uosc scale path without changing system DPI.
     await call(["change-list","script-opts","append","uosc-scale=2"],["set_property","geometry","1180x664"]);
     await wait(async()=>(await inspect()).scale===hidpi*2,"native scale refreshed after viewport resize");data=await inspect();layouts.push(data);
-    for(const id of ["1","2","3","9","10"])assert(data.controls[id].enabled,"scaled essential control "+id);
+    for(const id of ["1","2","3","10","11"])assert(data.controls[id].enabled,"scaled essential control "+id);
+    await click(data.controls["10"]);await wait(async()=>(await inspect()).menu?.type==="mpvkit-menu","scaled more menu opened");
+    assert((await inspect()).menu.items.some(item=>item.title==="Info"),"scaled menu keeps info reachable");
+    await call(["keypress","ESC"]);await wait(async()=>!(await inspect()).menu,"scaled menu closed");
     await fs.writeFile(path.join(artifacts,"layouts.json"),JSON.stringify(layouts,null,2));
     await call(["script-binding","uosc/shuffle"]);await wait(async()=>(await inspect()).shuffle===true);
     await call(["quit"]);if(child.exitCode===null)await new Promise(resolve=>child.once("exit",resolve));child=null;
-    await launch();assert.equal(await get("loop-file"),false);assert.equal(await get("loop-playlist"),false);
+    await launch(["--idle=yes"]);assert.equal(await get("loop-file"),false);assert.equal(await get("loop-playlist"),false);
     const single=path.join(sandbox,"single");await fs.mkdir(single);const only=path.join(single,"only.mkv");await fs.copyFile(media,only);await call(["loadfile",only,"replace"]);await wait(async()=>await get("path")===only);
+    await wait(async()=>!(await inspect()).controls["1"].enabled&&!(await inspect()).controls["3"].enabled,"single item hides transport arrows");
     for(const binding of ["uosc/next","uosc/prev"]){await call(["script-binding",binding]);await sleep(200);assert.equal(await get("path"),only);}
+    await call(["loadfile",media,"append"]);await wait(async()=>(await inspect()).controls["1"].enabled&&(await inspect()).controls["3"].enabled,"appending a playlist item shows both arrows");
+    await call(["playlist-remove",1]);await wait(async()=>!(await inspect()).controls["1"].enabled&&!(await inspect()).controls["3"].enabled,"removing an item hides both arrows");
+    await call(["stop"]);await wait(async()=>!(await inspect()).controls["1"].enabled&&!(await inspect()).controls["3"].enabled,"empty list hides arrows");assert((await inspect()).controls["8"].enabled,"idle keeps info available");
     await call(["quit"]);if(child.exitCode===null)await new Promise(resolve=>child.once("exit",resolve));child=null;
     await launch(["--keep-open=no"]);await call(["set_property","playlist-pos",2]);await wait(async()=>await get("playlist-pos")===2&&typeof await get("time-pos")==="number");await call(["seek",2.8,"absolute+exact"],["set_property","pause",false]);await wait(()=>child.exitCode!==null,"sequential exits without keep-open");assert.equal(child.exitCode,0);child=null;
     for(const log of logs){const contents=await fs.readFile(log,"utf8");assert(!/Lua error|Error parsing option|stack traceback/.test(contents),contents.slice(-5000));}
@@ -700,16 +708,14 @@ test("native v016 install, manual configuration, native profiles and unified sav
     const env={...process.env,MPVKIT_TEST_MODE:"1",MPVKIT_TEST_ROOT:global};env.MPV_HOME=root;const child=spawn(mpv,['--input-ipc-server='+pipe,'--ao=null','--idle=yes','--pause=yes','--log-file='+path.join(artifacts,label+'.log'),media],{env,windowsHide:true,stdio:'ignore'});children.push({pid:child.pid,mpv});
     return pipe;
   };
-  const direct=await start('direct');const values=await probeMpv(direct,[['get_property','volume'],['get_property','save-position-on-quit'],['get_property','sub-font'],['get_property','user-data/mpvkit']]);
-  assert.equal(values[0],23);assert.equal(values[1],false);assert.equal(values[2],'LXGW WenKai Screen');assert.equal(values[3].profile,settings.profile);
+  const direct=await start('direct');const values=await probeMpv(direct,[['get_property','volume'],['get_property','save-position-on-quit'],['get_property','sub-font'],['get_property','scale']]);
+  assert.equal(values[0],23);assert.equal(values[1],false);assert.equal(values[2],'LXGW WenKai Screen');assert.equal(values[3], 'ewa_lanczossharp');
   const bindings=(await probeMpv(direct,[['get_property','input-bindings']]))[0];assert(bindings.some(b=>b.key==='UP'&&b.cmd==='add volume 10'));
-  await probeMpv(direct,[['script-message-to','mpvkit','profile','high-quality']]);await sleep(300);assert.equal((await probeMpv(direct,[['get_property','scale']]))[0],'ewa_lanczossharp');
   // Stop the GUI before asking the helper to save.
-  await session.stop();session=null;await fs.rename(copied,copied+'.moved.exe');await probeMpv(direct,[['script-message-to','mpvkit','save']]);
+  await session.stop();session=null;await probeMpv(direct,[['script-message-to','mpvkit','select','profile','high-quality']]);
   let saved;for(let i=0;i<600;i++){saved=JSON.parse(await fs.readFile(path.join(root,'.mpvkit/settings.json')));if(saved.settings.profile==='high-quality')break;await sleep(100);}
   assert.equal(saved.settings.profile,'high-quality');
-  let saving=true;for(let i=0;i<600;i++){saving=(await probeMpv(direct,[['get_property','user-data/mpvkit']]))[0].saving;if(!saving)break;await sleep(100);}
-  assert.equal(saving,false,'save helper completed');assert(!await exists(path.join(root,'.mpvkit/pending.json')));
+  assert(!await exists(path.join(root,'.mpvkit/pending.json')));
   assert(!await exists(path.join(root,'.mpvkit/playback.json')));await probeMpv(direct,[['quit']]);children.pop();
   session=await startApp(sandbox,global);await heading(session.page,'Configuration');assert.equal((await ipc(session.page,'read_settings')).profile,'high-quality');
   const q=session.page;await configuration(q);const managedPipe='\\\\.\\pipe\\mpvkit-v016-'+crypto.randomUUID();await fs.appendFile(confPath,'\ninput-ipc-server='+managedPipe+'\nao=null\nidle=yes\n');
@@ -845,7 +851,7 @@ test("native v016 real playback: keys, menu, position-only resume and font", {ti
     await call(["keypress","UP"]);assert.equal(await get("volume"),60);await call(["keypress","DOWN"]);
     for(const key of ["q","s","1","2","i","Alt+1","Alt+s","F6"]){const before=await get("speed");await call(["keypress",key]);assert.equal(await get("speed"),before);assert.equal(await get("volume"),50);}
     await call(["keypress","MBTN_RIGHT"]);await sleep(300);await call(["keypress","UP"]);assert.equal(await get("volume"),50);await call(["keypress","ESC"]);
-    await call(["script-message-to","mpvkit","menu"]);await sleep(200);await call(["keypress","DOWN"]);assert.equal(await get("volume"),50);await call(["keypress","ESC"]);
+    await waitFor(async()=>!(await get("user-data"))?.uosc?.menu?.type);await call(["script-message-to","mpvkit","menu"]);await waitFor(async()=>await get("user-data/uosc/menu/type")==="mpvkit-menu");await call(["keypress","DOWN"]);assert.equal(await get("volume"),50);await call(["keypress","ESC"]);
     await call(["seek",29.8,"absolute+exact"],["set_property","pause",false]);await waitFor(async()=>await get("eof-reached")&&await get("pause"));await call(["seek",10,"absolute+exact"]);await sleep(300);
     await call(["set_property","speed",1.5],["set_property","volume",30],["seek",12,"absolute+exact"]);await sleep(300);await quit();
     const watch=path.join(root,"watch_later");const records=await fs.readdir(watch);assert(records.length>0);const contents=await Promise.all(records.map(f=>fs.readFile(path.join(watch,f),"utf8")));const saved=contents.find(s=>/^start=/m.test(s));assert(saved,"media position record exists alongside native redirect entries");assert(!/^(volume|speed|scale)=/m.test(saved));
@@ -866,7 +872,7 @@ test("native preset notice and reapply preserve choices, protect files and commi
   session=await startApp(sandbox,global);const p=session.page;await english(p);await installComponents(p);
   const manifest=path.join(root,'.mpvkit/install.json'),input=path.join(root,'input.conf');
   const read=async()=>JSON.parse(await fs.readFile(manifest,'utf8'));
-  assert.equal((await read()).presetRevision,3);
+  assert.equal((await read()).presetRevision,4);
   const core=path.join(root,'scripts/uosc/main.lua'),coreTime=(await fs.stat(core)).mtimeMs;
   const setRevision=async value=>{const record=await read();record.presetRevision=value;await fs.writeFile(manifest,JSON.stringify(record));await p.evaluate(()=>window.dispatchEvent(new Event('focus')));await settled(p);};
   await setRevision(0);
@@ -884,14 +890,14 @@ test("native preset notice and reapply preserve choices, protect files and commi
   await dialog.getByRole('button',{name:'Prepare again',exact:true}).waitFor();assert.equal((await read()).presetRevision,0,'failed apply must not mark current');
   await dialog.getByRole('button',{name:'Close',exact:true}).click();await dialog.waitFor({state:'hidden'});await notice.waitFor();
   await button().click();await dialog.locator('.changes').waitFor({state:'attached'});await confirm(p);await settled(p);
-  assert.equal((await read()).presetRevision,3);assert.equal(await notice.count(),0);
+  assert.equal((await read()).presetRevision,4);assert.equal(await notice.count(),0);
   const settings=await ipc(p,'read_settings');assert.equal(settings.profile,'high-quality');assert.equal(settings.playback,undefined);
   assert.equal(await fs.readFile(input,'utf8'),renderMenu(await fs.readFile(path.join(repository,'resources/input.conf'),'utf8'),'en'));
   assert.equal(await fs.readFile(path.join(root,'watch_later/resume'),'utf8'),'position');assert.equal(await fs.readFile(path.join(root,'private.conf'),'utf8'),'mine');assert.equal((await fs.stat(core)).mtimeMs,coreTime,'healthy uosc is not reinstalled');
   const generation=(await read()).installationId;
   const unchanged=await ipc(p,'preview_install',{settings,reapply:true});assert(unchanged.noChanges);await ipc(p,'apply_deployment',{previewId:unchanged.id});assert.equal((await read()).installationId,generation);
-  await setRevision(4);assert.equal((await ipc(p,'setup_status')).presetStatus,null,'do not suggest a downgrade');
-  assert.equal((await read()).presetRevision,4);
+  await setRevision(5);assert.equal((await ipc(p,'setup_status')).presetStatus,null,'do not suggest a downgrade');
+  assert.equal((await read()).presetRevision,5);
   assert.deepEqual(session.errors,[]);
  } finally {if(session)await session.stop();}
 });
@@ -944,57 +950,94 @@ test("native installation confirms before acquiring assets and protects the appr
  }finally{await session?.stop();}
 });
 
-test("native beta3 installed language, localized menus and playback options",{timeout:240000},async()=>{
- const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-beta3-language-')),global=path.join(sandbox,'data'),root=path.join(global,'config/mpv');
+test("native rc1 menus save four defaults and reflect actual properties",{timeout:240000},async()=>{
+ const sandbox=await fs.mkdtemp(path.join(os.tmpdir(),'mpvkit-rc1-menu-')),global=path.join(sandbox,'data'),root=path.join(global,'config/mpv');
  const artifacts=path.join(repository,'.local/e2e-artifacts',path.basename(sandbox));await fs.mkdir(artifacts,{recursive:true});
- const player=path.join(global,'system-mpv/mpv.exe'),pipe=String.raw`\\.\pipe\mpvkit-beta3-`+crypto.randomUUID();let session,child;
+ const player=path.join(global,'system-mpv/mpv.exe'),pipe=String.raw`\\.\pipe\mpvkit-rc1-`+crypto.randomUUID();let session,child;
  const call=async(...commands)=>probeMpv(pipe,commands),get=async key=>(await call(['get_property',key]))[0];
- async function wait(check,label){const until=Date.now()+12000;while(Date.now()<until){try{if(await check())return;}catch{}await sleep(80);}assert.fail(label);}
- const paths=['input.conf','script-opts/uosc.conf','scripts/mpvkit.lua'];
- const snapshot=async()=>Object.fromEntries(await Promise.all(paths.map(async name=>[name,hash(await fs.readFile(path.join(root,name)))])));
+ async function wait(check,label){const until=Date.now()+15000;while(Date.now()<until){try{if(await check())return;}catch{}await sleep(80);}assert.fail(label);}
+ const statePath=path.join(root,'.mpvkit/settings.json'),manifestPath=path.join(root,'.mpvkit/install.json'),confPath=path.join(root,'mpv.conf');
+ const state=async()=>JSON.parse(await fs.readFile(statePath,'utf8'));
+ const saved=async(item,value)=>wait(async()=>(await state()).settings[item]===value&&!await exists(path.join(root,'.mpvkit/pending.json')),'saved '+item+'='+value);
+ let probeId=0;
+ const inspect=async()=>{const id=String(++probeId);await call(['script-message-to','uosc','rc1-inspect',id]);let data;await wait(async()=>{data=await get('user-data/rc1-menu');return data.id===id;},'menu inspection');return data;};
+ async function submenu(id){await call(['script-message-to','uosc','close-menu','mpvkit-menu']);await wait(async()=>(await inspect()).items.length===0,'previous menu closed');await call(['script-message-to','mpvkit','menu',id]);await wait(async()=>(await inspect()).current===id,'submenu '+id);return (await inspect()).items;}
+ async function choose(id,index){await submenu(id);await call(['keypress','HOME']);for(let i=0;i<index;i++)await call(['keypress','DOWN']);await call(['keypress','ENTER']);await sleep(180);return (await inspect()).items;}
+ const launch=async media=>{
+  child=spawn(player,['--config-dir='+root,'--input-ipc-server='+pipe,'--ao=null','--vo=null','--pause=yes','--idle=yes','--resume-playback=no','--save-position-on-quit=no','--log-file='+path.join(artifacts,'mpv.log'),media],{env:{...process.env,MPVKIT_TEST_MODE:'1',MPVKIT_TEST_ROOT:global,MPV_HOME:root,TEMP:sandbox,TMP:sandbox},stdio:'ignore',windowsHide:true});
+  await wait(async()=>typeof await get('time-pos')==='number'&&(await get('input-bindings')).some(b=>b.cmd?.includes('uosc/__keybinding')),'player initialized');
+ };
  try{
   session=await startApp(sandbox,global);const p=session.page;await english(p);await installComponents(p);
+  assert(!await exists(path.join(root,'scripts/mpvkit-window.lua')),'Windows does not deploy Linux window policy');
+  const paths=['input.conf','script-opts/uosc.conf','scripts/mpvkit.lua'];
+  const snapshot=async()=>Object.fromEntries(await Promise.all(paths.map(async name=>[name,hash(await fs.readFile(path.join(root,name)))])));
   const original=await snapshot();
   await settings(p);await p.getByLabel('Display language',{exact:true}).selectOption('zh-Hans');await configuration(p);
-  assert.deepEqual(await snapshot(),original,'changing app language must not write player files');
-  assert.equal(await p.getByLabel('HDR 输出',{exact:true}).count(),0);assert.equal(await p.getByLabel('自动连播',{exact:true}).count(),0);assert.equal(await p.getByLabel('全部播放结束后',{exact:true}).count(),0);
+  assert.deepEqual(await snapshot(),original,'changing app language does not write player files');
+  assert.equal(await p.getByLabel('HDR 输出',{exact:true}).count(),0);
   await p.getByLabel('画质',{exact:true}).selectOption('high-quality');await p.getByRole('button',{name:'保存配置',exact:true}).click();await p.getByRole('dialog').locator('.task-footer').getByRole('button',{name:'保存配置',exact:true}).click();
   await p.getByRole('dialog').getByRole('button',{name:'关闭',exact:true}).click();await p.getByRole('dialog').waitFor({state:'hidden'});
-  assert.deepEqual(await snapshot(),original,'quality save retains installed English');
-  let state=JSON.parse(await fs.readFile(path.join(root,'.mpvkit/settings.json'),'utf8'));assert.equal(state.language,'en');
-  const plan=await ipc(p,'preview_install',{settings:state.settings,reapply:true});assert(plan.configurationDiffs.some(d=>d.path==='input.conf'&&d.after.includes('#menu: 自动连播 > 开启')));await ipc(p,'apply_deployment',{previewId:plan.id});
-  state=JSON.parse(await fs.readFile(path.join(root,'.mpvkit/settings.json'),'utf8'));assert.equal(state.language,'zh-Hans');assert.equal(state.settings.profile,'high-quality');
-  assert.match(await fs.readFile(path.join(root,'script-opts/uosc.conf'),'utf8'),/^languages=zh-hans,en$/m);
-  assert.match(await fs.readFile(path.join(root,'scripts/mpvkit.lua'),'utf8'),/保存为默认/);
-  const media=path.join(sandbox,'sample.wav');await fs.writeFile(media,wav());
-  const config=path.join(sandbox,'probe-config');await fs.cp(root,config,{recursive:true});
-  await fs.appendFile(path.join(config,'scripts/uosc/main.lua'),`\nmp.register_script_message('beta3-inspect',function(id)
-   local m=Elements.menu;local items={};if m then for _,i in ipairs(m.current.items) do items[#items+1]={title=i.title,value=i.value,hint=i.hint} end end
-   mp.set_property_native('user-data/beta3-menu',{id=id,items=items,title=m and m.current.title or ''})
+  assert.deepEqual(await snapshot(),original,'ordinary save retains installed language');
+  let plan=await ipc(p,'preview_install',{settings:(await state()).settings,reapply:true});await ipc(p,'apply_deployment',{previewId:plan.id});assert.equal((await state()).language,'zh-Hans');
+  assert.match(await fs.readFile(path.join(root,'scripts/mpvkit.lua'),'utf8'),/保存失败，下次启动不保留/);
+  assert(!/保存为默认/.test(await fs.readFile(path.join(root,'scripts/mpvkit.lua'),'utf8')));
+  // Instrument only this private deployed copy and record its fixture hash.
+  const main=path.join(root,'scripts/uosc/main.lua'),upstream=await fs.readFile(main);
+  const fixed=JSON.parse(await fs.readFile(path.join(repository,'resources/component-files.json'),'utf8'));
+  assert.equal(hash(upstream),fixed.uosc.find(f=>f.path==='scripts/uosc/main.lua').sha256,'fixed upstream bytes before private instrumentation');
+  await fs.appendFile(main,`\nmp.register_script_message('rc1-inspect',function(id)
+   local m=Elements.menu;local items={};if m then for _,i in ipairs(m.current.items) do items[#items+1]={title=i.title,value=i.value,active=i.active} end end
+   mp.set_property_native('user-data/rc1-menu',{id=id,items=items,current=m and m.current.id or '',selected=m and m.current.selected_index or 0,scroll=m and m.current.scroll_y or 0})
   end)\n`);
-  child=spawn(player,['--config-dir='+config,'--input-ipc-server='+pipe,'--ao=null','--vo=null','--pause=yes','--idle=yes','--resume-playback=no','--save-position-on-quit=no','--log-file='+path.join(artifacts,'mpv.log'),media],{env:{...process.env,MPV_HOME:config,TEMP:sandbox,TMP:sandbox},stdio:'ignore',windowsHide:true});
-  await wait(async()=>await get('user-data/mpvkit'),'player initialized');
-  let probeId=0;
-  const inspect=async()=>{const id=String(++probeId);await call(['script-message-to','uosc','beta3-inspect',id]);let data;await wait(async()=>{data=await get('user-data/beta3-menu');return data.id===id;},'menu inspection');return data;};
-  async function submenu(title){await call(['keypress','ESC']);await wait(async()=>(await inspect()).items.length===0,'menu closed');await call(['script-message-to','uosc','show-submenu',title]);await wait(async()=>(await inspect()).title===title,'submenu '+title);return (await inspect()).items;}
-  async function choose(title,index){const items=await submenu(title);await call(['keypress','HOME']);for(let i=0;i<index;i++)await call(['keypress','DOWN']);await call(['keypress','ENTER']);await sleep(180);return items;}
-  const evidence={};
-  await call(['script-binding','uosc/menu']);const main=await inspect();evidence.main=main;
-  for(const title of ['画质','HDR','自动连播','播放结束后','倍速'])assert(main.items.some(i=>i.title===title),title);
-  assert(!JSON.stringify(main).includes(' / '));
-  const hdrExpected=[['pq','bt.2020',true],['bt.1886','bt.709',false],['auto','auto','auto']];
-  for(const [index,expected] of [[1,hdrExpected[0]],[2,hdrExpected[1]],[0,hdrExpected[2]]]){
-   evidence.hdrMenu=await choose('HDR',index);await wait(async()=>await get('target-trc')===expected[0],'HDR target-trc');
-   assert.equal(await get('target-prim'),expected[1]);assert.equal(await get('target-colorspace-hint'),expected[2]);
+  const manifest=JSON.parse(await fs.readFile(manifestPath));manifest.files.find(f=>f.path==='scripts/uosc/main.lua').sha256=hash(await fs.readFile(main));await fs.writeFile(manifestPath,JSON.stringify(manifest));
+  const manager=await ipc(p,'read_settings'); // Keep the GUI draft from before player changes.
+  const media=path.join(sandbox,'sample.wav');await fs.writeFile(media,wav());await launch(media);
+  await call(['keypress','MBTN_RIGHT']);await wait(async()=>(await inspect()).items.length===20,'main menu opened');let mainMenu=await inspect();
+  const profile=(await get('profile-list')).find(p=>p.name==='mpvkit-high-quality');await fs.writeFile(path.join(artifacts,'profile-values.json'),JSON.stringify({profile,actual:Object.fromEntries(await Promise.all(profile.options.map(async e=>[e.key,await get(e.key)])))},null,2));
+  assert.deepEqual(mainMenu.items.slice(0,6).map(i=>i.title),['画质','HDR','倍速','自动连播','播完后','播放模式']);
+  const evidence={main:mainMenu};
+  assert.deepEqual((await submenu('profile')).map(i=>[i.title,!!i.active]),[['节能',false],['均衡',false],['高画质',true]]);
+  for(const [index,value,trc,prim,hint] of [[1,'on','pq','bt.2020',true],[2,'off','bt.1886','bt.709',false],[0,'auto','auto','auto','auto']]){
+   await choose('hdr',index);await saved('hdr',value);assert.equal(await get('target-trc'),trc);assert.equal(await get('target-prim'),prim);assert.equal(await get('target-colorspace-hint'),hint);
+   assert.equal((await inspect()).items.findIndex(i=>i.active),index);
   }
-  assert.deepEqual(evidence.hdrMenu.map(i=>i.title),['自动','开启','关闭']);
   const count=(await get('playlist')).length;
-  evidence.autoplay=await choose('自动连播',1);assert.equal(await get('autocreate-playlist'),false);assert.equal((await get('playlist')).length,count);
-  await choose('自动连播',0);assert.equal(await get('autocreate-playlist'),'filter');
-  evidence.end=await choose('播放结束后',1);assert.equal(await get('keep-open'),true);await choose('播放结束后',0);assert.equal(await get('keep-open'),false);assert.equal(child.exitCode,null,'setting exit behavior does not quit immediately');
-  await call(['script-message-to','mpvkit','menu']);evidence.quality=await inspect();assert.deepEqual(evidence.quality.items.map(i=>i.title),['节能','均衡','高画质','保存为默认']);
-  assert.equal(JSON.parse(await fs.readFile(path.join(root,'.mpvkit/settings.json'),'utf8')).language,'zh-Hans');
+  await choose('autoplay',1);await saved('autoplay',false);assert.equal(await get('autocreate-playlist'),false);assert.equal((await get('playlist')).length,count);
+  await choose('when-finished',1);await saved('whenFinished','keep-open');assert.equal(await get('keep-open'),true);
+  await choose('profile',0);await saved('profile','power-saving');assert.equal(await get('scale'),'bilinear');
+  const before=await fs.readFile(statePath),confBefore=await fs.readFile(confPath);
+  await submenu('speed');await call(['keypress','HOME'],['keypress','DOWN']);const focus=await inspect();
+  await call(['set_property','speed',1.5]);await wait(async()=>(await inspect()).items[4].active,'live speed state');
+  let after=await inspect();assert.equal(after.current,focus.current);assert.equal(after.selected,focus.selected);assert.equal(after.scroll,focus.scroll);
+  await call(['set_property','speed',1.1]);await wait(async()=>(await inspect()).items.every(i=>!i.active),'nonstandard speed');
+  for(const [item,property,value,index] of [['when-finished','keep-open','always',1],['autoplay','autocreate-playlist','same',0],['loop-playlist','loop-playlist','3',0],['loop-file','loop-file','2',0]]){
+   await submenu(item);await call(['set_property',property,value]);await wait(async()=>(await inspect()).items[index].active,'actual '+property);
+  }
+  await submenu('profile');await call(['set_property','scale','bicubic']);await wait(async()=>(await inspect()).items.every(i=>!i.active),'custom quality does not match');
+  await submenu('hdr');await call(['set_property','target-prim','bt.709']);await wait(async()=>(await inspect()).items.every(i=>!i.active),'custom HDR does not match');
+  await call(['set_property','volume',37]);await sleep(250);assert.deepEqual(await fs.readFile(statePath),before);assert.deepEqual(await fs.readFile(confPath),confBefore);
+  // Native Back returns to the shared root; external refresh must not replace it.
+  await call(['keypress','LEFT']);await wait(async()=>(await inspect()).items.length===20,'parent menu');
+  await call(['keypress','ESC']);await call(['script-message-to','mpvkit','menu','profile']);
+  await call(['script-message-to','mpvkit','select','profile','balanced'],['script-message-to','mpvkit','select','hdr','off'],['script-message-to','mpvkit','select','autoplay','on'],['script-message-to','mpvkit','select','profile','high-quality'],['script-message-to','mpvkit','select','when-finished','quit']);
+  await saved('whenFinished','quit');await saved('profile','high-quality');await saved('hdr','off');await saved('autoplay',true);
+  const stable=await state();await call(['script-message-to','mpvkit','select','hdr','off']);await sleep(700);assert.equal((await state()).revision,stable.revision,'same default has no write');
+  // Manual conflict fails without changing defaults; selecting the active value again retries.
+  const originalConf=await fs.readFile(confPath,'utf8');await fs.writeFile(confPath,originalConf.replace('profile=mpvkit-high-quality','profile=mpvkit-balanced'));
+  await call(['script-message-to','mpvkit','select','hdr','on']);await wait(async()=>await get('target-trc')==='pq','runtime HDR applied');await sleep(700);assert.equal((await state()).settings.hdr,'off');
+  await fs.writeFile(confPath,originalConf);await call(['script-message-to','mpvkit','select','hdr','on']);await saved('hdr','on');
+  await call(['script-message-to','mpvkit','select','when-finished','keep-open']);await saved('whenFinished','keep-open');
+  await call(['loadfile',media,'replace']);await wait(async()=>await get('scale')==='ewa_lanczossharp','quality retained across file change');
   await call(['quit']);await wait(()=>child.exitCode!==null,'player exits');child=null;
-  await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({passed:true,evidence},null,2));assert.deepEqual(session.errors,[]);
- }finally{if(child&&child.exitCode===null)controlProcess(child.pid,player,'stop');await session?.stop();console.log('Beta.3 menu/language evidence: '+artifacts);}
+  await launch(media);assert.equal(await get('scale'),'ewa_lanczossharp');assert.equal(await get('target-trc'),'pq');assert.equal(await get('keep-open'),true);
+  await call(['quit']);await wait(()=>child.exitCode!==null,'player exits');child=null;
+  assert.equal(manager.hdr,'auto');manager.profile='balanced';
+  plan=await ipc(p,'preview_settings',{settings:manager});await ipc(p,'apply_deployment',{previewId:plan.id});
+  assert.equal((await state()).settings.hdr,'on');assert.equal((await state()).settings.whenFinished,'keep-open');
+  for(const reapply of [false,true]){
+   plan=await ipc(p,'preview_install',{settings:manager,reapply});await ipc(p,'apply_deployment',{previewId:plan.id});assert.equal((await state()).settings.hdr,'on');assert.equal((await state()).settings.whenFinished,'keep-open');
+  }
+  evidence.saved=await state();await fs.writeFile(path.join(artifacts,'result.json'),JSON.stringify({passed:true,evidence},null,2));assert.deepEqual(session.errors,[]);
+ }finally{if(child&&child.exitCode===null)controlProcess(child.pid,player,'stop');await session?.stop();console.log('RC.1 menu evidence: '+artifacts);}
 });

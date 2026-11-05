@@ -106,7 +106,13 @@ pub fn fingerprint(root: &Path) -> Result<String> {
 }
 // Read-only rendering uses exactly the same merger as the deployment plan.
 pub fn preview(root: &Path, settings: &Settings, replace: bool) -> Result<ConfigurationPreview> {
-    preview_mode(root, settings, replace, false, None)
+    let expected = fingerprint(root)?;
+    let settings = manager_settings(root, settings.clone())?;
+    let preview = preview_mode(root, &settings, replace, false, None)?;
+    if preview.fingerprint != expected {
+        return Err(error("stale_preview", "配置已变化，请重新预览。"));
+    }
+    Ok(preview)
 }
 pub(crate) fn preview_mode(
     root: &Path,
@@ -170,7 +176,15 @@ fn text(bytes: &[u8]) -> Result<String> {
 }
 fn gui_line(line: &str) -> bool {
     let key = line.split('=').next().unwrap_or("");
-    key == "hwdec"
+    [
+        "hwdec",
+        "autocreate-playlist",
+        "keep-open",
+        "target-colorspace-hint",
+        "target-trc",
+        "target-prim",
+    ]
+    .contains(&key)
 }
 fn block(raw: &str, settings: &Settings) -> String {
     let mut out = String::from(BEGIN);
@@ -194,10 +208,6 @@ fn block(raw: &str, settings: &Settings) -> String {
         out.push_str(line);
         out.push('\n');
     }
-    out.push_str(&format!(
-        "script-opts-append=mpvkit-profile={}\n",
-        settings.profile.id()
-    ));
     out.push_str(END);
     out
 }
@@ -260,6 +270,18 @@ fn generate_inner(
     )?;
     let next_block = block(&raw, settings);
     let existing = deploy::status(root)?.manifest;
+    for file in files.iter().filter(|file| file.path.ends_with(".lua")) {
+        if deploy::file_hash(&root.join(&file.path))?.is_some()
+            && !existing
+                .as_ref()
+                .is_some_and(|m| m.files.iter().any(|f| f.path == file.path))
+        {
+            return Err(error(
+                "file_conflict",
+                "同名脚本已存在且未受管理，未自动覆盖。",
+            ));
+        }
+    }
     let conf = if let Some(manifest) = existing.as_ref().filter(|m| {
         !reset
             && m.files
@@ -333,8 +355,7 @@ fn generate_inner(
     let previous_manual = state.manual_config;
     state.manual_config = other_manual || !reset && (state.manual_config || modified(root)?);
     state.settings = settings.clone();
-    let unchanged = reset
-        && previous_settings == state.settings
+    let unchanged = previous_settings == state.settings
         && previous_manual == state.manual_config
         && files
             .iter()
@@ -368,14 +389,23 @@ pub fn ready(root: &Path) -> Result<bool> {
         crate::config::relative!("input.conf"),
         crate::config::relative!("script-opts/thumbfast.conf"),
         crate::config::relative!("script-opts/uosc.conf"),
+        "scripts/mpvkit.lua",
+        #[cfg(target_os = "linux")]
+        "scripts/mpvkit-window.lua",
         ".mpvkit/settings.json",
     ] {
-        if !m.files.iter().any(|f| f.path == name) || deploy::file_hash(&root.join(name))?.is_none()
-        {
+        let hash = deploy::file_hash(&root.join(name))?;
+        let Some(recorded) = m.files.iter().find(|f| f.path == name) else {
+            return Ok(false);
+        };
+        if hash.is_none() {
             return Ok(false);
         }
         if name.ends_with(".conf") {
             text(&deploy::read_bytes(&root.join(name))?)?;
+        }
+        if name.ends_with(".lua") && hash.as_deref() != Some(&recorded.sha256) {
+            return Ok(false);
         }
     }
     read_state(root)?;
@@ -491,15 +521,15 @@ mod tests {
         assert_eq!(read_state(&root).unwrap().language, Language::Chinese);
         let input = std::fs::read(root.join("input.conf")).unwrap();
         let lua = std::fs::read(root.join("scripts/mpvkit.lua")).unwrap();
-        assert!(String::from_utf8_lossy(&input).contains("#menu: 自动连播 > 开启"));
-        assert!(String::from_utf8_lossy(&lua).contains("保存为默认"));
+        assert!(
+            String::from_utf8_lossy(&input).contains("MBTN_RIGHT script-message-to mpvkit menu")
+        );
+        assert!(String::from_utf8_lossy(&lua).contains("自动连播"));
+        assert!(!String::from_utf8_lossy(&lua).contains("保存为默认"));
         let path = root.join("mpv.conf");
         let conf = std::fs::read_to_string(&path).unwrap();
-        // Default settings are user-editable; changing quality must not reset them.
-        let conf = conf
-            .replacen("keep-open=no", "keep-open=yes", 1)
-            .replacen("autocreate-playlist=filter", "autocreate-playlist=no", 1)
-            .replacen("target-trc=auto", "target-trc=pq", 1);
+        // Unrelated native defaults remain editable.
+        let conf = conf.replace("autofit=75%x75%", "autofit=60%x60%");
         std::fs::write(&path, conf).unwrap();
         let settings = Settings {
             profile: Profile::HighQuality,
@@ -510,8 +540,7 @@ mod tests {
         assert_eq!(std::fs::read(root.join("scripts/mpvkit.lua")).unwrap(), lua);
         assert_eq!(read_state(&root).unwrap().language, Language::Chinese);
         let saved = std::fs::read_to_string(&path).unwrap();
-        assert!(saved.contains("keep-open=yes\n") && saved.contains("autocreate-playlist=no\n"));
-        assert!(saved[..saved.find(BEGIN).unwrap()].contains("target-trc=pq\n"));
+        assert!(saved.contains("autofit=60%x60%\n"));
         apply(Language::English);
         assert_eq!(read_state(&root).unwrap().language, Language::English);
         for name in ["input.conf", "script-opts/uosc.conf", "scripts/mpvkit.lua"] {
@@ -545,7 +574,7 @@ mod tests {
             restored.contains("keep-open=no\n")
                 && restored.contains("autocreate-playlist=filter\n")
         );
-        assert!(restored[..restored.find(BEGIN).unwrap()].contains("target-trc=auto\n"));
+        assert!(restored.contains("autofit=75%x75%\n"));
         std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
@@ -554,6 +583,9 @@ mod tests {
         install(&root);
         let choices = Settings {
             profile: Profile::HighQuality,
+            hdr: Hdr::Off,
+            autoplay: false,
+            when_finished: WhenFinished::KeepOpen,
             ..Default::default()
         };
         std::fs::write(root.join("mpv.conf"), "volume=31\n").unwrap();
@@ -615,6 +647,41 @@ mod tests {
             .unwrap(),
         )
         .unwrap();
+    }
+    #[test]
+    fn runtime_scripts_participate_in_health_and_repair() {
+        let root = std::env::temp_dir().join(format!("mpvkit-runtime-{}", deploy::operation_id()));
+        install(&root);
+        let settings = read(&root).unwrap();
+        for file in runtime_files(Language::English).unwrap() {
+            assert!(ready(&root).unwrap());
+            let path = root.join(&file.path);
+            std::fs::remove_file(&path).unwrap();
+            assert!(!ready(&root).unwrap());
+            deploy::execute(prepare_portable(&root, settings.clone(), false).unwrap()).unwrap();
+            assert!(ready(&root).unwrap());
+            assert_eq!(read(&root).unwrap(), settings);
+        }
+        #[cfg(target_os = "windows")]
+        assert!(!root.join("scripts/mpvkit-window.lua").exists());
+        let path = root.join("scripts/mpvkit.lua");
+        std::fs::write(&path, b"unknown script").unwrap();
+        let mut manifest = deploy::status(&root).unwrap().manifest.unwrap();
+        manifest.files.retain(|f| f.path != "scripts/mpvkit.lua");
+        std::fs::write(
+            root.join(".mpvkit/install.json"),
+            serde_json::to_vec(&manifest).unwrap(),
+        )
+        .unwrap();
+        assert_eq!(
+            installation_files(&root, &settings, true, Language::English)
+                .err()
+                .unwrap()
+                .code,
+            "file_conflict"
+        );
+        assert_eq!(std::fs::read(path).unwrap(), b"unknown script");
+        std::fs::remove_dir_all(root).unwrap();
     }
     #[test]
     fn portable_configuration_preserves_edits_and_previews_only_explicit_replacement() {
@@ -787,7 +854,7 @@ mod tests {
         let state = read_state(&root).unwrap();
         let saved = crate::preferences::save(
             &root,
-            Profile::HighQuality,
+            crate::preferences::Update::Profile(Profile::HighQuality),
             state.revision,
             &m.installation_id,
         )
@@ -800,14 +867,142 @@ mod tests {
                 .contains("profile=mpvkit-high-quality")
         );
         assert!(
-            crate::preferences::save(&root, Profile::Balanced, state.revision, &m.installation_id)
-                .is_err()
+            crate::preferences::save(
+                &root,
+                crate::preferences::Update::Profile(Profile::Balanced),
+                state.revision,
+                &m.installation_id
+            )
+            .is_err()
         );
         assert!(saved.revision > state.revision);
         deploy::execute(reset(&root).unwrap()).unwrap();
         assert_eq!(read(&root).unwrap().profile, Profile::Balanced);
         assert!(crate::setup::status(&root).unwrap().settings_ready);
         assert!(!root.join(".mpvkit/setup.json").exists());
+        std::fs::remove_dir_all(root).unwrap();
+    }
+    #[test]
+    fn playback_updates_preserve_other_choices_and_reject_stale_or_manual_writes() {
+        use crate::preferences::{self, Update};
+        let root =
+            std::env::temp_dir().join(format!("mpvkit-preferences-{}", deploy::operation_id()));
+        install(&root);
+        let mut saved = preferences::read(&root).unwrap().unwrap();
+        let initial = saved.clone();
+        let preset = deploy::status(&root)
+            .unwrap()
+            .manifest
+            .unwrap()
+            .preset_revision;
+        for update in [
+            Update::Hdr(Hdr::On),
+            Update::Autoplay(false),
+            Update::WhenFinished(WhenFinished::KeepOpen),
+            Update::Profile(Profile::HighQuality),
+        ] {
+            saved = preferences::save(&root, update, saved.revision, &saved.generation).unwrap();
+        }
+        let settings = read(&root).unwrap();
+        assert_eq!(settings.hdr, Hdr::On);
+        assert!(!settings.autoplay);
+        assert_eq!(settings.when_finished, WhenFinished::KeepOpen);
+        assert_eq!(settings.profile, Profile::HighQuality);
+        let conf = std::fs::read_to_string(root.join("mpv.conf")).unwrap();
+        for option in ["target-trc=pq", "autocreate-playlist=no", "keep-open=yes"] {
+            assert!(conf.contains(option));
+        }
+        let before = std::fs::read(root.join(".mpvkit/settings.json")).unwrap();
+        let manifest = std::fs::read(root.join(".mpvkit/install.json")).unwrap();
+        let same = preferences::save(
+            &root,
+            Update::Hdr(Hdr::On),
+            saved.revision,
+            &saved.generation,
+        )
+        .unwrap();
+        assert_eq!(same.revision, saved.revision);
+        assert_eq!(
+            std::fs::read(root.join(".mpvkit/settings.json")).unwrap(),
+            before
+        );
+        assert_eq!(
+            std::fs::read(root.join(".mpvkit/install.json")).unwrap(),
+            manifest
+        );
+        assert_eq!(
+            deploy::status(&root)
+                .unwrap()
+                .manifest
+                .unwrap()
+                .preset_revision,
+            preset
+        );
+        assert_eq!(
+            preferences::save(
+                &root,
+                Update::Hdr(Hdr::Off),
+                initial.revision,
+                &initial.generation
+            )
+            .unwrap_err()
+            .code,
+            "preference_stale"
+        );
+        assert_eq!(
+            preferences::save(
+                &root,
+                Update::Hdr(Hdr::Off),
+                saved.revision,
+                "other-installation"
+            )
+            .unwrap_err()
+            .code,
+            "preference_stale"
+        );
+        let manager = Settings {
+            profile: Profile::PowerSaving,
+            ..Default::default()
+        };
+        let preview = preview(&root, &manager, false).unwrap();
+        assert!(preview.files[0].after.contains("target-trc=pq"));
+        crate::setup::execute(
+            crate::setup::prepare_draft(&root, manager, false, &preview.fingerprint).unwrap(),
+        )
+        .unwrap();
+        let retained = read(&root).unwrap();
+        assert_eq!(retained.hdr, settings.hdr);
+        assert_eq!(retained.autoplay, settings.autoplay);
+        assert_eq!(retained.when_finished, settings.when_finished);
+        saved = preferences::read(&root).unwrap().unwrap();
+        let path = root.join("mpv.conf");
+        let original = std::fs::read_to_string(&path).unwrap();
+        std::fs::write(
+            &path,
+            original.replace("profile=mpvkit-power-saving", "profile=mpvkit-balanced"),
+        )
+        .unwrap();
+        assert_eq!(
+            preferences::save(
+                &root,
+                Update::Hdr(Hdr::Off),
+                saved.revision,
+                &saved.generation
+            )
+            .unwrap_err()
+            .code,
+            "config_manual_conflict"
+        );
+        assert_eq!(read(&root).unwrap().hdr, Hdr::On);
+        std::fs::write(&path, original).unwrap();
+        preferences::save(
+            &root,
+            Update::Hdr(Hdr::Off),
+            saved.revision,
+            &saved.generation,
+        )
+        .unwrap();
+        assert_eq!(read(&root).unwrap().hdr, Hdr::Off);
         std::fs::remove_dir_all(root).unwrap();
     }
 }

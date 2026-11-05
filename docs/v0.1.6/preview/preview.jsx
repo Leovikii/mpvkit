@@ -11,7 +11,7 @@ const params = new URLSearchParams(location.search);
 const linux = params.get('updates') === 'linux';
 const assets = [{id:'uosc',version:'5.13.0'},{id:'thumbfast',version:'0f711de3138c9bd6718209d819ac54022c23ded2'},{id:'subtitle-font',version:'1.530'}].map(asset=>({...asset,size:100,url:'https://example.invalid/'+asset.id,sha256:'0'.repeat(64)}));
 const clone = value => structuredClone(value);
-const files = (settings,language=configured?installedLanguage:preferences.language) => sampleFiles({quality:settings.profile,language});
+const files = (settings,language=configured?installedLanguage:preferences.language) => sampleFiles({...settings,quality:settings.profile,language});
 const pause = () => new Promise(resolve=>setTimeout(resolve,180));
 let preferences, settings, installedLanguage, installed, configured, core, scenario, pending, cancelled, modified, fileTime, presetStatus;
 const counts = {prepare:0,downloads:0,confirm:0,writes:0,coreLaunches:0,corePreviews:0,removalPreviews:0};
@@ -95,7 +95,7 @@ mockIPC(async (command,args={})=>{
       counts.writes++;pending=null;return {stages};
     });
   }
-  if(command==='check_app_update')return args.preview?{status:'available',update:{id:'example',version:'0.2.0-beta.3',notes:'Example release notes / 更新日志示例\n'+'Update details\n'.repeat(30),date:'2026-10-28T00:00:00Z',method:linux?'pacman':'installer'}}:{status:'noRelease',update:null};
+  if(command==='check_app_update')return args.preview?{status:'available',update:{id:'example',version:'0.2.0-rc.1',notes:'Example release notes / 更新日志示例\n'+'Update details\n'.repeat(30),date:'2026-10-28T00:00:00Z',method:linux?'pacman':'installer'}}:{status:'noRelease',update:null};
   if(command==='prepare_app_update'||command==='install_app_update')return stream(args.onProgress,async send=>{
     if(command==='prepare_app_update'){
       for(const percent of [0,42,100]){send({phase:'download',percent:params.has('updateUnknown')?null:percent});await pause();}

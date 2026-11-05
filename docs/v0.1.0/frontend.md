@@ -1,6 +1,6 @@
 # v0.1.0 前端开发规范
 
-界面工作遵循 [WinUI 3 / Mantine 界面规范](../design/ui-guidelines.md)；实际两页行为见[当前基线](../current.md)，已确认但待实施的增量见 [rc.1 计划](../v0.2.0-rc.1/plan.md)，测试见[测试入口](../testing.md)。本页的组件库与 API 约束继续有效。
+界面工作遵循 [WinUI 3 / Mantine 界面规范](../design/ui-guidelines.md)；实际两页行为见[当前基线](../current.md)，本轮已实施的增量见 [rc.1 计划](../v0.2.0-rc.1/plan.md)，测试见[测试入口](../testing.md)。本页的组件库与 API 约束继续有效。
 
 更新日期：2026-10-20。用户明确要求前端使用Mantine，替代原先普通表单/手写控件样式的方案；React、TypeScript、Vite、Tauri2和Rust职责保持现有边界。
 

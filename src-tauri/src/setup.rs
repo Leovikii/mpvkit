@@ -314,6 +314,7 @@ pub fn prepare_draft(
             "config",
         ));
     }
+    let settings = config::manager_settings(root, settings)?;
     let files = config::prepare_portable(root, settings, replace)?;
     if config::portable::fingerprint(root)? != expected {
         return Err(AppError::new(
