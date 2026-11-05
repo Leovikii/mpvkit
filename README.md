@@ -2,7 +2,7 @@
 
 A simple interface for installing, configuring and updating MPV on **Windows x64** and **Arch Linux / CachyOS x86_64 (KDE Wayland)**.
 
-Current preview: **0.2.0-rc.1**. See the [test status and known limits](docs/v0.2.0-rc.1/plan.md).
+Current preview: **0.2.0-rc.1**. See the [release notes](https://github.com/Leovikii/mpvkit/releases/tag/v0.2.0-rc.1).
 
 ## Features
 
@@ -10,6 +10,7 @@ Current preview: **0.2.0-rc.1**. See the [test status and known limits](docs/v0.
 - See preset updates and reapply configuration manually while keeping your playback choices.
 - Install configuration and playback extras together; manage system MPV in Settings.
 - Three playback presets, HDR options, naturally sorted folder playlists, subtitle discovery and playback resume.
+- Save quality, HDR, autoplay and end behavior directly from the player menu.
 - Preview configuration changes and protect manual edits when saving. Confirmed full removal deletes the entire MPV configuration folder; removing system MPV is optional.
 - Simplified Chinese and English, with system, light and dark themes.
 
