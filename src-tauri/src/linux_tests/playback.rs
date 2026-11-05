@@ -104,7 +104,7 @@ pub(super) fn verify(root: &Path, media: &Path) {
     };
     let _guard = PlaybackGuard(socket.clone());
     let mut child = play(&[&second], true, true);
-    wait(|| get("user-data/mpvkit")["profile"].is_string());
+    wait(|| get("scale").is_string());
     let queue = get("playlist");
     assert_eq!(
         queue

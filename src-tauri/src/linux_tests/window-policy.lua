@@ -1,8 +1,7 @@
 -- Headless checks run the actual policy with a deterministic clock and no user config.
-local source = assert(io.open('resources/scripts/mpvkit.lua', 'rb'))
+local source = assert(io.open('resources/scripts/mpvkit-window.lua', 'rb'))
 local text = source:read('*a'); source:close()
-local start = assert(text:find('-- Wayland initially', 1, true))
-local policy = text:sub(start)
+local policy = text
 local function scenario(overrides, platform)
     local props = {platform=platform or 'linux', geometry='', ['window-scale']=1, autofit='60%x60%',
         ['osd-dimensions']={w=1080,h=607}, ['display-names']={}, ['vo-configured']=false,
@@ -24,7 +23,7 @@ local function scenario(overrides, platform)
             timers[#timers+1]=timer;return timer
         end,
     }
-    local env = setmetatable({mp=api, os={getenv=function() return 'wayland-0' end}, msg={info=function() end}}, {__index=_G})
+    local env = setmetatable({require=function() return {info=function() end} end, mp=api, os={getenv=function() return 'wayland-0' end}, msg={info=function() end}}, {__index=_G})
     local fn
     if setfenv then fn=assert(loadstring(policy));setfenv(fn,env)
     else fn=assert(load(policy,'startup-policy','t',env)) end

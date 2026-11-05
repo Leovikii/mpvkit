@@ -1,7 +1,7 @@
 ; Derived from Tauri CLI 2.12.3; see README.md beside this file.
 ; SPDX-License-Identifier: MIT
 ; Copyright (c) 2017 - Present Tauri Apps Contributors
-; MpvKit modifications: default visible passive install and fixed per-user location.
+; MpvKit modifications: direct install, optional finish-page launch, fixed per-user location.
 
 Unicode true
 ManifestDPIAware true
@@ -77,6 +77,7 @@ ${StrLoc}
 !define STARTMENUFOLDER "{{start_menu_folder}}"
 
 Var PassiveMode
+Var ShowFinishPage
 Var UpdateMode
 Var NoShortcutMode
 Var WixMode
@@ -421,23 +422,25 @@ Var AppStartMenuFolder
 ; 7. Installation page
 !insertmacro MUI_PAGE_INSTFILES
 
-; 8. Finish page
-;
-; Don't auto jump to finish page after installation page,
-; because the installation page has useful info that can be used debug any issues with the installer.
-!define MUI_FINISHPAGE_NOAUTOCLOSE
-; Use show readme button in the finish page as a button create a desktop shortcut
-!define MUI_FINISHPAGE_SHOWREADME
-!define MUI_FINISHPAGE_SHOWREADME_TEXT "$(createDesktop)"
-!define MUI_FINISHPAGE_SHOWREADME_FUNCTION CreateOrUpdateDesktopShortcut
-; Show run app after installation.
+; 8. Ordinary installs wait here; updater/passive/silent installs keep their restart path.
+!define MUI_FINISHPAGE_TITLE "$(installationComplete)"
+!define MUI_FINISHPAGE_TEXT " "
 !define MUI_FINISHPAGE_RUN
+!define MUI_FINISHPAGE_RUN_TEXT "$(launchMpvKit)"
 !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
-!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
+!define MUI_PAGE_CUSTOMFUNCTION_PRE SkipFinishPage
 !insertmacro MUI_PAGE_FINISH
 
 Function RunMainBinary
   nsis_tauri_utils::RunAsUser "$INSTDIR\${MAINBINARYNAME}.exe" ""
+  Pop $R0
+  ${If} $R0 <> 0
+    MessageBox MB_OK|MB_ICONEXCLAMATION "$(launchFailed)"
+  ${EndIf}
+FunctionEnd
+
+Function SkipFinishPage
+  ${IfThen} $ShowFinishPage <> 1 ${|} Abort ${|}
 FunctionEnd
 
 ; Uninstaller Pages
@@ -494,9 +497,21 @@ FunctionEnd
   !include "{{this}}"
 {{/each}}
 
+LangString installationComplete ${LANG_SIMPCHINESE} "安装完成"
+LangString installationComplete ${LANG_ENGLISH} "Installation complete"
+LangString launchMpvKit ${LANG_SIMPCHINESE} "启动 MpvKit"
+LangString launchMpvKit ${LANG_ENGLISH} "Launch MpvKit"
+LangString launchFailed ${LANG_SIMPCHINESE} "无法启动 MpvKit，请从开始菜单重试。"
+LangString launchFailed ${LANG_ENGLISH} "Could not launch MpvKit. Try the Start menu."
+
 Function .onInit
-  ; MpvKit: visible progress, no wizard, even when launched without /P.
+  ; Keep the direct install flow, but show a finish page for ordinary installs.
   StrCpy $PassiveMode 1
+  StrCpy $ShowFinishPage 1
+  ${GetOptions} $CMDLINE "/P" $R0
+  ${IfNot} ${Errors}
+    StrCpy $ShowFinishPage 0
+  ${EndIf}
 
   ${GetOptions} $CMDLINE "/NS" $NoShortcutMode
   ${IfNot} ${Errors}
@@ -506,6 +521,7 @@ Function .onInit
   ${GetOptions} $CMDLINE "/UPDATE" $UpdateMode
   ${IfNot} ${Errors}
     StrCpy $UpdateMode 1
+    StrCpy $ShowFinishPage 0
   ${EndIf}
 
   !if "${DISPLAYLANGUAGESELECTOR}" == "true"
@@ -746,9 +762,8 @@ Section Install
 SectionEnd
 
 Function .onInstSuccess
-  ; Check for `/R` flag only in silent and passive installers because
-  ; GUI installer has a toggle for the user to (re)start the app
-  ${If} $PassiveMode = 1
+  ; Ordinary installs launch only from the finish-page checkbox.
+  ${If} $ShowFinishPage <> 1
   ${OrIf} ${Silent}
     ${GetOptions} $CMDLINE "/R" $R0
     ${IfNot} ${Errors}

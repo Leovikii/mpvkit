@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, path::Path};
 
 // One revision for the complete preset; UI-only changes do not increment it.
-pub const PRESET_REVISION: u32 = 3;
+pub const PRESET_REVISION: u32 = 4;
 
 mod menu;
 pub use menu::Language;
@@ -56,11 +56,27 @@ pub enum Hdr {
     On,
     Off,
 }
+#[derive(Clone, Copy, Debug, Default, Deserialize, PartialEq, Serialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum WhenFinished {
+    #[default]
+    Quit,
+    KeepOpen,
+}
+fn autoplay_default() -> bool {
+    true
+}
 #[derive(Clone, Debug, Deserialize, PartialEq, Serialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct Settings {
     pub schema_version: u32,
     pub profile: Profile,
+    #[serde(default)]
+    pub hdr: Hdr,
+    #[serde(default = "autoplay_default")]
+    pub autoplay: bool,
+    #[serde(default)]
+    pub when_finished: WhenFinished,
     pub overrides: Overrides,
 }
 impl Default for Settings {
@@ -68,6 +84,9 @@ impl Default for Settings {
         Self {
             schema_version: 4,
             profile: Profile::Balanced,
+            hdr: Hdr::Auto,
+            autoplay: true,
+            when_finished: WhenFinished::Quit,
             overrides: Overrides::default(),
         }
     }
@@ -152,7 +171,16 @@ fn base_files(player: &Path, settings: &Settings, language: Language) -> Result<
     ] {
         conf.push_str(&format!("sub-file-paths-append={directory}\n"));
     }
-    conf.push_str("autocreate-playlist=filter\nkeep-open=no\n");
+    conf.push_str(if settings.autoplay {
+        "autocreate-playlist=filter\n"
+    } else {
+        "autocreate-playlist=no\n"
+    });
+    conf.push_str(if settings.when_finished == WhenFinished::Quit {
+        "keep-open=no\n"
+    } else {
+        "keep-open=yes\n"
+    });
     let overrides = &settings.overrides;
     conf.push_str(&format!(
         "sub-font-size={}\nosd-font-size={}\nvolume={}\n",
@@ -163,7 +191,7 @@ fn base_files(player: &Path, settings: &Settings, language: Language) -> Result<
     conf.push_str(crate::platform::playback_config(
         overrides.hardware_decoding.unwrap_or(true),
     ));
-    conf.push_str(crate::platform::hdr_config(Hdr::Auto));
+    conf.push_str(crate::platform::hdr_config(settings.hdr));
     conf.push_str(&format!(
         "alang={DEFAULT_LANGUAGES}\nslang={DEFAULT_LANGUAGES}\n"
     ));
@@ -222,13 +250,23 @@ pub fn runtime_files(language: Language) -> Result<Vec<Payload>> {
     // Without control characters JSON and Lua share quote/backslash escaping.
     let literal =
         serde_json::to_string(path).map_err(|_| error("helper_path", "无法编码管理器路径。"))?;
-    Ok(vec![Payload {
+    let files = vec![Payload {
         path: crate::config::relative!("scripts/mpvkit.lua").into(),
         bytes: language
             .render(include_str!("../../resources/scripts/mpvkit.lua"))
             .replace("__MPVKIT_HELPER__", &literal)
             .into_bytes(),
-    }])
+    }];
+    #[cfg(target_os = "linux")]
+    let files = {
+        let mut files = files;
+        files.push(Payload {
+            path: "scripts/mpvkit-window.lua".into(),
+            bytes: include_bytes!("../../resources/scripts/mpvkit-window.lua").to_vec(),
+        });
+        files
+    };
+    Ok(files)
 }
 
 pub fn directory(root: &Path) -> Result<std::path::PathBuf> {
@@ -236,6 +274,14 @@ pub fn directory(root: &Path) -> Result<std::path::PathBuf> {
 }
 pub fn read(root: &Path) -> Result<Settings> {
     portable::read_state(root).map(|state| state.settings)
+}
+pub(crate) fn manager_settings(root: &Path, mut draft: Settings) -> Result<Settings> {
+    // These player-only choices must not be overwritten by a long-lived GUI draft.
+    let saved = read(root)?;
+    draft.hdr = saved.hdr;
+    draft.autoplay = saved.autoplay;
+    draft.when_finished = saved.when_finished;
+    Ok(draft)
 }
 
 #[cfg(test)]
@@ -349,7 +395,7 @@ mod tests {
     #[test]
     fn fixed_languages_and_hdr_parameters_are_generated() {
         let root = std::env::temp_dir().join(format!("mpvkit-config-{}", deploy::operation_id()));
-        let edited = Settings::default();
+        let mut edited = Settings::default();
         for (hdr, expected) in [
             (Hdr::Auto, "target-trc=auto"),
             (Hdr::On, "target-trc=pq"),
@@ -362,6 +408,7 @@ mod tests {
                 },
             ),
         ] {
+            edited.hdr = hdr;
             let files = generate(&root, &root.join("mpv.exe"), &edited).unwrap();
             let conf = String::from_utf8(
                 files

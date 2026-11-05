@@ -1,161 +1,162 @@
 local utils = require('mp.utils')
 local msg = require('mp.msg')
-local function read_json(path)
-    if not path then return nil end
-    local file = io.open(path, 'rb')
-    if not file then return nil end
-    local content = file:read(65537); file:close()
-    if not content or #content > 65536 then return nil end
-    return utils.parse_json(content)
-end
-local options = {profile='balanced'}
-require('mp.options').read_options(options, 'mpvkit')
+local helper = __MPVKIT_HELPER__
 local config_file = mp.find_config_file('mpv.conf')
 if not config_file then return end
-local config_dir = utils.split_path(config_file)
-local root = config_dir:gsub('[/\\]+$', '')
-local helper = __MPVKIT_HELPER__
-local order = {'power-saving', 'balanced', 'high-quality'}
-local labels = {['power-saving']='__POWER__', balanced='__BALANCED__', ['high-quality']='__HIGH__'}
-local current = options.profile
-local saving = false
-local function manifest() return read_json(utils.join_path(root, '.mpvkit/install.json')) end
-local function preference() return read_json(utils.join_path(root, '.mpvkit/settings.json')) end
-local installed = manifest()
-local generation = installed and installed.installationId
-local saved_at_start = preference()
-local revision = saved_at_start and saved_at_start.revision or 0
-local function profile_options(id)
-    for _, p in ipairs(mp.get_property_native('profile-list', {})) do
-        if p.name == 'mpvkit-' .. id then return p.options end
-    end
+local root = utils.split_path(config_file):gsub('[/\\]+$', '')
+local function read_json(name)
+    local file = io.open(utils.join_path(root, '.mpvkit/' .. name .. '.json'), 'rb')
+    if not file then return nil end
+    local text = file:read(65537); file:close()
+    if not text or #text > 65536 then return nil end
+    return utils.parse_json(text)
 end
-local function publish()
-    mp.set_property_native('user-data/mpvkit', {profile=current, saving=saving})
-end
-local function apply(id)
-    local entries = labels[id] and profile_options(id)
-    if not entries then mp.osd_message('__UNAVAILABLE__'); return false end
-    local old = {}
-    for _, entry in ipairs(entries) do old[entry.key] = mp.get_property(entry.key) end
-    local _, err = mp.command_native({'apply-profile', 'mpvkit-' .. id})
-    if err then
-        for key, value in pairs(old) do mp.set_property(key, value) end
-        msg.error(tostring(err)); mp.osd_message('__SWITCH_FAILED__'); return false
-    end
-    current=id;publish();mp.osd_message(labels[id] .. ' (__TEMPORARY__)');return true
-end
-local function save()
-    if saving or not labels[current] then mp.osd_message('__CHOOSE__'); return end
-    local installed = manifest()
-    local previous = preference()
-    if not installed or installed.owner ~= 'MpvKit' or installed.schemaVersion ~= 1 then mp.osd_message('__RECORD_INVALID__'); return end
-    if previous and (previous.schemaVersion ~= 1 or previous.owner ~= 'MpvKit' or type(previous.revision) ~= 'number') then mp.osd_message('__PREFERENCE_INVALID__'); return end
-    if not generation or generation == '' or installed.installationId ~= generation then
-        msg.warn('preference_stale')
-        mp.osd_message('__STALE__'); return
-    end
-    if previous and previous.revision ~= revision then mp.osd_message('__STALE__'); return end
-    saving = true; publish()
-    mp.command_native_async({name='subprocess', args={helper, '--save-playback', root, current, tostring(revision), generation}, capture_stdout=true, capture_stderr=true, playback_only=false}, function(success, result)
-        saving = false; publish()
-        if success and result.status == 0 then
-            local result_state = utils.parse_json(result.stdout or '')
-            if result_state then generation=result_state.generation; revision=result_state.revision end
-            mp.osd_message('__SAVED__')
+local installed, saved = read_json('install'), read_json('settings')
+local generation = installed and installed.installationId or ''
+local revision = saved and saved.revision or 0
+local pending, saving = {}, false
+local function save_next()
+    if saving or #pending == 0 then return end
+    local update = table.remove(pending, 1)
+    saving = true
+    mp.command_native_async({name='subprocess', args={helper, '--save-playback', root,
+        utils.format_json(update), tostring(revision), generation}, capture_stdout=true,
+        capture_stderr=true, playback_only=false}, function(success, result)
+        saving = false
+        local state = result and utils.parse_json(result.stdout or '')
+        if success and result.status == 0 and state and state.generation and state.revision then
+            generation, revision = state.generation, state.revision
         else
-            local failure
-            if result and result.stdout then failure = utils.parse_json(result.stdout) end
-            mp.osd_message(failure and failure.code == 'preference_stale' and '__STALE__' or '__SAVE_FAILED__')
-            msg.warn(failure and failure.code or 'preference helper failed')
+            msg.warn(state and state.code or 'preference helper failed')
+            mp.osd_message('__SAVE_FAILED__')
+        end
+        save_next()
+    end)
+end
+local choices = {
+    profile = {{'power-saving','__POWER__'}, {'balanced','__BALANCED__'}, {'high-quality','__HIGH__'}},
+    hdr = {{'auto','__AUTO__'}, {'on','__ON__'}, {'off','__OFF__'}},
+    autoplay = {{'on','__ON__'}, {'off','__OFF__'}},
+    ['when-finished'] = {{'quit','__QUIT__'}, {'keep-open','__KEEP__'}},
+    speed = {{'0.5','0.5×'}, {'0.75','0.75×'}, {'1','1×'}, {'1.25','1.25×'}, {'1.5','1.5×'}, {'2','2×'}},
+    ['loop-playlist'] = {{'on','__ON__'}, {'off','__OFF__'}},
+    ['loop-file'] = {{'on','__ON__'}, {'off','__OFF__'}},
+}
+local function profile_options(item, value)
+    local name = 'mpvkit-' .. (item == 'hdr' and 'hdr-' or '') .. value
+    for _, profile in ipairs(mp.get_property_native('profile-list', {})) do
+        if profile.name == name then return profile.options, name end
+    end
+end
+local function equal(actual, expected, tolerance)
+    if actual == nil then return false end
+    if tonumber(actual) and tonumber(expected) then
+        local a, b = tonumber(actual), tonumber(expected)
+        return math.abs(a - b) <= (tolerance or 0) * math.max(1, math.abs(b))
+    end
+    return actual == expected
+end
+local function matches(entries)
+    if not entries or #entries == 0 then return false end
+    for _, entry in ipairs(entries) do
+        if not equal(mp.get_property(entry.key), entry.value, 1e-6) then return false end
+    end
+    return true
+end
+local function active(item, value)
+    if item == 'profile' or item == 'hdr' then return matches(profile_options(item, value)) end
+    if item == 'speed' then return equal(mp.get_property('speed'), value) end
+    local property = item == 'autoplay' and 'autocreate-playlist' or item == 'when-finished' and 'keep-open' or item
+    local actual = mp.get_property(property)
+    if actual == nil then return false end
+    if item == 'when-finished' then return value == (actual == 'no' and 'quit' or 'keep-open') end
+    local enabled = actual ~= 'no' and actual ~= '0'
+    return value == (enabled and 'on' or 'off')
+end
+local function select(item, value)
+    local valid = false
+    for _, choice in ipairs(choices[item] or {}) do if choice[1] == value then valid = true end end
+    if not valid then return end
+    local entries, name
+    if item == 'profile' or item == 'hdr' then entries, name = profile_options(item, value)
+    else
+        local property = item == 'autoplay' and 'autocreate-playlist' or item == 'when-finished' and 'keep-open' or item
+        local native = value
+        if item == 'autoplay' then native = value == 'on' and 'filter' or 'no'
+        elseif item == 'when-finished' then native = value == 'quit' and 'no' or 'yes'
+        elseif item ~= 'speed' then native = value == 'on' and 'inf' or 'no' end
+        entries = {{key=property, value=native}}
+    end
+    if not entries or #entries == 0 then mp.osd_message('__UNAVAILABLE__'); return end
+    local previous = {}
+    for _, entry in ipairs(entries) do previous[entry.key] = mp.get_property(entry.key) end
+    local _, err
+    if name then _, err = mp.command_native({'apply-profile', name})
+    else _, err = mp.command_native({'set', entries[1].key, entries[1].value}) end
+    if err or not matches(entries) then
+        for key, old in pairs(previous) do mp.set_property(key, old) end
+        msg.warn(err or 'playback option did not apply'); mp.osd_message('__SWITCH_FAILED__'); return
+    end
+    if item == 'profile' or item == 'hdr' or item == 'autoplay' or item == 'when-finished' then
+        pending[#pending + 1] = {item=item, value=value}
+        if item == 'autoplay' then pending[#pending].value = value == 'on' end
+        save_next()
+    end
+end
+local function submenu(item, title)
+    local items = {}
+    for _, choice in ipairs(choices[item]) do
+        items[#items + 1] = {title=choice[2], active=active(item, choice[1]), keep_open=true,
+            value={'script-message-to', 'mpvkit', 'select', item, choice[1]}}
+    end
+    return {id=item, title=title, items=items}
+end
+local function action(title, binding)
+    return {title=title, value={'script-binding', binding}}
+end
+local function menu_data()
+    local items = {
+        submenu('profile','__QUALITY__'), submenu('hdr','HDR'), submenu('speed','__SPEED__'),
+        submenu('autoplay','__AUTOPLAY__'), submenu('when-finished','__END__'),
+        {id='mode', title='__MODE__', separator=true, items={action('__SHUFFLE__','uosc/shuffle'),
+            submenu('loop-playlist','__LOOP_LIST__'), submenu('loop-file','__LOOP_FILE__')}},
+        action('__PLAYLIST__','uosc/items'), action('__SUBTITLES__','uosc/subtitles'),
+        action('__AUDIO__','uosc/audio'), action('__CHAPTERS__','uosc/chapters'),
+        action('__VIDEO__','uosc/video'), action('__EDITIONS__','uosc/editions'),
+        action('__STREAM__','uosc/stream-quality'),
+        action('__OPEN__','uosc/open-file'), action('__DEVICE__','uosc/audio-device'),
+        action('__INFO__','stats/display-stats-toggle'), action('__FOLDER__','uosc/show-in-directory'),
+        action('__CONFIG__','uosc/open-config-directory'), action('__CONSOLE__','commands/open'),
+        {title='__QUIT__', value={'quit'}},
+    }
+    items[13].separator = true
+    items[19].separator = true
+    return {type='mpvkit-menu', items=items, search_submenus=true}
+end
+local function menu(submenu_id)
+    if (not submenu_id or submenu_id == '') and mp.get_property_native('user-data/uosc/menu/type') == 'mpvkit-menu' then
+        mp.commandv('script-message-to', 'uosc', 'close-menu', 'mpvkit-menu')
+    else
+        mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json(menu_data()), submenu_id or '')
+    end
+end
+local refresh_pending = false
+local function refresh()
+    if refresh_pending then return end
+    refresh_pending = true
+    mp.add_timeout(0, function()
+        refresh_pending = false
+        if mp.get_property_native('user-data/uosc/menu/type') == 'mpvkit-menu' then
+            mp.commandv('script-message-to', 'uosc', 'update-menu', utils.format_json(menu_data()))
         end
     end)
 end
-local function menu()
-    local items = {}
-    for _, id in ipairs(order) do items[#items + 1] = {title=labels[id], hint=current == id and '__CURRENT__' or '__TEMPORARY__', value={'script-message-to', 'mpvkit', 'profile', id}} end
-    items[#items + 1] = {title='__SAVE__', hint='', value={'script-message-to', 'mpvkit', 'save'}}
-    mp.commandv('script-message-to', 'uosc', 'open-menu', utils.format_json({type='mpvkit-profiles', title='__QUALITY__', items=items}))
-end
-mp.register_script_message('profile', apply)
-mp.register_script_message('save', save)
+mp.register_script_message('select', select)
 mp.register_script_message('menu', menu)
-mp.add_timeout(0, publish)
-
--- Temporary profile changes belong to this media file; preserve the actual initial configuration.
-local initial = {}
-for _, id in ipairs(order) do
-    for _, entry in ipairs(profile_options(id) or {}) do initial[entry.key] = mp.get_property(entry.key) end
-end
-local first_file = true
-mp.register_event('file-loaded', function()
-    if first_file then first_file=false; return end
-    for key,value in pairs(initial) do mp.set_property(key,value) end
-    current=options.profile;publish()
-end)
-
--- Wayland initially sizes against its first output before surface-enter identifies
--- the actual output. Reapply the effective autofit once; never resize on episode changes.
-if mp.get_property('platform') == 'linux' and os.getenv('WAYLAND_DISPLAY') then
-    local first_size, first_output, finished, settle_timer
-    local check_window, next_file
-    local function stop()
-        finished = true
-        if settle_timer then settle_timer:kill(); settle_timer = nil end
-        mp.unobserve_property(check_window)
-        mp.unregister_event(next_file)
-    end
-    local function ready()
-        if finished then return end
-        if mp.get_property('geometry', '') ~= '' or mp.get_property_number('window-scale', 1) ~= 1
-            or mp.get_property_bool('fullscreen') or mp.get_property_bool('window-maximized')
-            or mp.get_property_bool('window-minimized') or mp.get_property_bool('auto-window-resize') then
-            stop(); return
-        end
-        local size = mp.get_property_native('osd-dimensions')
-        if not size or size.w <= 0 or size.h <= 0 then return end
-        if first_size and (math.abs(size.w - first_size.w) > 2 or math.abs(size.h - first_size.h) > 2) then
-            stop(); return -- Respect size changes while waiting for the first real output.
-        end
-        first_size = first_size or size
-        local names = mp.get_property_native('display-names')
-        local video = mp.get_property_native('video-out-params')
-        if not mp.get_property_bool('vo-configured') or not names or #names == 0 or not video then return end
-        if #names ~= 1 then
-            stop()
-            msg.info('Skipped startup autofit: window spans multiple Wayland outputs')
-            return
-        end
-        if first_output and first_output ~= names[1] then stop(); return end
-        first_output = names[1]
-        local context = mp.get_property('current-gpu-context', '')
-        local fit = mp.get_property('autofit', '')
-        if (context == 'waylandvk' or context == 'wayland') and fit ~= '' then
-            return fit
-        end
-        stop()
-    end
-    check_window = function()
-        if settle_timer then settle_timer:kill(); settle_timer = nil end
-        if not ready() then return end
-        -- shortcut: Lua has no configure-complete signal; revalidate after 0.5s quiet.
-        -- Prefer a native completion signal when MPV provides one.
-        settle_timer = mp.add_timeout(0.5, function()
-            settle_timer = nil
-            local fit = ready()
-            if not fit then return end
-            stop()
-            mp.set_property('autofit', fit)
-            msg.info('Reapplied startup autofit on the actual Wayland output')
-        end)
-    end
-    next_file = function()
-        if first_size then stop() end
-    end
-    mp.register_event('start-file', next_file)
-    for _, name in ipairs({'display-names', 'osd-dimensions', 'video-out-params', 'vo-configured',
-        'geometry', 'window-scale', 'fullscreen', 'window-maximized', 'window-minimized',
-        'auto-window-resize', 'autofit', 'current-gpu-context'}) do
-        mp.observe_property(name, 'native', check_window)
+local observed = {speed=true, ['autocreate-playlist']=true, ['keep-open']=true, ['loop-playlist']=true, ['loop-file']=true}
+for _, item in ipairs({'profile','hdr'}) do
+    for _, choice in ipairs(choices[item]) do
+        for _, entry in ipairs(profile_options(item, choice[1]) or {}) do observed[entry.key] = true end
     end
 end
+for key in pairs(observed) do mp.observe_property(key, 'native', refresh) end

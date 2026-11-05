@@ -1,10 +1,12 @@
-# 当前开发基线：v0.2.0-beta.3
+# 当前开发基线：v0.2.0-rc.1
 
-更新：2026-11-02。当前公开预发布为 beta.3，整套预设修订为 3；本批实施与验证见 [beta.3 交接](v0.2.0-beta.3/plan.md)和[证据](v0.2.0-beta.3/evidence.md)。双端 CI、正式签名、Arch 隔离包验收及匿名公开下载核验通过，标签固定在 `8ab5afd`。此前安装顺序与音轨布局修正已一并发布，原始结果见 [beta.2](v0.2.0-beta.2/plan.md#发布后-dev-修正2026-11-02)；历史测试不作为本版验收。
+更新：2026-11-05。当前源码为 rc.1、整套预设修订 4，用户实测反馈通过，已授权推送/合并 main 发布及随后同步 dev。发布流程进行中；四项共用保存、Lua 拆分、动态菜单/控件和 Windows 安装完成页已接入，范围见[计划](v0.2.0-rc.1/plan.md)，验证与未测边界见[证据](v0.2.0-rc.1/evidence.md)。
+
+公开预发布仍为 beta.3，标签固定 8ab5afd；双端 CI/签名/匿名下载等历史证据留在 [beta.3](v0.2.0-beta.3/evidence.md)，不能作为 rc.1 通过。此前 dev 文档交接为 afadae2，main 保持 167efb2。
 
 GUI 使用官方单实例插件，同一用户桌面会话重复启动唤回现有窗口；`--save-playback` helper 在 GUI 初始化前独立处理，不受单实例拦截。Linux 依赖有效会话总线，缺失时明确启动失败；desktop 仅声明 AudioVideo，升级软件包后生效。单实例不限制 MPV、WebKit 子进程或其他用户会话。
 
-beta.3 管理器主播放设置只保留默认画质；HDR Auto、自动连播开、队列结束后退出写为默认值，并在 uosc 菜单提供控制。安装/完整重新应用生成管理器当前语言的简洁单语言文本，切换语言不自动重写。
+管理器主播放设置只保留默认画质；首次 HDR Auto、自动连播开、队列结束后退出。画质/HDR/自动连播/播完后由菜单选中即应用并保存，普通管理器保存/修复/重新应用保留四项选择。安装/完整重新应用生成管理器当前语言的简洁单语言文本，切换语言不自动重写。
 
 beta.2 按最小开发原则复用现有事务，不建设旧版迁移/兼容路径，也不拆分远程发布。预设只有一个整数修订号；升级程序不自动写配置，用户可保留当前页面选择并手动重新应用。
 
@@ -38,21 +40,23 @@ Windows 固定 WinGet `shinchiro.mpv` / winget 源，Linux 固定 `/usr/bin/mpv`
 
 默认均衡，HDR Auto 交由 MPV；三档原生 profiles、位置续播、音量 ±10、文楷字体保留。无播放硬件检测、显示器/分辨率设置、供电推荐、强制 HDR 硬件预校验或语种排序 GUI。alang/slang 默认汉语→日语→英语→西班牙语，位于可手改区。截图设置/菜单/Lua/参数均已删除，thumbfast 缩略图保留。
 
-右键菜单提供画质及保存默认档位；临时画质仅当前文件生效，切集恢复启动配置。HDR 菜单提供自动/开启/关闭，使用独立原生 profiles 完整设置关联参数；自动连播菜单提供开启/关闭，仅影响后续打开文件时的队列创建，不重建当前队列；播放结束后菜单提供退出/保留窗口，设置整个队列结束行为，不立即退出。后三项只调整当前进程，不增加写盘或全局保存。
+右键/更多使用同一动态菜单，常用六项置顶，单一 Lua 数据树经 uosc 公开 open-menu/update-menu 渲染原生 active。状态核对实际属性，外部改动只刷新不保存；画质/HDR 自定义组合不匹配则无标记。MPV profile 浮点回读使用相对 1e-6 容差，倍速精确匹配六档。刷新保留子菜单、焦点、滚动与搜索，不轮询、不改上游 Lua。
 
-安装/完整重新应用将管理器实际语言传给后端，生成 input.conf 菜单、自定义控件提示和自有 Lua 提示；记录语言到 `.mpvkit/settings.json`。uosc 内置语言中文用 `zh-hans,en`、英文用 `en`，不改变 alang/slang。切换管理器语言不改播放器配置；普通保存/helper/修复保留已安装语言，完整重新应用后下次启动使用新语言。菜单采用短标签，不拼接双语；上游 Lua 和翻译资源保持原文。
+四项选择通过统一受控 helper 顺序保存到既有结构化设置和原生配置，复用代际/修订/摘要/锁/失败恢复；同值且无差异不写盘，连续切换不丢最终选择。应用失败恢复本次改动、不保存；保存失败保留运行期值并短提示，下次重选允许重试。切集不恢复旧画质，自动连播不重建当前队列，播完后只作用于队列结束；其他已运行播放器不热同步。倍速/循环/随机等仍只在运行期生效，标记不等于持久化证明。
+
+安装/完整重新应用将管理器实际语言传给后端，生成自有 Lua 菜单/提示及自定义控件文本；记录语言到 `.mpvkit/settings.json`。uosc 内置语言中文用 `zh-hans,en`、英文用 `en`，不改变 alang/slang。切换管理器语言不改播放器配置；普通保存/helper/修复保留已安装语言，完整重新应用后下次启动使用新语言。菜单采用短标签，不拼接双语；上游 Lua 和翻译资源保持原文。
 
 自动连播默认开启：`autocreate-playlist=filter`、`directory-filter-types=video,audio`、`directory-mode=ignore`，同目录音视频自然排序，从所选文件继续，不扫子目录；关闭不干预显式列表。`keep-open=yes/no` 仅决定整个队列结束后停留/退出。字幕 `sub-auto=exact` 支持原生语种/forced/SDH 等后缀，逐项追加 sub/subs/subtitle/subtitles；Linux 补首字母及全大写，Windows 避免重复扫描。默认区手改在 GUI 保存后保留。
 
-uosc 5.13.0 完整上游原文部署，无外观 bridge。左侧上下集/播放暂停统一 44/44/44，右侧播放列表、字幕、音轨、更多和全屏；原生进度条独立底行，接受原生窄窗收起、背景与缩放；描边 1.2 与透明按钮背景沿用上游默认，不设置覆盖。音轨使用 has_audio 条件，单音轨也显示，无音轨隐藏；倍速仅保留更多菜单中的 input.conf 六档子菜单；随机、列表循环、单集循环使用独立原生动作，无专用菜单/动态状态 Lua。更多保留窄窗功能入口。
+uosc 5.13.0 完整上游原文部署，无外观 bridge。左侧上下集/播放暂停统一 44/44/44，列表 0/1 项隐藏两侧切集按钮，多项包括首尾同时显示，右侧播放列表、字幕、音轨、信息、更多和全屏；原生进度条独立底行，接受原生窄窗收起、背景与缩放；描边 1.2 与透明按钮背景沿用上游默认，不设置覆盖。音轨使用 has_audio 条件，单音轨也显示，无音轨隐藏；倍速仅保留共用菜单中的六档子菜单；随机仍用上游原生命令及 OSD，不伪造状态；两类循环各有开/关子菜单，读取实际有限/无限循环状态。更多保留窄窗功能入口。
 
 视频背景单击忽略、双击全屏；播放暂停用左侧按钮或空格。i 短暂显示信息、Shift+i/更多菜单的信息项切换原生 stats；反引号或右键菜单的控制台项打开原生 commands/open，Esc 关闭，控制台接管输入。
 
-`autofit=75%x75%`、`auto-window-resize=no` 位于可手改默认区；保持比例，切集保留窗口，不持久化窗口或强制居中。Linux 首个视频实际唯一落屏后，等待相关窗口属性稳定 0.5 秒，重新检查当前状态后仅重设当前 autofit 一次，再注销观察与切集事件。等待期间发生显式 geometry/window-scale、全屏/最大化/最小化、用户尺寸变化、切集或跨屏时取消。此修复避免首次放大被后续初始 configure 覆盖，本机隔离实播及扩展矩阵已通过，见 [单项修复](v0.2.0-beta.1/plan.md#mpv-启动回缩单项修复2026-10-31)。Lua 没有原生 configure 完成信号，稳定期是有保护的时序规避；极慢合成器、物理拖动竞态及更多混合 DPI 组合仍未验收。
+`autofit=75%x75%`、`auto-window-resize=no` 位于可手改默认区；保持比例，切集保留窗口，不持久化窗口或强制居中。Linux 首个视频实际唯一落屏后，等待相关窗口属性稳定 0.5 秒，重新检查当前状态后仅重设当前 autofit 一次，再注销观察与切集事件。等待期间发生显式 geometry/window-scale、全屏/最大化/最小化、用户尺寸变化、切集或跨屏时取消。此修复避免首次放大被后续初始 configure 覆盖，历史隔离实播及扩展矩阵见 [单项修复](v0.2.0-beta.1/plan.md#mpv-启动回缩单项修复2026-10-31)，rc.1 拆分后尚未在 KDE 实播。Lua 没有原生 configure 完成信号，稳定期是有保护的时序规避；极慢合成器、物理拖动竞态及更多混合 DPI 组合仍未验收。
 
 ## 当前目录
 
-Windows 使用用户级 NSIS：启动即显示进度并自动安装到 `%LOCALAPPDATA%\Programs\MpvKit`，成功自动关闭，无确认/目录选择向导，非静默；异常和系统提示保留。见[安装器来源与边界](../packaging/windows/README.md)。Arch 原生包安装到 /usr/bin/mpvkit。默认开发仍可直接运行单程序。两端配置均直接包含 mpv.conf、input.conf、script-opts/、scripts/、fonts/、licenses/；没有 user.conf。
+Windows 使用用户级 NSIS：启动即显示进度并自动安装到 `%LOCALAPPDATA%\Programs\MpvKit`，普通安装成功显示原生完成页，默认勾选“启动 MpvKit”，点击完成才按选择启动一次；无欢迎/目录选择向导。updater 与显式 /P 跳过完成页、保留 /R 与 /ARGS；/S 保持静默。异常和系统提示保留。见[安装器来源与边界](../packaging/windows/README.md)。Arch 原生包安装到 /usr/bin/mpvkit。默认开发仍可直接运行单程序。两端配置均直接包含 mpv.conf、input.conf、script-opts/、scripts/、fonts/、licenses/；没有 user.conf。
 
 | 数据 | Windows | Linux |
 | --- | --- | --- |
@@ -62,6 +66,8 @@ Windows 使用用户级 NSIS：启动即显示进度并自动安装到 `%LOCALAP
 | 播放期保存 | scripts/mpvkit.lua 调用已部署时的管理器绝对路径 | 同左，Arch 固定程序为 /usr/bin/mpvkit |
 
 只检查已知本地位置。相对路径、符号链接、Windows 重解析点/多处核心或多个实际配置目录歧义均阻断，不合并、不迁移。Windows 无 MPV_HOME/portable_config 时，相邻实际配置与用户目录并存也阻断（包自带 fonts.conf 例外）。Linux 不部署 DLL、Windows helper 或 fonts.conf；普通系统 MPV 启动直接读取原生配置，不重设 MPV_HOME 到日志目录。
+
+自有菜单脚本为 scripts/mpvkit.lua，Linux 另部署 scripts/mpvkit-window.lua；Windows 无窗口脚本。两份脚本纳入同一事务及健康检查，缺失可修复，未知同名脚本不覆盖；窗口策略保持既有时序，测试不再依赖 user-data/mpvkit 缓存。
 
 配置根 `.mpvkit/` 保存 settings.json、owner.json/install.json（含整套 presetRevision）、当前 pending.json、staging/recovery；不生成 cache/sessions、launcher 或管理器许可副本；watch_later 为 MPV 按需生成的续播数据。不强制创建空目录。
 
@@ -89,4 +95,4 @@ Debug 只有显式 MPVKIT_TEST_MODE=1 + 合法绝对 MPVKIT_TEST_ROOT 才覆写�
 | 系统默认应用快捷入口 / 管理器桌面 | platform/windows.rs、linux.rs 只打开系统设置；系统包入口在 packaging/ |
 | 更新/日志/核心进程 | updates.rs、app-updates.tsx、logging.rs、native_core.rs、mpv.rs |
 
-业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。本版验证见 [交接](v0.2.0-beta.2/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。
+业务边界和安全规则以 AGENTS 为准：前端不合并文件；文件变更使用现有事务；全局偏好使用全局根的锁。已发布验证见 [beta.3 交接](v0.2.0-beta.3/plan.md)，来源政策、第三方许可证与旧批次原始证据继续保留。

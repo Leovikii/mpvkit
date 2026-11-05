@@ -73,7 +73,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
                 .as_u64()
                 .is_some_and(|n| n > 0)
         });
-        wait(|| get("user-data/mpvkit")["profile"].is_string());
+        wait(|| get("scale").is_string());
         child
     };
     let launch = |name: &str, extra: &[&str], source: &Path| {
@@ -153,16 +153,19 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         std::thread::sleep(Duration::from_millis(250));
         let data = inspect();
         let controls = &data["controls"];
-        for id in ["1", "2", "3", "9", "10"] {
+        for id in ["2", "10", "11"] {
             assert_eq!(
                 controls[id]["enabled"], true,
                 "essential {id} at {width}: {data}"
             );
         }
+        if width >= 640 {
+            assert_eq!(controls["8"]["enabled"], true, "info at {width}: {data}");
+        }
         assert!(controls["2"]["bx"].as_f64().unwrap() < data["width"].as_f64().unwrap() / 2.0);
         assert_eq!(controls["1"]["icon"], "skip_previous");
         assert_eq!(controls["3"]["icon"], "skip_next");
-        assert_eq!(controls["9"]["kind"], "command");
+        assert_eq!(controls["10"]["kind"], "command");
         let mut visible: Vec<_> = controls
             .as_object()
             .unwrap()
@@ -184,12 +187,13 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         assert!(visible.last().unwrap()["bx"].as_f64().unwrap() <= data["width"].as_f64().unwrap());
         layouts.push(data);
     }
-    request(&socket, json!(["script-binding", "uosc/menu"]));
+    request(&socket, json!(["script-message-to", "mpvkit", "menu"]));
+    wait(|| inspect()["menu"]["type"] == "mpvkit-menu");
     let menu = inspect();
     for label in [
-        "Playback speed",
+        "Speed",
         "Playback mode",
-        "Playback info",
+        "Info",
         "Audio tracks",
         "Subtitles",
     ] {
@@ -202,6 +206,7 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
         );
     }
     request(&socket, json!(["keypress", "ESC"]));
+    wait(|| get("user-data/uosc/menu/type") != "mpvkit-menu");
     request(&socket, json!(["set_property", "geometry", "1800x1012"]));
     std::thread::sleep(Duration::from_millis(250));
     let data = inspect();
@@ -210,13 +215,14 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     request(&socket, json!(["keypress", "SPACE"]));
     assert_eq!(get("pause"), true);
     let open_speed = || {
-        click(&inspect()["controls"]["9"]);
+        click(&inspect()["controls"]["10"]);
+        wait(|| inspect()["menu"]["type"] == "mpvkit-menu");
         let data = inspect();
         let index = data["menu"]["items"]
             .as_array()
             .unwrap()
             .iter()
-            .position(|item| item["title"].as_str().unwrap().contains("Playback speed"))
+            .position(|item| item["title"].as_str().unwrap().contains("Speed"))
             .expect("more menu includes speed");
         request(&socket, json!(["keypress", "HOME"]));
         for _ in 0..index {
@@ -231,25 +237,29 @@ pub(super) fn verify(root: &Path, media: &Path, extended: bool) {
     };
     open_speed();
     let data = inspect();
-    assert_eq!(data["menu"]["type"], "menu");
+    assert_eq!(data["menu"]["type"], "mpvkit-menu");
     assert_eq!(data["menu"]["items"].as_array().unwrap().len(), 6);
     request(&socket, json!(["keypress", "HOME"]));
     request(&socket, json!(["keypress", "DOWN"]));
     request(&socket, json!(["keypress", "ENTER"]));
     wait(|| get("speed") == 0.75);
+    request(&socket, json!(["keypress", "ESC"]));
+    wait(|| get("user-data/uosc/menu/type") != "mpvkit-menu");
     request(&socket, json!(["set_property", "speed", 1.5]));
     open_speed();
     assert_eq!(
         inspect()["menu"]["type"],
-        "menu",
+        "mpvkit-menu",
         "reopened by native click"
     );
     request(&socket, json!(["keypress", "ESC"]));
+    wait(|| get("user-data/uosc/menu/type") != "mpvkit-menu");
     assert_eq!(get("pause"), true);
     request(
         &socket,
-        json!(["script-message-to", "uosc", "show-submenu", "Playback mode"]),
+        json!(["script-message-to", "mpvkit", "menu", "mode"]),
     );
+    wait(|| inspect()["menu"]["type"] == "mpvkit-menu");
     assert_eq!(inspect()["menu"]["items"].as_array().unwrap().len(), 3);
     request(&socket, json!(["keypress", "ESC"]));
     // Fullscreen round trips and file changes must retain the chosen window size.

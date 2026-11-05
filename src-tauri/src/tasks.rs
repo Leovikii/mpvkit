@@ -124,6 +124,8 @@ pub fn prepare_install(
     language: config::Language,
 ) -> Result<Plan> {
     settings.validate()?;
+    let expected = config::portable::fingerprint(root)?;
+    let settings = config::manager_settings(root, settings)?;
     let report = setup::status(root)?;
     if reapply {
         setup::require_components(root)?;
@@ -183,7 +185,8 @@ pub fn prepare_install(
             after: f.after,
         })
         .collect();
-    if platform::app_root()? != root
+    if configuration.fingerprint != expected
+        || platform::app_root()? != root
         || config::portable::fingerprint(root)? != configuration.fingerprint
     {
         return Err(AppError::new(
